@@ -22,6 +22,7 @@ import AppLogo from './AppLogo.vue';
 const companies = () => ({ url: '/companies', method: 'get' as const });
 const users = () => ({ url: '/users', method: 'get' as const });
 const members = () => ({ url: '/members', method: 'get' as const });
+const membershipPlans = () => ({ url: '/membership-plans', method: 'get' as const });
 
 const mainNavItems: NavItem[] = [
     {
@@ -42,6 +43,11 @@ const mainNavItems: NavItem[] = [
     {
         title: 'Members',
         href: members(),
+        icon: LayoutGrid,
+    },
+    {
+        title: 'Membership Plans',
+        href: membershipPlans(),
         icon: LayoutGrid,
     },
 ];

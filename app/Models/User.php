@@ -79,13 +79,16 @@ class User extends Authenticatable
     }
 
     /**
-     * Get the partner profile (if user is a customer/provider)
+     * Get the partner (customer/provider) associated with this user
      */
     public function partner()
     {
         return $this->hasOne(Partner::class);
     }
 
+    // ========================================
+    // TYPE CHECKERS
+    // ========================================
     /**
      * Check if user is staff
      */
@@ -110,6 +113,9 @@ class User extends Authenticatable
         return $this->user_type === 'provider';
     }
 
+    // ========================================
+    // SCOPES
+    // ========================================
     /**
      * Scope to filter only staff users
      */

@@ -91,6 +91,30 @@ class Company extends Model
     }
 
     /**
+     * Get the membership plans for the company.
+     */
+    public function membershipPlans()
+    {
+        return $this->hasMany(MembershipPlan::class);
+    }
+
+    /**
+     * Get the membership subscriptions for the company.
+     */
+    public function membershipSubscriptions()
+    {
+        return $this->hasMany(MembershipSubscription::class);
+    }
+
+    /**
+     * Get the partners (customers/providers) for the company.
+     */
+    public function partners()
+    {
+        return $this->hasMany(Partner::class);
+    }
+
+    /**
      * Scope a query to only include main offices (companies without parent).
      */
     public function scopeMainOffices($query)

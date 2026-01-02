@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class MembershipPlan extends Model
 {
@@ -30,8 +31,8 @@ class MembershipPlan extends Model
     protected $casts = [
         'price' => 'decimal:2',
         'time_restricted' => 'boolean',
-        'allowed_time_start' => 'datetime',
-        'allowed_time_end' => 'datetime',
+        'allowed_time_start' => 'datetime:H:i',
+        'allowed_time_end' => 'datetime:H:i',
         'allowed_days' => 'array',
         'allows_freezing' => 'boolean',
         'is_active' => 'boolean',
@@ -41,6 +42,18 @@ class MembershipPlan extends Model
     public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
+    }
+
+    public function subscriptions(): HasMany
+    {
+        return $this->hasMany(MembershipSubscription::class);
+    }
+
+    public function activeSubscriptions(): HasMany
+    {
+        return $this->hasMany(MembershipSubscription::class)
+            ->where('status', 'active')
+            ->where('end_date', '>=', now()->toDateString());
     }
 
     // Scopes

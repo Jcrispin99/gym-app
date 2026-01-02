@@ -4,6 +4,9 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Activitylog\LogOptions;
 
@@ -73,10 +76,14 @@ class Partner extends Model
         'credit_limit' => 'decimal:2',
     ];
 
+    // ========================================
+    // RELATIONSHIPS
+    // ========================================
+
     /**
      * Get the company that the partner belongs to
      */
-    public function company()
+    public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
     }
@@ -84,9 +91,28 @@ class Partner extends Model
     /**
      * Get the user account (if partner has portal access)
      */
-    public function user()
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Get the membership subscriptions for the partner.
+     */
+    public function subscriptions(): HasMany
+    {
+        return $this->hasMany(MembershipSubscription::class);
+    }
+
+    /**
+     * Get the active membership subscription for the partner.
+     */
+    public function activeSubscription(): HasOne
+    {
+        return $this->hasOne(MembershipSubscription::class)
+            ->where('status', 'active')
+            ->where('end_date', '>=', now()->toDateString())
+            ->latest('end_date');
     }
 
     // ========================================

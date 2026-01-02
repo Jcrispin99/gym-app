@@ -55,4 +55,15 @@ Route::middleware(['auth', 'staff'])->group(function () {
         ->name('members.activate-portal');
 });
 
+// Membership Plans routes
+Route::middleware(['auth', 'staff'])->group(function () {
+    Route::resource('membership-plans', \App\Http\Controllers\MembershipPlanController::class)->parameters([
+        'membership-plans' => 'membershipPlan'
+    ]);
+    Route::post('membership-plans/{membershipPlan}/toggle-status', [\App\Http\Controllers\MembershipPlanController::class, 'toggleStatus'])
+        ->name('membership-plans.toggle-status');
+    Route::get('membership-plans/{membershipPlan}/activity-log', [\App\Http\Controllers\MembershipPlanController::class, 'activityLog'])
+        ->name('membership-plans.activity-log');
+});
+
 require __DIR__.'/settings.php';
