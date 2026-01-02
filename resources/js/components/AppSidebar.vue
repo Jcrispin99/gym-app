@@ -21,6 +21,7 @@ import AppLogo from './AppLogo.vue';
 // Route helper for companies (matches dashboard pattern)
 const companies = () => ({ url: '/companies', method: 'get' as const });
 const users = () => ({ url: '/users', method: 'get' as const });
+const members = () => ({ url: '/members', method: 'get' as const });
 
 const mainNavItems: NavItem[] = [
     {
@@ -36,6 +37,11 @@ const mainNavItems: NavItem[] = [
     {
         title: 'Users',
         href: users(),
+        icon: LayoutGrid,
+    },
+    {
+        title: 'Members',
+        href: members(),
         icon: LayoutGrid,
     },
 ];

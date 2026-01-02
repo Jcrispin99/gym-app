@@ -24,6 +24,7 @@ class User extends Authenticatable
         'email',
         'password',
         'company_id',
+        'user_type',
     ];
 
     /**
@@ -75,5 +76,61 @@ class User extends Authenticatable
             ->logOnly(['name', 'email', 'company_id'])
             ->logOnlyDirty()
             ->dontSubmitEmptyLogs();
+    }
+
+    /**
+     * Get the partner profile (if user is a customer/provider)
+     */
+    public function partner()
+    {
+        return $this->hasOne(Partner::class);
+    }
+
+    /**
+     * Check if user is staff
+     */
+    public function isStaff(): bool
+    {
+        return $this->user_type === 'staff';
+    }
+
+    /**
+     * Check if user is customer
+     */
+    public function isCustomer(): bool
+    {
+        return $this->user_type === 'customer';
+    }
+
+    /**
+     * Check if user is provider
+     */
+    public function isProvider(): bool
+    {
+        return $this->user_type === 'provider';
+    }
+
+    /**
+     * Scope to filter only staff users
+     */
+    public function scopeStaff($query)
+    {
+        return $query->where('user_type', 'staff');
+    }
+
+    /**
+     * Scope to filter only customer users
+     */
+    public function scopeCustomers($query)
+    {
+        return $query->where('user_type', 'customer');
+    }
+
+    /**
+     * Scope to filter only provider users
+     */
+    public function scopeProviders($query)
+    {
+        return $query->where('user_type', 'provider');
     }
 }

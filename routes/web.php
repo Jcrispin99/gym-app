@@ -48,4 +48,11 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('users/{user}', [\App\Http\Controllers\UserController::class, 'destroy'])->name('users.destroy');
 });
 
+// Members (Customers) routes
+Route::middleware(['auth', 'staff'])->group(function () {
+    Route::resource('members', \App\Http\Controllers\MemberController::class);
+    Route::post('members/{member}/activate-portal', [\App\Http\Controllers\MemberController::class, 'activatePortal'])
+        ->name('members.activate-portal');
+});
+
 require __DIR__.'/settings.php';

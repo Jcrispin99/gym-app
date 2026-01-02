@@ -2,8 +2,8 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
 use App\Models\Company;
+use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -23,6 +23,7 @@ class UserSeeder extends Seeder
             'email' => 'admin@gmail.com',
             'password' => Hash::make('password'),
             'company_id' => $mainOffice->id,
+            'user_type' => 'staff', // Personal administrativo
         ]);
         // Asignar todas las compañías
         $allCompanyIds = Company::pluck('id')->toArray();
@@ -35,6 +36,7 @@ class UserSeeder extends Seeder
                 'email' => 'manager@gmail.com',
                 'password' => Hash::make('password'),
                 'company_id' => $mainOffice->id,
+                'user_type' => 'staff', // Personal administrativo
             ]);
             $manager->companies()->sync([
                 $mainOffice->id,
@@ -49,6 +51,7 @@ class UserSeeder extends Seeder
                 'email' => 'branch@gmail.com',
                 'password' => Hash::make('password'),
                 'company_id' => $branches->first()->id,
+                'user_type' => 'staff', // Personal administrativo
             ]);
             $branchUser->companies()->sync([
                 $branches->first()->id,

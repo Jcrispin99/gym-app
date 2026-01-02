@@ -1,0 +1,87 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class MembershipPlan extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'company_id',
+        'name',
+        'description',
+        'duration_days',
+        'price',
+        'max_entries_per_month',
+        'max_entries_per_day',
+        'time_restricted',
+        'allowed_time_start',
+        'allowed_time_end',
+        'allowed_days',
+        'allows_freezing',
+        'max_freeze_days',
+        'is_active',
+    ];
+
+    protected $casts = [
+        'price' => 'decimal:2',
+        'time_restricted' => 'boolean',
+        'allowed_time_start' => 'datetime',
+        'allowed_time_end' => 'datetime',
+        'allowed_days' => 'array',
+        'allows_freezing' => 'boolean',
+        'is_active' => 'boolean',
+    ];
+
+    // Relationships
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(Company::class);
+    }
+
+    // Scopes
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
+    }
+
+    public function scopeByCompany($query, $companyId)
+    {
+        return $query->where('company_id', $companyId);
+    }
+
+    // Helper methods
+    public function isUnlimitedEntries(): bool
+    {
+        return is_null($this->max_entries_per_month);
+    }
+
+    public function hasTimeRestriction(): bool
+    {
+        return $this->time_restricted;
+    }
+
+    public function hasDayRestriction(): bool
+    {
+        return !is_null($this->allowed_days) && count($this->allowed_days) > 0;
+    }
+
+    public function allowsFreeze(): bool
+    {
+        return $this->allows_freezing && $this->max_freeze_days > 0;
+    }
+
+    public function getDurationInMonths(): int
+    {
+        return (int) ($this->duration_days / 30);
+    }
+
+    public function getFormattedPrice(): string
+    {
+        return 'S/ ' . number_format($this->price, 2);
+    }
+}

@@ -25,11 +25,12 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/vue3';
-import { Building2, Mail, Pencil, Trash2, UserPlus } from 'lucide-vue-next';
-import { ref } from 'vue';
+import { Building2, Mail, Pencil, Trash2, UserPlus, Search } from 'lucide-vue-next';
+import { ref, computed } from 'vue';
 
 interface User {
     id: number;
@@ -48,7 +49,7 @@ interface Props {
     users: User[];
 }
 
-const { users } = defineProps<Props>();
+const props = defineProps<Props>();
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -57,6 +58,9 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 const deleteDialogOpen = ref(false);
 const selectedUser = ref<User | null>(null);
+
+// Search
+const searchQuery = ref('');
 
 const openDeleteDialog = (user: User) => {
     selectedUser.value = user;
@@ -74,6 +78,20 @@ const deleteUser = () => {
         });
     }
 };
+
+// Filtered users
+const filteredUsers = computed(() => {
+    if (!searchQuery.value) {
+        return props.users;
+    }
+
+    const query = searchQuery.value.toLowerCase();
+    return props.users.filter(user =>
+        user.name.toLowerCase().includes(query) ||
+        user.email.toLowerCase().includes(query) ||
+        user.company?.trade_name.toLowerCase().includes(query)
+    );
+});
 </script>
 
 <template>
@@ -107,7 +125,7 @@ const deleteUser = () => {
                         <UserPlus class="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div class="text-2xl font-bold">{{ users.length }}</div>
+                        <div class="text-2xl font-bold">{{ filteredUsers.length }}</div>
                         <p class="text-xs text-muted-foreground">
                             Usuarios registrados
                         </p>
@@ -118,10 +136,25 @@ const deleteUser = () => {
             <!-- Users Table -->
             <Card>
                 <CardHeader>
-                    <CardTitle>Listado de Usuarios</CardTitle>
-                    <CardDescription>
-                        Todos los usuarios del sistema
-                    </CardDescription>
+                    <div class="flex items-start justify-between gap-4">
+                        <!-- Title + Description (Left) -->
+                        <div>
+                            <CardTitle>Listado de Usuarios</CardTitle>
+                            <CardDescription>
+                                Mostrando {{ filteredUsers.length }} de {{ users.length }} usuarios
+                            </CardDescription>
+                        </div>
+
+                        <!-- Search (Right) -->
+                        <div class="relative w-[300px]">
+                            <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                                v-model="searchQuery"
+                                placeholder="Buscar..."
+                                class="pl-10"
+                            />
+                        </div>
+                    </div>
                 </CardHeader>
                 <CardContent>
                     <Table>
@@ -137,15 +170,15 @@ const deleteUser = () => {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            <TableRow v-if="users.length === 0">
+                            <TableRow v-if="filteredUsers.length === 0">
                                 <TableCell
                                     colspan="5"
                                     class="text-center text-muted-foreground"
                                 >
-                                    No hay usuarios registrados
+                                    No hay usuarios que coincidan con la búsqueda
                                 </TableCell>
                             </TableRow>
-                            <TableRow v-for="user in users" :key="user.id">
+                            <TableRow v-for="user in filteredUsers" :key="user.id">
                                 <!-- Nombre -->
                                 <TableCell>
                                     <div class="font-medium">

@@ -17,7 +17,11 @@ class UserController extends Controller
     {
         $companyIds = session('selected_company_ids', []);
         
-        $query = User::with('companies')->latest();
+        // Solo mostrar usuarios tipo 'staff' (personal del negocio)
+        // NO mostrar customers ni providers
+        $query = User::staff()
+            ->with('companies')
+            ->latest();
         
         // Filter by selected companies using pivot table
         if (!empty($companyIds)) {
@@ -62,6 +66,9 @@ class UserController extends Controller
         
         // Keep first company as primary for backward compatibility
         $validated['company_id'] = $validated['company_ids'][0];
+        
+        // SIEMPRE staff para usuarios creados desde /users
+        $validated['user_type'] = 'staff';
 
         $user = User::create($validated);
         

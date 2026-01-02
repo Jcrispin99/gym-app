@@ -1,0 +1,269 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Partner;
+use App\Models\Company;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
+
+class MemberController extends Controller
+{
+    /**
+     * Display a listing of members (customers)
+     */
+    public function index()
+    {
+        $companyIds = session('selected_company_ids', []);
+        
+        $query = Partner::customers() // Solo partners tipo 'customer'
+            ->with(['company', 'user']) // Cargar relación de usuario
+            ->latest();
+        
+        // Filtrar por compañías seleccionadas
+        if (!empty($companyIds)) {
+            $query->whereIn('company_id', $companyIds);
+        }
+        
+        $members = $query->get();
+
+        return Inertia::render('Members/Index', [
+            'members' => $members,
+        ]);
+    }
+
+    /**
+     * Show the form for creating a new member
+     */
+    public function create()
+    {
+        $companies = Company::orderBy('trade_name')->get();
+
+        return Inertia::render('Members/Create', [
+            'companies' => $companies,
+        ]);
+    }
+
+    /**
+     * Store a newly created member in storage
+     */
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'company_id' => 'required|exists:companies,id',
+            
+            // Documentos
+            'document_type' => 'required|in:DNI,RUC,CE,Passport',
+            'document_number' => [
+                'required',
+                'string',
+                'max:20',
+                // Único por compañía
+                'unique:partners,document_number,NULL,id,company_id,' . $request->company_id,
+            ],
+            
+            // Datos personales
+            'first_name' => 'required|string|max:100',
+            'last_name' => 'required|string|max:100',
+            'email' => 'nullable|email|max:100',
+            'phone' => 'nullable|string|max:20',
+            'mobile' => 'nullable|string|max:20',
+            
+            // Dirección
+            'address' => 'nullable|string',
+            'district' => 'nullable|string|max:100',
+            'province' => 'nullable|string|max:100',
+            'department' => 'nullable|string|max:100',
+            
+            // Info adicional (específica de members)
+            'birth_date' => 'nullable|date',
+            'gender' => 'nullable|in:M,F,Other',
+            
+            // Emergencia
+            'emergency_contact_name' => 'nullable|string|max:150',
+            'emergency_contact_phone' => 'nullable|string|max:20',
+            
+            // Médico
+            'blood_type' => 'nullable|string|max:5',
+            'medical_notes' => 'nullable|string',
+            'allergies' => 'nullable|string',
+            
+            // Foto
+            'photo_url' => 'nullable|string',
+        ]);
+
+        // SIEMPRE es customer
+        $validated['partner_type'] = 'customer';
+        $validated['status'] = 'active';
+
+        Partner::create($validated);
+
+        return redirect()->route('members.index')
+            ->with('success', 'Miembro registrado exitosamente');
+    }
+
+    /**
+     * Display the specified member
+     */
+    public function show(Partner $member)
+    {
+        // Verificar que sea customer
+        if (!$member->isCustomer()) {
+            abort(404);
+        }
+
+        $member->load('company');
+
+        return Inertia::render('Members/Show', [
+            'member' => $member,
+        ]);
+    }
+
+    /**
+     * Show the form for editing the specified member
+     */
+    public function edit(Partner $member)
+    {
+        // Verificar que sea customer
+        if (!$member->isCustomer()) {
+            abort(404);
+        }
+
+        $member->load('company');
+
+        // Get activity log
+        $activities = $member->activities()
+            ->with('causer')
+            ->latest()
+            ->take(20)
+            ->get()
+            ->map(function ($activity) {
+                return [
+                    'description' => $activity->description,
+                    'event' => $activity->event,
+                    'properties' => $activity->properties,
+                    'created_at' => $activity->created_at,
+                    'causer' => $activity->causer ? [
+                        'name' => $activity->causer->name,
+                        'email' => $activity->causer->email,
+                    ] : null,
+                ];
+            });
+
+        $companies = Company::orderBy('trade_name')->get();
+
+        return Inertia::render('Members/Edit', [
+            'member' => $member,
+            'companies' => $companies,
+            'activities' => $activities,
+        ]);
+    }
+
+    /**
+     * Update the specified member in storage
+     */
+    public function update(Request $request, Partner $member)
+    {
+        // Verificar que sea customer
+        if (!$member->isCustomer()) {
+            abort(404);
+        }
+
+        $validated = $request->validate([
+            'company_id' => 'required|exists:companies,id',
+            
+            // Documentos
+            'document_type' => 'required|in:DNI,RUC,CE,Passport',
+            'document_number' => [
+                'required',
+                'string',
+                'max:20',
+                // Único por compañía, ignorando el actual
+                'unique:partners,document_number,' . $member->id . ',id,company_id,' . $request->company_id,
+            ],
+            
+            // Datos personales
+            'first_name' => 'required|string|max:100',
+            'last_name' => 'required|string|max:100',
+            'email' => 'nullable|email|max:100',
+            'phone' => 'nullable|string|max:20',
+            'mobile' => 'nullable|string|max:20',
+            
+            // Dirección
+            'address' => 'nullable|string',
+            'district' => 'nullable|string|max:100',
+            'province' => 'nullable|string|max:100',
+            'department' => 'nullable|string|max:100',
+            
+            // Info adicional
+            'birth_date' => 'nullable|date',
+            'gender' => 'nullable|in:M,F,Other',
+            
+            // Emergencia
+            'emergency_contact_name' => 'nullable|string|max:150',
+            'emergency_contact_phone' => 'nullable|string|max:20',
+            
+            // Médico
+            'blood_type' => 'nullable|string|max:5',
+            'medical_notes' => 'nullable|string',
+            'allergies' => 'nullable|string',
+            
+            // Estado
+            'status' => 'required|in:active,inactive,suspended',
+        ]);
+
+        $member->update($validated);
+
+        return back()->with('success', 'Miembro actualizado exitosamente');
+    }
+
+    /**
+     * Remove the specified member from storage
+     */
+    public function destroy(Partner $member)
+    {
+        // Verificar que sea customer
+        if (!$member->isCustomer()) {
+            abort(404);
+        }
+
+        $member->delete();
+
+        return redirect()->route('members.index')
+            ->with('success', 'Miembro eliminado exitosamente');
+    }
+
+    /**
+     * Activate portal access for member
+     */
+    public function activatePortal(Request $request, Partner $member)
+    {
+        // Verificar que sea customer
+        if (!$member->isCustomer()) {
+            abort(404);
+        }
+
+        // Verificar que no tenga ya un user
+        if ($member->hasPortalAccess()) {
+            return back()->withErrors(['error' => 'Este miembro ya tiene acceso al portal']);
+        }
+
+        $validated = $request->validate([
+            'password' => 'required|string|min:8|confirmed',
+        ]);
+
+        // Crear usuario tipo customer
+        $user = \App\Models\User::create([
+            'name' => $member->full_name,
+            'email' => $member->email,
+            'password' => \Illuminate\Support\Facades\Hash::make($validated['password']),
+            'user_type' => 'customer',
+            'company_id' => $member->company_id,
+        ]);
+
+        // Vincular
+        $member->update(['user_id' => $user->id]);
+
+        return back()->with('success', 'Acceso al portal activado exitosamente');
+    }
+}
