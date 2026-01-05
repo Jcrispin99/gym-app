@@ -104,7 +104,7 @@ const toggleDay = (day: string) => {
     <AppLayout>
         <Head title="Crear Plan de Membresía" />
 
-        <div class="space-y-6">
+        <div class="flex flex-col gap-4 p-4 max-w-4xl mx-auto">
             <!-- Header -->
             <div class="flex items-center gap-4">
                 <Button

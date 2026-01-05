@@ -2,10 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Partner;
 use App\Models\Company;
+use App\Models\Partner;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Spatie\Activitylog\Models\Activity;
 
 class MemberController extends Controller
 {
@@ -15,16 +16,16 @@ class MemberController extends Controller
     public function index()
     {
         $companyIds = session('selected_company_ids', []);
-        
+
         $query = Partner::customers() // Solo partners tipo 'customer'
             ->with(['company', 'user']) // Cargar relación de usuario
             ->latest();
-        
+
         // Filtrar por compañías seleccionadas
-        if (!empty($companyIds)) {
+        if (! empty($companyIds)) {
             $query->whereIn('company_id', $companyIds);
         }
-        
+
         $members = $query->get();
 
         return Inertia::render('Members/Index', [
@@ -51,7 +52,7 @@ class MemberController extends Controller
     {
         $validated = $request->validate([
             'company_id' => 'required|exists:companies,id',
-            
+
             // Documentos
             'document_type' => 'required|in:DNI,RUC,CE,Passport',
             'document_number' => [
@@ -59,35 +60,35 @@ class MemberController extends Controller
                 'string',
                 'max:20',
                 // Único por compañía
-                'unique:partners,document_number,NULL,id,company_id,' . $request->company_id,
+                'unique:partners,document_number,NULL,id,company_id,'.$request->company_id,
             ],
-            
+
             // Datos personales
             'first_name' => 'required|string|max:100',
             'last_name' => 'required|string|max:100',
             'email' => 'nullable|email|max:100',
             'phone' => 'nullable|string|max:20',
             'mobile' => 'nullable|string|max:20',
-            
+
             // Dirección
             'address' => 'nullable|string',
             'district' => 'nullable|string|max:100',
             'province' => 'nullable|string|max:100',
             'department' => 'nullable|string|max:100',
-            
+
             // Info adicional (específica de members)
             'birth_date' => 'nullable|date',
             'gender' => 'nullable|in:M,F,Other',
-            
+
             // Emergencia
             'emergency_contact_name' => 'nullable|string|max:150',
             'emergency_contact_phone' => 'nullable|string|max:20',
-            
+
             // Médico
             'blood_type' => 'nullable|string|max:5',
             'medical_notes' => 'nullable|string',
             'allergies' => 'nullable|string',
-            
+
             // Foto
             'photo_url' => 'nullable|string',
         ]);
@@ -108,7 +109,7 @@ class MemberController extends Controller
     public function show(Partner $member)
     {
         // Verificar que sea customer
-        if (!$member->isCustomer()) {
+        if (! $member->isCustomer()) {
             abort(404);
         }
 
@@ -124,38 +125,31 @@ class MemberController extends Controller
      */
     public function edit(Partner $member)
     {
-        // Verificar que sea customer
-        if (!$member->isCustomer()) {
+        // Ensure it's a customer
+        if ($member->partner_type !== 'customer') {
             abort(404);
         }
 
-        $member->load('company');
+        // Load relationships including subscriptions
+        $member->load(['user', 'subscriptions.plan']);
 
         // Get activity log
-        $activities = $member->activities()
+        $activities = Activity::forSubject($member)
             ->with('causer')
             ->latest()
             ->take(20)
-            ->get()
-            ->map(function ($activity) {
-                return [
-                    'description' => $activity->description,
-                    'event' => $activity->event,
-                    'properties' => $activity->properties,
-                    'created_at' => $activity->created_at,
-                    'causer' => $activity->causer ? [
-                        'name' => $activity->causer->name,
-                        'email' => $activity->causer->email,
-                    ] : null,
-                ];
-            });
+            ->get();
 
-        $companies = Company::orderBy('trade_name')->get();
+        // Get available membership plans for subscription creation
+        $membershipPlans = \App\Models\MembershipPlan::active()
+            ->where('company_id', $member->company_id)
+            ->orderBy('price', 'asc')
+            ->get();
 
         return Inertia::render('Members/Edit', [
             'member' => $member,
-            'companies' => $companies,
             'activities' => $activities,
+            'membershipPlans' => $membershipPlans,
         ]);
     }
 
@@ -165,13 +159,13 @@ class MemberController extends Controller
     public function update(Request $request, Partner $member)
     {
         // Verificar que sea customer
-        if (!$member->isCustomer()) {
+        if (! $member->isCustomer()) {
             abort(404);
         }
 
         $validated = $request->validate([
             'company_id' => 'required|exists:companies,id',
-            
+
             // Documentos
             'document_type' => 'required|in:DNI,RUC,CE,Passport',
             'document_number' => [
@@ -179,35 +173,35 @@ class MemberController extends Controller
                 'string',
                 'max:20',
                 // Único por compañía, ignorando el actual
-                'unique:partners,document_number,' . $member->id . ',id,company_id,' . $request->company_id,
+                'unique:partners,document_number,'.$member->id.',id,company_id,'.$request->company_id,
             ],
-            
+
             // Datos personales
             'first_name' => 'required|string|max:100',
             'last_name' => 'required|string|max:100',
             'email' => 'nullable|email|max:100',
             'phone' => 'nullable|string|max:20',
             'mobile' => 'nullable|string|max:20',
-            
+
             // Dirección
             'address' => 'nullable|string',
             'district' => 'nullable|string|max:100',
             'province' => 'nullable|string|max:100',
             'department' => 'nullable|string|max:100',
-            
+
             // Info adicional
             'birth_date' => 'nullable|date',
             'gender' => 'nullable|in:M,F,Other',
-            
+
             // Emergencia
             'emergency_contact_name' => 'nullable|string|max:150',
             'emergency_contact_phone' => 'nullable|string|max:20',
-            
+
             // Médico
             'blood_type' => 'nullable|string|max:5',
             'medical_notes' => 'nullable|string',
             'allergies' => 'nullable|string',
-            
+
             // Estado
             'status' => 'required|in:active,inactive,suspended',
         ]);
@@ -223,7 +217,7 @@ class MemberController extends Controller
     public function destroy(Partner $member)
     {
         // Verificar que sea customer
-        if (!$member->isCustomer()) {
+        if (! $member->isCustomer()) {
             abort(404);
         }
 
@@ -239,7 +233,7 @@ class MemberController extends Controller
     public function activatePortal(Request $request, Partner $member)
     {
         // Verificar que sea customer
-        if (!$member->isCustomer()) {
+        if (! $member->isCustomer()) {
             abort(404);
         }
 

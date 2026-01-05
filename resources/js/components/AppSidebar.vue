@@ -15,7 +15,7 @@ import {
 import { dashboard } from '@/routes';
 import { type NavItem } from '@/types';
 import { Link } from '@inertiajs/vue3';
-import { BookOpen, Folder, LayoutGrid } from 'lucide-vue-next';
+import { BookOpen, Folder, LayoutGrid, ClipboardCheck } from 'lucide-vue-next';
 import AppLogo from './AppLogo.vue';
 
 // Route helper for companies (matches dashboard pattern)
@@ -23,6 +23,7 @@ const companies = () => ({ url: '/companies', method: 'get' as const });
 const users = () => ({ url: '/users', method: 'get' as const });
 const members = () => ({ url: '/members', method: 'get' as const });
 const membershipPlans = () => ({ url: '/membership-plans', method: 'get' as const });
+const attendances = () => ({ url: '/attendances', method: 'get' as const });
 
 const mainNavItems: NavItem[] = [
     {
@@ -49,6 +50,11 @@ const mainNavItems: NavItem[] = [
         title: 'Membership Plans',
         href: membershipPlans(),
         icon: LayoutGrid,
+    },
+    {
+        title: 'Asistencias',
+        href: attendances(),
+        icon: ClipboardCheck,
     },
 ];
 

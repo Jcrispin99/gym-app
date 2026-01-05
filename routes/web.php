@@ -66,4 +66,30 @@ Route::middleware(['auth', 'staff'])->group(function () {
         ->name('membership-plans.activity-log');
 });
 
+// Subscriptions routes
+Route::middleware(['auth', 'staff'])->group(function () {
+    Route::post('subscriptions', [\App\Http\Controllers\SubscriptionController::class, 'store'])
+        ->name('subscriptions.store');
+    Route::post('subscriptions/{subscription}/freeze', [\App\Http\Controllers\SubscriptionController::class, 'freeze'])
+        ->name('subscriptions.freeze');
+    Route::post('subscriptions/{subscription}/unfreeze', [\App\Http\Controllers\SubscriptionController::class, 'unfreeze'])
+        ->name('subscriptions.unfreeze');
+    Route::delete('subscriptions/{subscription}', [\App\Http\Controllers\SubscriptionController::class, 'destroy'])
+        ->name('subscriptions.destroy');
+});
+
+// Attendances routes
+Route::middleware(['auth', 'staff'])->group(function () {
+    Route::get('attendances', [\App\Http\Controllers\AttendanceController::class, 'index'])
+        ->name('attendances.index');
+    Route::get('attendances/check-in', [\App\Http\Controllers\AttendanceController::class, 'checkIn'])
+        ->name('attendances.checkIn');
+    Route::post('attendances/check-in', [\App\Http\Controllers\AttendanceController::class, 'storeCheckIn'])
+        ->name('attendances.storeCheckIn');
+    Route::get('attendances/lookup-dni', [\App\Http\Controllers\AttendanceController::class, 'lookupByDni'])
+        ->name('attendances.lookupByDni');
+    Route::post('attendances/{attendance}/check-out', [\App\Http\Controllers\AttendanceController::class, 'checkOut'])
+        ->name('attendances.checkOut');
+});
+
 require __DIR__.'/settings.php';

@@ -182,11 +182,20 @@ class MembershipSubscription extends Model
         }
     }
 
+    /**
+     * Get all attendances for this subscription
+     */
+    public function attendances(): HasMany
+    {
+        return $this->hasMany(Attendance::class);
+    }
+
     protected function getEntriesToday(): int
     {
-        // Esto debería consultarse desde la tabla de attendances
-        // Por ahora simulamos con un placeholder
-        return 0; // TODO: implementar conteo real
+        return $this->attendances()
+            ->valid()
+            ->whereDate('check_in_time', Carbon::today())
+            ->count();
     }
 
     public function extendEndDate(int $days): void

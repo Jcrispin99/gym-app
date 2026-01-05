@@ -1,17 +1,4 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
-import AppLayout from '@/layouts/AppLayout.vue';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -22,9 +9,37 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
+import AppLayout from '@/layouts/AppLayout.vue';
 import { Head, router } from '@inertiajs/vue3';
-import { Plus, Edit, Trash2, CreditCard, Search, Clock, Calendar, Snowflake } from 'lucide-vue-next';
+import {
+    Calendar,
+    Clock,
+    CreditCard,
+    Edit,
+    Plus,
+    Search,
+    Snowflake,
+    Trash2,
+} from 'lucide-vue-next';
+import { computed, ref } from 'vue';
 
 interface Company {
     id: number;
@@ -80,9 +95,13 @@ const deletePlan = () => {
 };
 
 const toggleStatus = (plan: MembershipPlan) => {
-    router.post(`/membership-plans/${plan.id}/toggle-status`, {}, {
-        preserveScroll: true,
-    });
+    router.post(
+        `/membership-plans/${plan.id}/toggle-status`,
+        {},
+        {
+            preserveScroll: true,
+        },
+    );
 };
 
 const formatPrice = (price: number | string) => {
@@ -107,21 +126,25 @@ const getEntriesLabel = (entries: number | null) => {
 // Filtered plans
 const filteredPlans = computed(() => {
     if (!searchQuery.value) return props.plans;
-    
+
     const query = searchQuery.value.toLowerCase();
-    return props.plans.filter(plan =>
-        plan.name.toLowerCase().includes(query) ||
-        plan.description?.toLowerCase().includes(query)
+    return props.plans.filter(
+        (plan) =>
+            plan.name.toLowerCase().includes(query) ||
+            plan.description?.toLowerCase().includes(query),
     );
 });
 
 // Stats
 const totalPlans = computed(() => props.plans.length);
-const activePlans = computed(() => props.plans.filter(p => p.is_active).length);
+const activePlans = computed(
+    () => props.plans.filter((p) => p.is_active).length,
+);
 const averagePrice = computed(() => {
     if (props.plans.length === 0) return 0;
     const sum = props.plans.reduce((acc, p) => {
-        const price = typeof p.price === 'string' ? parseFloat(p.price) : p.price;
+        const price =
+            typeof p.price === 'string' ? parseFloat(p.price) : p.price;
         return acc + price;
     }, 0);
     return sum / props.plans.length;
@@ -132,13 +155,16 @@ const averagePrice = computed(() => {
     <AppLayout>
         <Head title="Planes de Membresía" />
 
-        <div class="space-y-6">
+        <div class="flex flex-col gap-4 p-4">
             <!-- Header -->
             <div class="flex items-center justify-between">
                 <div>
-                    <h1 class="text-3xl font-bold tracking-tight">Planes de Membresía</h1>
+                    <h1 class="text-3xl font-bold tracking-tight">
+                        Planes de Membresía
+                    </h1>
                     <p class="text-muted-foreground">
-                        Gestiona los planes de membresía disponibles para tus clientes
+                        Gestiona los planes de membresía disponibles para tus
+                        clientes
                     </p>
                 </div>
                 <Button @click="router.visit('/membership-plans/create')">
@@ -150,8 +176,12 @@ const averagePrice = computed(() => {
             <!-- Stats Cards -->
             <div class="grid gap-4 md:grid-cols-3">
                 <Card>
-                    <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle class="text-sm font-medium">Total Planes</CardTitle>
+                    <CardHeader
+                        class="flex flex-row items-center justify-between space-y-0 pb-2"
+                    >
+                        <CardTitle class="text-sm font-medium"
+                            >Total Planes</CardTitle
+                        >
                         <CreditCard class="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
@@ -163,12 +193,18 @@ const averagePrice = computed(() => {
                 </Card>
 
                 <Card>
-                    <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle class="text-sm font-medium">Precio Promedio</CardTitle>
+                    <CardHeader
+                        class="flex flex-row items-center justify-between space-y-0 pb-2"
+                    >
+                        <CardTitle class="text-sm font-medium"
+                            >Precio Promedio</CardTitle
+                        >
                         <CreditCard class="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div class="text-2xl font-bold">{{ formatPrice(averagePrice) }}</div>
+                        <div class="text-2xl font-bold">
+                            {{ formatPrice(averagePrice) }}
+                        </div>
                         <p class="text-xs text-muted-foreground">
                             Precio promedio mensual
                         </p>
@@ -176,8 +212,12 @@ const averagePrice = computed(() => {
                 </Card>
 
                 <Card>
-                    <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle class="text-sm font-medium">Planes Activos</CardTitle>
+                    <CardHeader
+                        class="flex flex-row items-center justify-between space-y-0 pb-2"
+                    >
+                        <CardTitle class="text-sm font-medium"
+                            >Planes Activos</CardTitle
+                        >
                         <CreditCard class="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
@@ -196,13 +236,16 @@ const averagePrice = computed(() => {
                         <div>
                             <CardTitle>Listado de Planes</CardTitle>
                             <CardDescription>
-                                Mostrando {{ filteredPlans.length }} de {{ plans.length }} planes
+                                Mostrando {{ filteredPlans.length }} de
+                                {{ plans.length }} planes
                             </CardDescription>
                         </div>
 
                         <!-- Search -->
                         <div class="relative w-[300px]">
-                            <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                            <Search
+                                class="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                            />
                             <Input
                                 v-model="searchQuery"
                                 placeholder="Buscar..."
@@ -222,16 +265,26 @@ const averagePrice = computed(() => {
                                 <TableHead>Restricciones</TableHead>
                                 <TableHead>Congelamiento</TableHead>
                                 <TableHead>Estado</TableHead>
-                                <TableHead class="text-right">Acciones</TableHead>
+                                <TableHead class="text-right"
+                                    >Acciones</TableHead
+                                >
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            <TableRow v-for="plan in filteredPlans" :key="plan.id">
+                            <TableRow
+                                v-for="plan in filteredPlans"
+                                :key="plan.id"
+                            >
                                 <!-- Nombre -->
                                 <TableCell>
                                     <div>
-                                        <div class="font-medium">{{ plan.name }}</div>
-                                        <div v-if="plan.description" class="text-sm text-muted-foreground line-clamp-1">
+                                        <div class="font-medium">
+                                            {{ plan.name }}
+                                        </div>
+                                        <div
+                                            v-if="plan.description"
+                                            class="line-clamp-1 text-sm text-muted-foreground"
+                                        >
                                             {{ plan.description }}
                                         </div>
                                     </div>
@@ -240,34 +293,73 @@ const averagePrice = computed(() => {
                                 <!-- Duración -->
                                 <TableCell>
                                     <div class="flex items-center gap-2">
-                                        <Calendar class="h-4 w-4 text-muted-foreground" />
-                                        <span>{{ getDurationLabel(plan.duration_days) }}</span>
+                                        <Calendar
+                                            class="h-4 w-4 text-muted-foreground"
+                                        />
+                                        <span>{{
+                                            getDurationLabel(plan.duration_days)
+                                        }}</span>
                                     </div>
                                 </TableCell>
 
                                 <!-- Precio -->
                                 <TableCell>
-                                    <div class="font-semibold">{{ formatPrice(plan.price) }}</div>
+                                    <div class="font-semibold">
+                                        {{ formatPrice(plan.price) }}
+                                    </div>
                                 </TableCell>
 
                                 <!-- Entradas -->
                                 <TableCell>
-                                    <Badge :variant="plan.max_entries_per_month === null ? 'default' : 'secondary'">
-                                        {{ getEntriesLabel(plan.max_entries_per_month) }}
+                                    <Badge
+                                        :variant="
+                                            plan.max_entries_per_month === null
+                                                ? 'default'
+                                                : 'secondary'
+                                        "
+                                    >
+                                        {{
+                                            getEntriesLabel(
+                                                plan.max_entries_per_month,
+                                            )
+                                        }}
                                     </Badge>
                                 </TableCell>
 
                                 <!-- Restricciones -->
                                 <TableCell>
                                     <div class="flex flex-col gap-1">
-                                        <Badge v-if="plan.time_restricted" variant="outline" class="w-fit">
+                                        <Badge
+                                            v-if="plan.time_restricted"
+                                            variant="outline"
+                                            class="w-fit"
+                                        >
                                             <Clock class="mr-1 h-3 w-3" />
-                                            {{ plan.allowed_time_start }} - {{ plan.allowed_time_end }}
+                                            {{ plan.allowed_time_start }} -
+                                            {{ plan.allowed_time_end }}
                                         </Badge>
-                                        <Badge v-if="plan.allowed_days && plan.allowed_days.length < 7" variant="outline" class="w-fit">
-                                            {{ plan.allowed_days.length }} días/semana
+                                        <Badge
+                                            v-if="
+                                                plan.allowed_days &&
+                                                plan.allowed_days.length < 7
+                                            "
+                                            variant="outline"
+                                            class="w-fit"
+                                        >
+                                            {{
+                                                plan.allowed_days.length
+                                            }}
+                                            días/semana
                                         </Badge>
-                                        <span v-if="!plan.time_restricted && (!plan.allowed_days || plan.allowed_days.length === 7)" class="text-sm text-muted-foreground">
+                                        <span
+                                            v-if="
+                                                !plan.time_restricted &&
+                                                (!plan.allowed_days ||
+                                                    plan.allowed_days.length ===
+                                                        7)
+                                            "
+                                            class="text-sm text-muted-foreground"
+                                        >
                                             Sin restricciones
                                         </span>
                                     </div>
@@ -275,21 +367,43 @@ const averagePrice = computed(() => {
 
                                 <!-- Congelamiento -->
                                 <TableCell>
-                                    <div v-if="plan.allows_freezing" class="flex items-center gap-2">
-                                        <Snowflake class="h-4 w-4 text-blue-500" />
-                                        <span class="text-sm">{{ plan.max_freeze_days }} días</span>
+                                    <div
+                                        v-if="plan.allows_freezing"
+                                        class="flex items-center gap-2"
+                                    >
+                                        <Snowflake
+                                            class="h-4 w-4 text-blue-500"
+                                        />
+                                        <span class="text-sm"
+                                            >{{
+                                                plan.max_freeze_days
+                                            }}
+                                            días</span
+                                        >
                                     </div>
-                                    <span v-else class="text-sm text-muted-foreground">No permite</span>
+                                    <span
+                                        v-else
+                                        class="text-sm text-muted-foreground"
+                                        >No permite</span
+                                    >
                                 </TableCell>
 
                                 <!-- Estado -->
                                 <TableCell>
                                     <Badge
-                                        :variant="plan.is_active ? 'default' : 'secondary'"
+                                        :variant="
+                                            plan.is_active
+                                                ? 'default'
+                                                : 'secondary'
+                                        "
                                         class="cursor-pointer"
                                         @click="toggleStatus(plan)"
                                     >
-                                        {{ plan.is_active ? 'Activo' : 'Inactivo' }}
+                                        {{
+                                            plan.is_active
+                                                ? 'Activo'
+                                                : 'Inactivo'
+                                        }}
                                     </Badge>
                                 </TableCell>
 
@@ -299,7 +413,11 @@ const averagePrice = computed(() => {
                                         <Button
                                             variant="ghost"
                                             size="icon"
-                                            @click="router.visit(`/membership-plans/${plan.id}/edit`)"
+                                            @click="
+                                                router.visit(
+                                                    `/membership-plans/${plan.id}/edit`,
+                                                )
+                                            "
                                         >
                                             <Edit class="h-4 w-4" />
                                         </Button>
@@ -315,7 +433,10 @@ const averagePrice = computed(() => {
                             </TableRow>
 
                             <TableRow v-if="filteredPlans.length === 0">
-                                <TableCell colspan="8" class="text-center text-muted-foreground">
+                                <TableCell
+                                    colspan="8"
+                                    class="text-center text-muted-foreground"
+                                >
                                     No se encontraron planes
                                 </TableCell>
                             </TableRow>
@@ -326,13 +447,18 @@ const averagePrice = computed(() => {
         </div>
 
         <!-- Delete Confirmation Dialog -->
-        <AlertDialog :open="deleteDialogOpen" @update:open="deleteDialogOpen = $event">
+        <AlertDialog
+            :open="deleteDialogOpen"
+            @update:open="deleteDialogOpen = $event"
+        >
             <AlertDialogContent>
                 <AlertDialogHeader>
                     <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
                     <AlertDialogDescription>
-                        Esta acción no se puede deshacer. Se eliminará permanentemente el plan
-                        <strong>{{ planToDelete?.name }}</strong>.
+                        Esta acción no se puede deshacer. Se eliminará
+                        permanentemente el plan
+                        <strong>{{ planToDelete?.name }}</strong
+                        >.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>

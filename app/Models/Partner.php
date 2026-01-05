@@ -105,6 +105,14 @@ class Partner extends Model
     }
 
     /**
+     * Get all attendances for this partner
+     */
+    public function attendances(): HasMany
+    {
+        return $this->hasMany(Attendance::class);
+    }
+
+    /**
      * Get the active membership subscription for the partner.
      */
     public function activeSubscription(): HasOne

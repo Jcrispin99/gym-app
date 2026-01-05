@@ -15,6 +15,7 @@ class MembershipFreeze extends Model
         'freeze_start_date',
         'freeze_end_date',
         'days_frozen',
+        'planned_days',
         'reason',
         'requested_by',
         'approved_by',
