@@ -78,6 +78,20 @@ Route::middleware(['auth', 'staff'])->group(function () {
         ->name('subscriptions.destroy');
 });
 
+// Attributes routes
+Route::middleware(['auth', 'staff'])->group(function () {
+    Route::resource('attributes', \App\Http\Controllers\AttributeController::class);
+    Route::post('attributes/{attribute}/toggle-status', [\App\Http\Controllers\AttributeController::class, 'toggleStatus'])
+        ->name('attributes.toggle-status');
+});
+
+// Categories routes
+Route::middleware(['auth', 'staff'])->group(function () {
+    Route::resource('categories', \App\Http\Controllers\CategoryController::class);
+    Route::post('categories/{category}/toggle-status', [\App\Http\Controllers\CategoryController::class, 'toggleStatus'])
+        ->name('categories.toggle-status');
+});
+
 // Attendances routes
 Route::middleware(['auth', 'staff'])->group(function () {
     Route::get('attendances', [\App\Http\Controllers\AttendanceController::class, 'index'])
