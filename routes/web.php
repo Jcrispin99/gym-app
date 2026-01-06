@@ -85,6 +85,13 @@ Route::middleware(['auth', 'staff'])->group(function () {
         ->name('attributes.toggle-status');
 });
 
+// Products routes
+Route::middleware(['auth', 'staff'])->group(function () {
+    Route::resource('products', \App\Http\Controllers\ProductController::class);
+    Route::post('products/{product}/toggle-status', [\App\Http\Controllers\ProductController::class, 'toggleStatus'])
+        ->name('products.toggle-status');
+});
+
 // Categories routes
 Route::middleware(['auth', 'staff'])->group(function () {
     Route::resource('categories', \App\Http\Controllers\CategoryController::class);
@@ -107,3 +114,16 @@ Route::middleware(['auth', 'staff'])->group(function () {
 });
 
 require __DIR__.'/settings.php';
+
+// Warehouses routes
+Route::middleware(['auth'])->group(function () {
+    Route::resource('warehouses', \App\Http\Controllers\WarehouseController::class);
+});
+
+
+// Journals routes
+Route::middleware(['auth'])->group(function () {
+    Route::resource('journals', \App\Http\Controllers\JournalController::class);
+    Route::post('journals/{journal}/reset-sequence', [\App\Http\Controllers\JournalController::class, 'resetSequence'])
+        ->name('journals.reset-sequence');
+});

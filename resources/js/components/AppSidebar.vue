@@ -36,7 +36,6 @@ import {
     Users,
     UserRound,
     Warehouse,
-    Layers3,
 } from 'lucide-vue-next';
 import { ref } from 'vue';
 import AppLogo from './AppLogo.vue';
@@ -54,13 +53,13 @@ const users = () => ({ url: '/users', method: 'get' as const });
 const members = () => ({ url: '/members', method: 'get' as const });
 const membershipPlans = () => ({ url: '/membership-plans', method: 'get' as const });
 const attendances = () => ({ url: '/attendances', method: 'get' as const });
+const journals = () => ({ url: '/journals', method: 'get' as const });
 
 // Inventario routes (placeholder - to be implemented)
 const categories = () => ({ url: '/categories', method: 'get' as const });
 const products = () => ({ url: '/products', method: 'get' as const });
 const attributes = () => ({ url: '/attributes', method: 'get' as const });
 const warehouses = () => ({ url: '/warehouses', method: 'get' as const });
-const variants = () => ({ url: '/variants', method: 'get' as const });
 
 // Dashboard
 const dashboardItem: NavItem = {
@@ -110,11 +109,6 @@ const inventoryItems: NavItem[] = [
         href: warehouses(),
         icon: Warehouse,
     },
-    {
-        title: 'Variantes',
-        href: variants(),
-        icon: Layers3,
-    },
 ];
 
 // Sistema section
@@ -128,6 +122,11 @@ const systemItems: NavItem[] = [
         title: 'Usuarios',
         href: users(),
         icon: UserRound,
+    },
+    {
+        title: 'Diarios',
+        href: journals(),
+        icon: BookOpen,
     },
 ];
 

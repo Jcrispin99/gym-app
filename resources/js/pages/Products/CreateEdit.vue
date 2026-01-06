@@ -1,0 +1,798 @@
+<script setup lang="ts">
+import AppLayout from '@/layouts/AppLayout.vue';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Head, useForm } from '@inertiajs/vue3';
+import { ArrowLeft, X, Clock, User } from 'lucide-vue-next';
+import { ref, computed } from 'vue';
+import { CardDescription } from '@/components/ui/card';
+import { MultiSelect } from '@/components/ui/multi-select';
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from '@/components/ui/command';
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '@/components/ui/popover';
+
+interface Category {
+    id: number;
+    name: string;
+    parent?: {
+        id: number;
+        name: string;
+    };
+}
+
+interface AttributeValue {
+    id: number;
+    value: string;
+}
+
+interface Attribute {
+    id: number;
+    name: string;
+    attribute_values: AttributeValue[];
+}
+
+interface ProductProduct {
+    id?: number;
+    sku: string | null;
+    barcode: string | null;
+    price: number;
+    stock: number;
+    is_principal: boolean;
+    attribute_values?: AttributeValue[];
+}
+
+interface Product {
+    id: number;
+    name: string;
+    description: string | null;
+    price: number;
+    category_id: number;
+    is_active: boolean;
+    sku: string | null;
+    barcode: string | null;
+    product_products: ProductProduct[];
+    images: any[];
+}
+
+interface Activity {
+    id: number;
+    description: string;
+    event: string;
+    properties: any;
+    created_at: string;
+    causer?: {
+        name: string;
+        email: string;
+    };
+}
+
+interface Props {
+    product?: Product;
+    categories: Category[];
+    attributes: Attribute[];
+    activities?: Activity[];
+}
+
+const props = withDefaults(defineProps<Props>(), {
+    categories: () => [],
+    attributes: () => [],
+    activities: () => []
+});
+
+// Debug: verificar datos recibidos
+console.log('🔍 Categories:', props.categories);
+console.log('🔍 Attributes:', props.attributes);
+console.log('🔍 Attributes length:', props.attributes?.length);
+console.log('🔍 Attributes[0]:', props.attributes?.[0]);
+console.log('🔍 Attributes[0].attribute_values:', props.attributes?.[0]?.attribute_values);
+console.log('🔍 Product:', props.product);
+
+
+const isEditing = computed(() => !!props.product);
+
+const form = useForm({
+    name: props.product?.name || '',
+    description: props.product?.description || '',
+    price: props.product?.price || 0,
+    category_id: props.product?.category_id || null,
+    is_active: props.product?.is_active ?? true,
+    sku: props.product?.sku || '',
+    barcode: props.product?.barcode || '',
+    image: null as File | null,
+    additionalImages: [] as File[],
+    existingImageIds: props.product?.images?.map((img) => img.id) || [],
+    attributeLines: [] as { attribute_id: number; values: string[] }[],
+    generatedVariants: [] as any[],
+});
+
+const activeTab = ref('general');
+
+// Estado para selector de atributos
+const selectedAttributeId = ref<number | null>(null);
+const attributeSelectorOpen = ref(false);
+const attributeSearchQuery = ref('');
+
+// Mapa de atributos seleccionados: { attributeId: [valueId1, valueId2, ...] }
+const attributeSelections = ref<Record<number, number[]>>({});
+
+// Helper para manejar cambio de categoría
+const handleCategoryChange = (value: any) => {
+    form.category_id = value ? parseInt(value as string) : null;
+};
+
+// Agregar atributo a la tabla
+const addAttributeToTable = () => {
+    if (!selectedAttributeId.value) return;
+    
+    // Si ya existe, no hacer nada
+    if (attributeSelections.value[selectedAttributeId.value] !== undefined) {
+        attributeSelectorOpen.value = false;
+        selectedAttributeId.value = null;
+        return;
+    }
+    
+    // Agregar con array vacío inicialmente
+    attributeSelections.value[selectedAttributeId.value] = [];
+    updateAttributeLines();
+    
+    // Reset
+    attributeSelectorOpen.value = false;
+    selectedAttributeId.value = null;
+    attributeSearchQuery.value = '';
+};
+
+// Eliminar atributo de la tabla
+const removeAttributeFromTable = (attributeId: number) => {
+    delete attributeSelections.value[attributeId];
+    updateAttributeLines();
+};
+
+// Función para actualizar valores seleccionados de un atributo
+const updateAttributeValues = (attributeId: number, valueIds: any[]) => {
+    // Convertir a números si vienen como strings
+    const numericIds = valueIds.map(id => typeof id === 'number' ? id : parseInt(id as string));
+    
+    attributeSelections.value[attributeId] = numericIds;
+    updateAttributeLines();
+    
+    // SOLO auto-generar variantes al CREAR (no al editar)
+    // Al editar, el usuario debe hacerlo manualmente con el botón
+    if (!isEditing.value && form.attributeLines.length > 0) {
+        setTimeout(() => generateVariants(), 0);
+    }
+};
+
+// Actualiza form.attributeLines basado en attributeSelections
+const updateAttributeLines = () => {
+    form.attributeLines = Object.entries(attributeSelections.value)
+        .filter(([, valueIds]) => valueIds.length > 0) // Solo incluir si tiene valores seleccionados
+        .map(([attrId, valueIds]) => {
+            const attribute = props.attributes.find(a => a.id === parseInt(attrId));
+            if (!attribute) return null;
+            
+            const valueNames = valueIds
+                .map(valueId => attribute.attribute_values.find(av => av.id === valueId)?.value)
+                .filter(Boolean) as string[];
+            
+            return {
+                attribute_id: parseInt(attrId),
+                values: valueNames
+            };
+        }).filter(Boolean) as { attribute_id: number; values: string[] }[];
+    
+    // Limpiar variantes solo si no hay atributos (y no estamos editando)
+    if (form.attributeLines.length === 0 && !isEditing.value) {
+        form.generatedVariants = [];
+    }
+};
+
+const getAttributeName = (attributeId: number): string => {
+    return props.attributes.find((a) => a.id === attributeId)?.name || '';
+};
+
+// ============================================
+// INICIALIZACIÓN AL EDITAR PRODUCTO EXISTENTE
+// ============================================
+if (isEditing.value && props.product?.product_products && props.product.product_products.length > 0) {
+    // Paso 1: Reconstruir attributeSelections desde las variantes existentes
+    const attributeMap: Record<number, Set<number>> = {};
+    
+    props.product.product_products.forEach(variant => {
+        if (variant.attribute_values && variant.attribute_values.length > 0) {
+            variant.attribute_values.forEach((attrValue: any) => {
+                if (!attributeMap[attrValue.attribute_id]) {
+                    attributeMap[attrValue.attribute_id] = new Set();
+                }
+                attributeMap[attrValue.attribute_id].add(attrValue.id);
+            });
+        }
+    });
+    
+    // Convertir Sets a arrays y asignar a attributeSelections
+    Object.entries(attributeMap).forEach(([attrId, valueIds]) => {
+        attributeSelections.value[parseInt(attrId)] = Array.from(valueIds);
+    });
+    
+    // Paso 2: Construir attributeLines manualmente (sin llamar updateAttributeLines)
+    form.attributeLines = Object.entries(attributeMap).map(([attrId, valueIds]) => {
+        const attribute = props.attributes.find(a => a.id === parseInt(attrId));
+        if (!attribute) return null;
+        
+        const valueNames = Array.from(valueIds)
+            .map(valueId => attribute.attribute_values.find(av => av.id === valueId)?.value)
+            .filter(Boolean) as string[];
+        
+        return {
+            attribute_id: parseInt(attrId),
+            values: valueNames
+        };
+    }).filter(Boolean) as { attribute_id: number; values: string[] }[];
+    
+    // Paso 3: Reconstruir form.generatedVariants desde variantes existentes
+    form.generatedVariants = props.product.product_products.map(variant => {
+        const attributes: Record<number, string> = {};
+        
+        if (variant.attribute_values) {
+            variant.attribute_values.forEach((attrValue: any) => {
+                attributes[attrValue.attribute_id] = attrValue.value;
+            });
+        }
+        
+        return {
+            sku: variant.sku || '',
+            barcode: variant.barcode || '',
+            price: variant.price,
+            stock: variant.stock,
+            attributes,
+        };
+    });
+}
+
+// Cartesian product helper (for generating variants)
+const generateVariants = () => {
+    if (form.attributeLines.length === 0) {
+        form.generatedVariants = [];
+        return;
+    }
+
+    // Get all combinations (Cartesian product)
+    const combinations = cartesianProduct(
+        form.attributeLines.map((line) => ({
+            attribute_id: line.attribute_id,
+            values: line.values,
+        }))
+    );
+
+    form.generatedVariants = combinations.map((combo) => {
+        const attributes: Record<number, string> = {};
+        combo.forEach((item) => {
+            attributes[item.attribute_id] = item.value;
+        });
+
+        const attributeString = combo.map((c) => c.value).join('-');
+
+        return {
+            sku: `SKU-${attributeString.toUpperCase()}`,
+            barcode: '',
+            price: form.price,
+            stock: 0,
+            attributes,
+        };
+    });
+};
+
+// Cartesian product helper
+function cartesianProduct(
+    arrays: { attribute_id: number; values: string[] }[]
+): { attribute_id: number; value: string }[][] {
+    if (arrays.length === 0) return [[]];
+    if (arrays.length === 1) {
+        return arrays[0].values.map((v) => [{ attribute_id: arrays[0].attribute_id, value: v }]);
+    }
+
+    const [first, ...rest] = arrays;
+    const restProduct = cartesianProduct(rest);
+
+    const result: { attribute_id: number; value: string }[][] = [];
+    for (const value of first.values) {
+        for (const combo of restProduct) {
+            result.push([{ attribute_id: first.attribute_id, value }, ...combo]);
+        }
+    }
+    return result;
+}
+
+const submit = () => {
+    if (isEditing.value) {
+        form.post(`/products/${props.product!.id}`, {
+            forceFormData: true,
+            // @ts-expect-error - Laravel expects _method in form data
+            _method: 'put',
+        });
+    } else {
+        form.post('/products', {
+            forceFormData: true,
+        });
+    }
+};
+
+const formatDate = (date: string) => {
+    return new Date(date).toLocaleString('es-PE', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
+};
+</script>
+
+<template>
+    <Head :title="isEditing ? `Editar ${product!.name}` : 'Nuevo Producto'" />
+
+    <AppLayout>
+        <div class="flex flex-col gap-4 p-4">
+            <!-- Header -->
+            <div class="flex items-center gap-4">
+                <Button variant="ghost" size="icon" @click="$inertia.visit('/products')">
+                    <ArrowLeft class="h-4 w-4" />
+                </Button>
+                <div>
+                    <h1 class="text-3xl font-bold tracking-tight">
+                        {{ isEditing ? 'Editar Producto' : 'Nuevo Producto' }}
+                    </h1>
+                    <p class="text-muted-foreground" v-if="isEditing">{{ product!.name }}</p>
+                </div>
+            </div>
+
+            <!-- Form con sidebar de historial -->
+            <div class="grid grid-cols-1" :class="isEditing && activities ? 'lg:grid-cols-3' : ''">
+                <!-- Main Content-->
+                <div :class="isEditing && activities ? 'lg:col-span-2' : ''">
+                    <form @submit.prevent="submit">
+                        <Tabs v-model="activeTab" class="w-full">
+                            <TabsList class="grid w-full grid-cols-3">
+                                <TabsTrigger value="general">Información General</TabsTrigger>
+                                <TabsTrigger value="attributes">Atributos</TabsTrigger>
+                                <TabsTrigger value="variants">Variantes</TabsTrigger>
+                            </TabsList>
+
+                            <!-- Tab 1: General Information -->
+                            <TabsContent value="general">
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle>Información del Producto</CardTitle>
+                                    </CardHeader>
+                                    <CardContent class="space-y-4">
+                                        <!-- Name -->
+                                        <div class="space-y-2">
+                                            <Label for="name">Nombre *</Label>
+                                            <Input
+                                                id="name"
+                                                v-model="form.name"
+                                                placeholder="Nombre del producto"
+                                                :class="{ 'border-destructive': form.errors.name }"
+                                                required
+                                            />
+                                            <p v-if="form.errors.name" class="text-sm text-destructive">
+                                                {{ form.errors.name }}
+                                            </p>
+                                        </div>
+
+                                        <!-- Description -->
+                                        <div class="space-y-2">
+                                            <Label for="description">Descripción</Label>
+                                            <Textarea
+                                                id="description"
+                                                v-model="form.description"
+                                                placeholder="Descripción del producto"
+                                                rows="4"
+                                                :class="{ 'border-destructive': form.errors.description }"
+                                            />
+                                            <p
+                                                v-if="form.errors.description"
+                                                class="text-sm text-destructive"
+                                            >
+                                                {{ form.errors.description }}
+                                            </p>
+                                        </div>
+
+                                        <div class="grid grid-cols-2 gap-4">
+                                            <!-- Price -->
+                                            <div class="space-y-2">
+                                                <Label for="price">Precio Base *</Label>
+                                                <Input
+                                                    id="price"
+                                                    v-model="form.price"
+                                                    type="number"
+                                                    step="0.01"
+                                                    placeholder="0.00"
+                                                    :class="{ 'border-destructive': form.errors.price }"
+                                                    required
+                                                />
+                                                <p v-if="form.errors.price" class="text-sm text-destructive">
+                                                    {{ form.errors.price }}
+                                                </p>
+                                            </div>
+
+                                            <!-- Category -->
+                                            <div class="space-y-2">
+                                                <Label for="category_id">Categoría *</Label>
+                                                <Select 
+                                                    :model-value="form.category_id?.toString()" 
+                                                    @update:model-value="handleCategoryChange"
+                                                    required
+                                                >
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Seleccionar categoría" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem
+                                                            v-for="category in categories"
+                                                            :key="category.id"
+                                                            :value="category.id.toString()"
+                                                        >
+                                                            {{ category.name }}
+                                                        </SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                <p
+                                                    v-if="form.errors.category_id"
+                                                    class="text-sm text-destructive"
+                                                >
+                                                    {{ form.errors.category_id }}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div class="grid grid-cols-2 gap-4">
+                                            <!-- SKU -->
+                                            <div class="space-y-2">
+                                                <Label for="sku">SKU</Label>
+                                                <Input
+                                                    id="sku"
+                                                    v-model="form.sku"
+                                                    placeholder="SKU del producto"
+                                                    :class="{ 'border-destructive': form.errors.sku }"
+                                                />
+                                                <p class="text-xs text-muted-foreground">
+                                                    Solo para productos simples sin variantes
+                                                </p>
+                                                <p v-if="form.errors.sku" class="text-sm text-destructive">
+                                                    {{ form.errors.sku }}
+                                                </p>
+                                            </div>
+
+                                            <!-- Barcode -->
+                                            <div class="space-y-2">
+                                                <Label for="barcode">Código de Barras</Label>
+                                                <Input
+                                                    id="barcode"
+                                                    v-model="form.barcode"
+                                                    placeholder="Código de barras"
+                                                    :class="{ 'border-destructive': form.errors.barcode }"
+                                                />
+                                                <p v-if="form.errors.barcode" class="text-sm text-destructive">
+                                                    {{ form.errors.barcode }}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <!-- Is Active -->
+                                        <div class="flex items-center justify-between rounded-lg border p-4">
+                                            <div class="space-y-0.5">
+                                                <Label for="is_active">Producto Activo</Label>
+                                                <p class="text-sm text-muted-foreground">
+                                                    El producto estará visible en el catálogo
+                                                </p>
+                                            </div>
+                                            <Switch id="is_active" v-model:checked="form.is_active" />
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </TabsContent>
+
+                            <!-- Tab 2: Attributes -->
+                            <TabsContent value="attributes">
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle>Configuración de Atributos</CardTitle>
+                                        <p class="text-sm text-muted-foreground mt-2">
+                                            Selecciona los atributos y sus valores. Las variantes se generarán automáticamente en la pestaña "Variantes".
+                                        </p>
+                                    </CardHeader>
+                                    <CardContent class="space-y-6">
+                                        <!-- Selector de Atributos con Popover/Command -->
+                                        <div class="space-y-2">
+                                            <div class="flex items-center justify-between">
+                                                <Label>Agregar Atributo</Label>
+                                                <Popover v-model:open="attributeSelectorOpen">
+                                                    <PopoverTrigger as-child>
+                                                        <Button variant="outline" size="sm">
+                                                            + Buscar Atributo
+                                                        </Button>
+                                                    </PopoverTrigger>
+                                                    <PopoverContent class="w-[300px] p-0" align="end">
+                                                        <Command>
+                                                            <CommandInput placeholder="Buscar atributo..." />
+                                                            <CommandEmpty>No se encontraron atributos.</CommandEmpty>
+                                                            <CommandList>
+                                                                <CommandGroup>
+                                                                    <CommandItem
+                                                                        v-for="attribute in attributes"
+                                                                        :key="attribute.id"
+                                                                        :value="attribute.name"
+                                                                        @select="() => { selectedAttributeId = attribute.id; addAttributeToTable(); }"
+                                                                    >
+                                                                        {{ attribute.name }}
+                                                                    </CommandItem>
+                                                                </CommandGroup>
+                                                            </CommandList>
+                                                        </Command>
+                                                    </PopoverContent>
+                                                </Popover>
+                                            </div>
+                                        </div>
+
+                                        <!-- Tabla de Atributos Seleccionados -->
+                                        <div v-if="Object.keys(attributeSelections).length > 0" class="rounded-md border">
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow>
+                                                        <TableHead class="w-1/3">Atributo</TableHead>
+                                                        <TableHead>Valores</TableHead>
+                                                        <TableHead class="w-[50px]"></TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    <TableRow 
+                                                        v-for="(valueIds, attrId) in attributeSelections"
+                                                        :key="attrId"
+                                                    >
+                                                        <TableCell class="font-medium">
+                                                            {{ getAttributeName(parseInt(attrId as string)) }}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <MultiSelect
+                                                                :options="
+                                                                    attributes
+                                                                        .find(a => a.id === parseInt(attrId as string))
+                                                                        ?.attribute_values.map(av => ({ 
+                                                                            value: av.id, 
+                                                                            label: av.value 
+                                                                        })) || []
+                                                                "
+                                                                :model-value="valueIds"
+                                                                @update:model-value="(values) => updateAttributeValues(parseInt(attrId as string), values)"
+                                                                :placeholder="`Seleccionar valores...`"
+                                                                class="w-full"
+                                                            />
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                @click="removeAttributeFromTable(parseInt(attrId as string))"
+                                                            >
+                                                                <X class="h-4 w-4" />
+                                                            </Button>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                </TableBody>
+                                            </Table>
+                                        </div>
+
+                                        <!-- Mensaje si no hay atributos -->
+                                        <div v-else class="text-center py-8 text-muted-foreground text-sm border rounded-md">
+                                            Haz click en "+ Buscar Atributo" para agregar un atributo y sus valores
+                                        </div>
+
+                                        <!-- Control de generación de variantes (solo al editar) -->
+                                        <div v-if="isEditing && Object.keys(attributeSelections).length > 0" class="space-y-3">
+                                            <div class="rounded-lg border border-orange-200 bg-orange-50 p-4">
+                                                <div class="flex items-start gap-3">
+                                                    <div class="flex-shrink-0 text-orange-600">
+                                                        ⚠️
+                                                    </div>
+                                                    <div class="flex-1 space-y-2">
+                                                        <p class="text-sm font-medium text-orange-900">
+                                                            Estás editando un producto existente
+                                                        </p>
+                                                        <p class="text-sm text-orange-700">
+                                                            Las variantes actuales se mantienen. Si quieres generar nuevas combinaciones basadas en los atributos seleccionados, haz clic en el botón de abajo.
+                                                        </p>
+                                                        <Button 
+                                                            type="button"
+                                                            variant="outline" 
+                                                            size="sm"
+                                                            class="mt-2"
+                                                            @click="generateVariants"
+                                                        >
+                                                            🔄 Regenerar Variantes con Nuevas Combinaciones
+                                                        </Button>
+                                                        <p class="text-xs text-orange-600 mt-1">
+                                                            ⚠️ Esto reemplazará las variantes actuales con nuevas combinaciones
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Info message (solo al crear o después de regenerar) -->
+                                        <div v-if="form.generatedVariants.length > 0 && !isEditing" class="rounded-md bg-muted p-4">
+                                            <p class="text-sm text-muted-foreground">
+                                                ✅ Se han generado <strong>{{ form.generatedVariants.length }} variantes</strong>. 
+                                                Ve a la pestaña "Variantes" para editarlas.
+                                            </p>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </TabsContent>
+
+                            <!-- Tab 3: Variants Table -->
+                            <TabsContent value="variants">
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle>Gestión de Variantes</CardTitle>
+                                        <p class="text-sm text-muted-foreground mt-2">
+                                            Edita el precio de cada variante. El stock se gestionará por almacén.
+                                        </p>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div v-if="form.generatedVariants.length > 0" class="space-y-4">
+                                            <div class="flex items-center justify-between">
+                                                <Badge variant="secondary">
+                                                    {{ form.generatedVariants.length }} variante(s)
+                                                </Badge>
+                                            </div>
+                                            
+                                            <div class="rounded-md border">
+                                                <Table>
+                                                    <TableHeader>
+                                                        <TableRow>
+                                                            <TableHead>Variante</TableHead>
+                                                            <TableHead>SKU</TableHead>
+                                                            <TableHead>Precio</TableHead>
+                                                            <TableHead>Stock</TableHead>
+                                                        </TableRow>
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                        <TableRow
+                                                            v-for="(variant, index) in form.generatedVariants"
+                                                            :key="index"
+                                                        >
+                                                            <TableCell>
+                                                                <div class="font-medium">
+                                                                    {{ form.name }} - 
+                                                                    <span class="text-muted-foreground">
+                                                                        {{ Object.values(variant.attributes).join(' / ') }}
+                                                                    </span>
+                                                                </div>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <Input
+                                                                    v-model="variant.sku"
+                                                                    placeholder="SKU"
+                                                                    class="max-w-[200px]"
+                                                                />
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <div class="flex items-center gap-1">
+                                                                    <span class="text-sm text-muted-foreground">S/</span>
+                                                                    <Input
+                                                                        v-model="variant.price"
+                                                                        type="number"
+                                                                        step="0.01"
+                                                                        placeholder="0.00"
+                                                                        class="max-w-[120px]"
+                                                                    />
+                                                                </div>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <Badge variant="outline" class="font-mono">
+                                                                    {{ variant.stock || 0 }} unidades
+                                                                </Badge>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    </TableBody>
+                                                </Table>
+                                            </div>
+                                        </div>
+                                        
+                                        <div v-else class="text-center py-12 text-muted-foreground">
+                                            <p class="text-sm">
+                                                No hay variantes generadas. 
+                                            </p>
+                                            <p class="text-sm mt-1">
+                                                Ve a la pestaña "Atributos" para configurar atributos y generar variantes.
+                                            </p>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </TabsContent>
+                        </Tabs>
+
+                        <!-- Actions -->
+                        <div class="mt-4 flex gap-2">
+                            <Button type="submit" :disabled="form.processing">
+                                {{ form.processing ? 'Guardando...' : isEditing ? 'Actualizar Producto' : 'Crear Producto' }}
+                            </Button>
+                            <Button type="button" variant="outline" @click="$inertia.visit('/products')">
+                                Cancelar
+                            </Button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Activity Log Sidebar (Right) - Solo en edición -->
+                <div v-if="isEditing && activities" class="lg:col-span-1 mt-6 lg:mt-0 lg:pl-6">
+                    <Card class="sticky top-4">
+                        <CardHeader>
+                            <CardTitle>Historial de Cambios</CardTitle>
+                            <CardDescription>Últimas 20 actividades</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div class="space-y-4">
+                                <div
+                                    v-for="(activity, index) in activities"
+                                    :key="index"
+                                    class="flex gap-3 text-sm"
+                                >
+                                    <div class="flex-shrink-0">
+                                        <Clock class="h-4 w-4 text-muted-foreground" />
+                                    </div>
+                                    <div class="flex-1 space-y-1">
+                                        <p class="font-medium">{{ activity.description }}</p>
+                                        <p class="text-xs text-muted-foreground">
+                                            {{ formatDate(activity.created_at) }}
+                                        </p>
+                                        <p v-if="activity.causer" class="text-xs text-muted-foreground flex items-center gap-1">
+                                            <User class="h-3 w-3" />
+                                            {{ activity.causer.name }}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div v-if="activities.length === 0" class="text-center text-sm text-muted-foreground py-4">
+                                    No hay actividades registradas
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            </div>
+        </div>
+    </AppLayout>
+</template>
