@@ -7,8 +7,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
-use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class Partner extends Model
 {
@@ -23,28 +23,28 @@ class Partner extends Model
         'company_id',
         'user_id',
         'partner_type',
-        
+
         // Documentos
         'document_type',
         'document_number',
-        
+
         // Nombres
         'business_name',
         'first_name',
         'last_name',
-        
+
         // Contacto
         'email',
         'phone',
         'mobile',
         'photo_url',
-        
+
         // Dirección
         'address',
         'district',
         'province',
         'department',
-        
+
         // Campos de customers
         'birth_date',
         'gender',
@@ -53,14 +53,14 @@ class Partner extends Model
         'blood_type',
         'medical_notes',
         'allergies',
-        
+
         // Campos de providers
         'payment_terms',
         'credit_limit',
         'tax_id',
         'business_license',
         'provider_category',
-        
+
         // Comunes
         'status',
         'notes',
@@ -74,6 +74,16 @@ class Partner extends Model
     protected $casts = [
         'birth_date' => 'date',
         'credit_limit' => 'decimal:2',
+    ];
+
+    /**
+     * The accessors to append to the model's array form.
+     *
+     * @var array
+     */
+    protected $appends = [
+        'display_name',
+        'full_name',
     ];
 
     // ========================================
@@ -156,7 +166,7 @@ class Partner extends Model
      */
     public function hasPortalAccess(): bool
     {
-        return !is_null($this->user_id);
+        return ! is_null($this->user_id);
     }
 
     // ========================================
@@ -171,7 +181,7 @@ class Partner extends Model
         if ($this->business_name) {
             return $this->business_name;
         }
-        
+
         return trim("{$this->first_name} {$this->last_name}");
     }
 

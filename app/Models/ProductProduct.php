@@ -5,12 +5,14 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Spatie\Activitylog\Traits\LogsActivity;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class ProductProduct extends Model
 {
     use LogsActivity;
+
     protected $table = 'product_products';
 
     protected $fillable = [
@@ -18,11 +20,13 @@ class ProductProduct extends Model
         'sku',
         'barcode',
         'price',
+        'cost_price',
         'is_principal',
     ];
 
     protected $casts = [
         'price' => 'decimal:2',
+        'cost_price' => 'decimal:2',
         'is_principal' => 'boolean',
     ];
 
@@ -57,6 +61,12 @@ class ProductProduct extends Model
         return $this->product();
     }
 
+    // Alias 'template' para uso en vistas
+    public function template(): BelongsTo
+    {
+        return $this->product();
+    }
+
     public function attributeValues(): BelongsToMany
     {
         return $this->belongsToMany(AttributeValue::class, 'attribute_value_product_product', 'product_product_id');
@@ -65,6 +75,11 @@ class ProductProduct extends Model
     public function inventories()
     {
         return $this->hasMany(Inventory::class, 'product_product_id');
+    }
+
+    public function productables(): HasMany
+    {
+        return $this->hasMany(Productable::class, 'product_product_id');
     }
 
     // ========================================
@@ -176,19 +191,19 @@ class ProductProduct extends Model
     {
         // Prefijo personalizado (2 dígitos) - puedes usar el código de tu país o uno custom
         $prefix = '77'; // Custom prefix
-        
+
         // Generar 10 dígitos aleatorios
         $randomDigits = '';
         for ($i = 0; $i < 10; $i++) {
             $randomDigits .= rand(0, 9);
         }
-        
-        $barcode = $prefix . $randomDigits;
-        
+
+        $barcode = $prefix.$randomDigits;
+
         // Calcular dígito verificador (checksum)
         $checksum = static::calculateEAN13Checksum($barcode);
-        
-        return $barcode . $checksum;
+
+        return $barcode.$checksum;
     }
 
     /**
@@ -201,8 +216,9 @@ class ProductProduct extends Model
             $digit = (int) $barcode[$i];
             $sum += ($i % 2 === 0) ? $digit : $digit * 3;
         }
-        
+
         $checksum = (10 - ($sum % 10)) % 10;
+
         return $checksum;
     }
 }

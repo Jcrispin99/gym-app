@@ -52,9 +52,9 @@ class ProductController extends Controller
         $attributes = Attribute::with('attributeValues')->get();
 
         // Debug
-        \Log::info('ProductController@create - Categories count: ' . $categories->count());
-        \Log::info('ProductController@create - Attributes count: ' . $attributes->count());
-        \Log::info('ProductController@create - Attributes: ' . json_encode($attributes));
+        \Log::info('ProductController@create - Categories count: '.$categories->count());
+        \Log::info('ProductController@create - Attributes count: '.$attributes->count());
+        \Log::info('ProductController@create - Attributes: '.json_encode($attributes));
 
         return Inertia::render('Products/CreateEdit', compact('categories', 'attributes'));
     }
@@ -422,7 +422,8 @@ class ProductController extends Controller
             }
         });
 
-        return back()->with('success', 'Producto actualizado exitosamente');
+        return redirect()->route('products.edit', $product)
+            ->with('success', 'Producto actualizado exitosamente');
     }
 
     /**

@@ -10,12 +10,13 @@ class SequenceService
 {
     /**
      * Obtiene la siguiente serie y correlativo para un journal específico
-     * 
+     *
      * Este método es thread-safe usando lockForUpdate() para evitar
      * condiciones de carrera en ambientes concurrentes.
-     * 
-     * @param int $journalId ID del journal
+     *
+     * @param  int  $journalId  ID del journal
      * @return array ['serie' => 'COMP', 'correlative' => '00000001']
+     *
      * @throws \Illuminate\Database\Eloquent\ModelNotFoundException
      */
     public static function getNextParts(int $journalId): array
@@ -32,13 +33,13 @@ class SequenceService
                 ->first();
 
             $nextNumber = $sequence->next_number;
-            
+
             // Formatear el número correlativo con ceros a la izquierda
             // Ejemplo: si sequence_size=8 y nextNumber=125 → "00000125"
             $correlative = str_pad(
-                $nextNumber, 
-                $sequence->sequence_size, 
-                '0', 
+                $nextNumber,
+                $sequence->sequence_size,
+                '0',
                 STR_PAD_LEFT
             );
 
@@ -55,21 +56,22 @@ class SequenceService
 
     /**
      * Obtiene el número completo formateado (serie-correlativo)
-     * 
-     * @param int $journalId ID del journal
+     *
+     * @param  int  $journalId  ID del journal
      * @return string Ejemplo: "COMP-00000001"
      */
     public static function getNextNumber(int $journalId): string
     {
         $parts = self::getNextParts($journalId);
+
         return "{$parts['serie']}-{$parts['correlative']}";
     }
 
     /**
      * Previsualiza el próximo número SIN incrementar el contador
      * Útil para mostrar al usuario el número que se generará
-     * 
-     * @param int $journalId ID del journal
+     *
+     * @param  int  $journalId  ID del journal
      * @return array ['serie' => 'COMP', 'correlative' => '00000125']
      */
     public static function previewNextParts(int $journalId): array

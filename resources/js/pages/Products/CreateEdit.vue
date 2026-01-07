@@ -334,11 +334,20 @@ function cartesianProduct(
 }
 
 const submit = () => {
+    console.log('🚀 Submitting form:', {
+        isEditing: isEditing.value,
+        formData: {
+            name: form.name,
+            price: form.price,
+            category_id: form.category_id,
+            attributeLines: form.attributeLines,
+            generatedVariants: form.generatedVariants,
+        }
+    });
+    
     if (isEditing.value) {
-        form.post(`/products/${props.product!.id}`, {
+        form.put(`/products/${props.product!.id}`, {
             forceFormData: true,
-            // @ts-expect-error - Laravel expects _method in form data
-            _method: 'put',
         });
     } else {
         form.post('/products', {

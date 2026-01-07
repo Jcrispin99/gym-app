@@ -31,7 +31,9 @@ import {
     LayoutDashboard,
     Package,
     PackageOpen,
+    Percent,
     Settings,
+    ShoppingCart,
     Tags,
     Users,
     UserRound,
@@ -45,6 +47,7 @@ const page = usePage();
 // Collapsible state
 const gymOpen = ref(true);
 const inventoryOpen = ref(true);
+const purchaseOpen = ref(true);
 const systemOpen = ref(true);
 
 // Route helpers
@@ -54,12 +57,14 @@ const members = () => ({ url: '/members', method: 'get' as const });
 const membershipPlans = () => ({ url: '/membership-plans', method: 'get' as const });
 const attendances = () => ({ url: '/attendances', method: 'get' as const });
 const journals = () => ({ url: '/journals', method: 'get' as const });
+const taxes = () => ({ url: '/taxes', method: 'get' as const });
 
 // Inventario routes (placeholder - to be implemented)
 const categories = () => ({ url: '/categories', method: 'get' as const });
 const products = () => ({ url: '/products', method: 'get' as const });
 const attributes = () => ({ url: '/attributes', method: 'get' as const });
 const warehouses = () => ({ url: '/warehouses', method: 'get' as const });
+const purchases = () => ({ url: '/purchases', method: 'get' as const });
 
 // Dashboard
 const dashboardItem: NavItem = {
@@ -111,6 +116,15 @@ const inventoryItems: NavItem[] = [
     },
 ];
 
+// Compras section
+const purchaseItems: NavItem[] = [
+    {
+        title: 'Compras',
+        href: purchases(),
+        icon: ShoppingCart,
+    },
+];
+
 // Sistema section
 const systemItems: NavItem[] = [
     {
@@ -127,6 +141,11 @@ const systemItems: NavItem[] = [
         title: 'Diarios',
         href: journals(),
         icon: BookOpen,
+    },
+    {
+        title: 'Impuestos',
+        href: taxes(),
+        icon: Percent,
     },
 ];
 
@@ -225,6 +244,38 @@ const footerNavItems: NavItem[] = [
                             <CollapsibleContent>
                                 <SidebarMenuSub>
                                     <SidebarMenuSubItem v-for="item in inventoryItems" :key="item.title">
+                                        <SidebarMenuSubButton
+                                            as-child
+                                            :is-active="urlIsActive(item.href, page.url)"
+                                        >
+                                            <Link :href="item.href">
+                                                <component :is="item.icon" class="h-4 w-4" />
+                                                <span>{{ item.title }}</span>
+                                            </Link>
+                                        </SidebarMenuSubButton>
+                                    </SidebarMenuSubItem>
+                                </SidebarMenuSub>
+                            </CollapsibleContent>
+                        </SidebarMenuItem>
+                    </SidebarMenu>
+                </SidebarGroup>
+            </Collapsible>
+
+            <!-- Compras Section - Collapsible -->
+            <Collapsible v-model:open="purchaseOpen" class="group/collapsible">
+                <SidebarGroup class="px-2 py-0">
+                    <SidebarMenu>
+                        <SidebarMenuItem>
+                            <CollapsibleTrigger as-child>
+                                <SidebarMenuButton :tooltip="'Compras'">
+                                    <ShoppingCart class="h-4 w-4" />
+                                    <span>Compras</span>
+                                    <ChevronDown class="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                                </SidebarMenuButton>
+                            </CollapsibleTrigger>
+                            <CollapsibleContent>
+                                <SidebarMenuSub>
+                                    <SidebarMenuSubItem v-for="item in purchaseItems" :key="item.title">
                                         <SidebarMenuSubButton
                                             as-child
                                             :is-active="urlIsActive(item.href, page.url)"

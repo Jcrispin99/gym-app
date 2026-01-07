@@ -15,10 +15,10 @@ trait BelongsToCompany
         // Apply global scope to filter by selected companies
         static::addGlobalScope('company', function (Builder $builder) {
             $companyIds = session('selected_company_ids', []);
-            
-            if (!empty($companyIds)) {
+
+            if (! empty($companyIds)) {
                 $builder->whereIn(
-                    $builder->getModel()->getTable() . '.company_id',
+                    $builder->getModel()->getTable().'.company_id',
                     $companyIds
                 );
             }
@@ -26,11 +26,11 @@ trait BelongsToCompany
 
         // Auto-assign company_id when creating
         static::creating(function ($model) {
-            if (!$model->company_id) {
+            if (! $model->company_id) {
                 $companyIds = session('selected_company_ids', []);
-                
+
                 // Assign the first selected company if available
-                if (!empty($companyIds)) {
+                if (! empty($companyIds)) {
                     $model->company_id = $companyIds[0];
                 }
             }
@@ -51,7 +51,7 @@ trait BelongsToCompany
     public function scopeForCompanies(Builder $query, array $companyIds)
     {
         return $query->withoutGlobalScope('company')
-            ->whereIn($this->getTable() . '.company_id', $companyIds);
+            ->whereIn($this->getTable().'.company_id', $companyIds);
     }
 
     /**

@@ -5,9 +5,13 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class Purchase extends Model
 {
+    use LogsActivity;
+
     protected $fillable = [
         'serie',
         'correlative',
@@ -86,5 +90,27 @@ class Purchase extends Model
     public function scopeUnpaid($query)
     {
         return $query->where('payment_status', 'unpaid');
+    }
+
+    // ========================================
+    // ACTIVITY LOG
+    // ========================================
+
+    /**
+     * Configure activity log options
+     */
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly([
+                'status',           // draft/posted/cancelled
+                'partner_id',       // proveedor
+                'warehouse_id',     // almacén
+                'total',            // monto total
+                'observation',      // notas
+                'payment_status',   // estado de pago
+            ])
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs();
     }
 }

@@ -32,6 +32,10 @@ Route::middleware(['auth'])->group(function () {
 Route::middleware(['auth'])->group(function () {
     Route::get('/api/companies', [\App\Http\Controllers\CompanyController::class, 'index'])->name('companies.index');
     Route::post('/api/companies/switch', [\App\Http\Controllers\CompanyController::class, 'switch'])->name('companies.switch');
+    
+    // Product search API
+    Route::get('/api/products/search', [\App\Http\Controllers\Api\ProductApiController::class, 'search'])->name('products.search');
+    Route::get('/api/products/{id}', [\App\Http\Controllers\Api\ProductApiController::class, 'show'])->name('products.show');
 });
 
 // Users pages
@@ -126,4 +130,22 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('journals', \App\Http\Controllers\JournalController::class);
     Route::post('journals/{journal}/reset-sequence', [\App\Http\Controllers\JournalController::class, 'resetSequence'])
         ->name('journals.reset-sequence');
+});
+
+
+// Taxes routes
+Route::middleware(['auth'])->group(function () {
+    Route::resource('taxes', \App\Http\Controllers\TaxController::class);
+    Route::post('taxes/{tax}/toggle-status', [\App\Http\Controllers\TaxController::class, 'toggleStatus'])
+        ->name('taxes.toggle-status');
+});
+
+
+// Purchases routes
+Route::middleware(['auth'])->group(function () {
+    Route::resource('purchases', \App\Http\Controllers\PurchaseController::class);
+    Route::post('purchases/{purchase}/post', [\App\Http\Controllers\PurchaseController::class, 'post'])
+        ->name('purchases.post');
+    Route::post('purchases/{purchase}/cancel', [\App\Http\Controllers\PurchaseController::class, 'cancel'])
+        ->name('purchases.cancel');
 });
