@@ -186,9 +186,8 @@ const updateAttributeValues = (attributeId: number, valueIds: any[]) => {
     attributeSelections.value[attributeId] = numericIds;
     updateAttributeLines();
     
-    // SOLO auto-generar variantes al CREAR (no al editar)
-    // Al editar, el usuario debe hacerlo manualmente con el botón
-    if (!isEditing.value && form.attributeLines.length > 0) {
+    // Auto-generar variantes siempre que cambien los atributos
+    if (form.attributeLines.length > 0) {
         setTimeout(() => generateVariants(), 0);
     }
 };
@@ -628,39 +627,8 @@ const formatDate = (date: string) => {
                                             Haz click en "+ Buscar Atributo" para agregar un atributo y sus valores
                                         </div>
 
-                                        <!-- Control de generación de variantes (solo al editar) -->
-                                        <div v-if="isEditing && Object.keys(attributeSelections).length > 0" class="space-y-3">
-                                            <div class="rounded-lg border border-orange-200 bg-orange-50 p-4">
-                                                <div class="flex items-start gap-3">
-                                                    <div class="flex-shrink-0 text-orange-600">
-                                                        ⚠️
-                                                    </div>
-                                                    <div class="flex-1 space-y-2">
-                                                        <p class="text-sm font-medium text-orange-900">
-                                                            Estás editando un producto existente
-                                                        </p>
-                                                        <p class="text-sm text-orange-700">
-                                                            Las variantes actuales se mantienen. Si quieres generar nuevas combinaciones basadas en los atributos seleccionados, haz clic en el botón de abajo.
-                                                        </p>
-                                                        <Button 
-                                                            type="button"
-                                                            variant="outline" 
-                                                            size="sm"
-                                                            class="mt-2"
-                                                            @click="generateVariants"
-                                                        >
-                                                            🔄 Regenerar Variantes con Nuevas Combinaciones
-                                                        </Button>
-                                                        <p class="text-xs text-orange-600 mt-1">
-                                                            ⚠️ Esto reemplazará las variantes actuales con nuevas combinaciones
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <!-- Info message (solo al crear o después de regenerar) -->
-                                        <div v-if="form.generatedVariants.length > 0 && !isEditing" class="rounded-md bg-muted p-4">
+                                        <!-- Info message sobre variantes generadas -->
+                                        <div v-if="form.generatedVariants.length > 0" class="rounded-md bg-muted p-4">
                                             <p class="text-sm text-muted-foreground">
                                                 ✅ Se han generado <strong>{{ form.generatedVariants.length }} variantes</strong>. 
                                                 Ve a la pestaña "Variantes" para editarlas.

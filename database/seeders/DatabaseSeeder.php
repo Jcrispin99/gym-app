@@ -41,5 +41,8 @@ class DatabaseSeeder extends Seeder
 
         // Seed products
         $this->call(ProductSeeder::class);
+
+        // Seed POS configs
+        $this->call(PosConfigSeeder::class);
     }
 }

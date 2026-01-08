@@ -30,6 +30,8 @@ class ProductProduct extends Model
         'is_principal' => 'boolean',
     ];
 
+    protected $appends = ['stock'];
+
     // ========================================
     // BOOT & EVENTS
     // ========================================

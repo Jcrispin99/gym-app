@@ -34,6 +34,7 @@ import {
     Percent,
     Settings,
     ShoppingCart,
+    Store,
     Tags,
     Users,
     UserRound,
@@ -48,6 +49,7 @@ const page = usePage();
 const gymOpen = ref(true);
 const inventoryOpen = ref(true);
 const purchaseOpen = ref(true);
+const salesOpen = ref(true);
 const systemOpen = ref(true);
 
 // Route helpers
@@ -65,6 +67,7 @@ const products = () => ({ url: '/products', method: 'get' as const });
 const attributes = () => ({ url: '/attributes', method: 'get' as const });
 const warehouses = () => ({ url: '/warehouses', method: 'get' as const });
 const purchases = () => ({ url: '/purchases', method: 'get' as const });
+const posConfigs = () => ({ url: '/pos-configs', method: 'get' as const });
 
 // Dashboard
 const dashboardItem: NavItem = {
@@ -122,6 +125,15 @@ const purchaseItems: NavItem[] = [
         title: 'Compras',
         href: purchases(),
         icon: ShoppingCart,
+    },
+];
+
+// Ventas section
+const salesItems: NavItem[] = [
+    {
+        title: 'POS',
+        href: posConfigs(),
+        icon: Store,
     },
 ];
 
@@ -276,6 +288,38 @@ const footerNavItems: NavItem[] = [
                             <CollapsibleContent>
                                 <SidebarMenuSub>
                                     <SidebarMenuSubItem v-for="item in purchaseItems" :key="item.title">
+                                        <SidebarMenuSubButton
+                                            as-child
+                                            :is-active="urlIsActive(item.href, page.url)"
+                                        >
+                                            <Link :href="item.href">
+                                                <component :is="item.icon" class="h-4 w-4" />
+                                                <span>{{ item.title }}</span>
+                                            </Link>
+                                        </SidebarMenuSubButton>
+                                    </SidebarMenuSubItem>
+                                </SidebarMenuSub>
+                            </CollapsibleContent>
+                        </SidebarMenuItem>
+                    </SidebarMenu>
+                </SidebarGroup>
+            </Collapsible>
+
+            <!-- Ventas Section - Collapsible -->
+            <Collapsible v-model:open="salesOpen" class="group/collapsible">
+                <SidebarGroup class="px-2 py-0">
+                    <SidebarMenu>
+                        <SidebarMenuItem>
+                            <CollapsibleTrigger as-child>
+                                <SidebarMenuButton :tooltip="'Ventas'">
+                                    <Store class="h-4 w-4" />
+                                    <span>Ventas</span>
+                                    <ChevronDown class="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                                </SidebarMenuButton>
+                            </CollapsibleTrigger>
+                            <CollapsibleContent>
+                                <SidebarMenuSub>
+                                    <SidebarMenuSubItem v-for="item in salesItems" :key="item.title">
                                         <SidebarMenuSubButton
                                             as-child
                                             :is-active="urlIsActive(item.href, page.url)"

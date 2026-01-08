@@ -149,3 +149,18 @@ Route::middleware(['auth'])->group(function () {
     Route::post('purchases/{purchase}/cancel', [\App\Http\Controllers\PurchaseController::class, 'cancel'])
         ->name('purchases.cancel');
 });
+
+
+// POS Configs routes
+Route::middleware(['auth'])->group(function () {
+    Route::resource('pos-configs', \App\Http\Controllers\PosConfigController::class);
+    Route::post('pos-configs/{posConfig}/toggle-status', [\App\Http\Controllers\PosConfigController::class, 'toggleStatus'])
+        ->name('pos-configs.toggle-status');
+    Route::get('pos-configs/{posConfig}/sessions', [\App\Http\Controllers\PosConfigController::class, 'sessions'])
+        ->name('pos-configs.sessions');
+});
+
+// POS Sessions routes
+Route::middleware(['auth'])->group(function () {
+    Route::resource('pos-sessions', \App\Http\Controllers\PosSessionController::class);
+});
