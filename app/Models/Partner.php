@@ -22,7 +22,9 @@ class Partner extends Model
     protected $fillable = [
         'company_id',
         'user_id',
-        'partner_type',
+        'is_customer',
+        'is_provider',
+        'is_supplier',
 
         // Documentos
         'document_type',
@@ -74,6 +76,9 @@ class Partner extends Model
     protected $casts = [
         'birth_date' => 'date',
         'credit_limit' => 'decimal:2',
+        'is_customer' => 'boolean',
+        'is_provider' => 'boolean',
+        'is_supplier' => 'boolean',
     ];
 
     /**
@@ -142,7 +147,7 @@ class Partner extends Model
      */
     public function isCustomer(): bool
     {
-        return $this->partner_type === 'customer';
+        return (bool) $this->is_customer;
     }
 
     /**
@@ -150,7 +155,7 @@ class Partner extends Model
      */
     public function isProvider(): bool
     {
-        return $this->partner_type === 'provider';
+        return (bool) $this->is_provider;
     }
 
     /**
@@ -158,7 +163,7 @@ class Partner extends Model
      */
     public function isSupplier(): bool
     {
-        return $this->partner_type === 'supplier';
+        return (bool) $this->is_supplier;
     }
 
     /**
@@ -202,7 +207,7 @@ class Partner extends Model
      */
     public function scopeCustomers($query)
     {
-        return $query->where('partner_type', 'customer');
+        return $query->where('is_customer', true);
     }
 
     /**
@@ -210,7 +215,7 @@ class Partner extends Model
      */
     public function scopeProviders($query)
     {
-        return $query->where('partner_type', 'provider');
+        return $query->where('is_provider', true);
     }
 
     /**
@@ -218,7 +223,7 @@ class Partner extends Model
      */
     public function scopeSuppliers($query)
     {
-        return $query->where('partner_type', 'supplier');
+        return $query->where('is_supplier', true);
     }
 
     // ========================================
@@ -276,7 +281,9 @@ class Partner extends Model
     {
         return LogOptions::defaults()
             ->logOnly([
-                'partner_type',
+                'is_customer',
+                'is_provider',
+                'is_supplier',
                 'document_number',
                 'business_name',
                 'first_name',

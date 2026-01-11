@@ -24,6 +24,9 @@ class DatabaseSeeder extends Seeder
         // Seed journals (with sequences)
         $this->call(JournalSeeder::class);
 
+        // Seed payment methods
+        $this->call(PaymentMethodSeeder::class);
+
         // Seed users with company assignments
         $this->call(UserSeeder::class);
 

@@ -13,7 +13,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Head, router } from '@inertiajs/vue3';
-import { Plus, Search, Pencil, Trash2, Power, History } from 'lucide-vue-next';
+import { Plus, Search, Pencil, Trash2, Power, History, DoorOpen } from 'lucide-vue-next';
 import { ref } from 'vue';
 
 interface Tax {
@@ -156,6 +156,14 @@ const deletePosConfig = (posConfig: PosConfig) => {
                                 </TableCell>
                                 <TableCell class="text-right">
                                     <div class="flex justify-end gap-2">
+                                        <Button
+                                            v-if="posConfig.is_active"
+                                            size="icon"
+                                            @click="$inertia.visit(`/pos/open?config=${posConfig.id}`)"
+                                            title="Abrir Caja"
+                                        >
+                                            <DoorOpen class="h-4 w-4" />
+                                        </Button>
                                         <Button
                                             variant="ghost"
                                             size="icon"

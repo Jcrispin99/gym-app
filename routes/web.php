@@ -164,3 +164,21 @@ Route::middleware(['auth'])->group(function () {
 Route::middleware(['auth'])->group(function () {
     Route::resource('pos-sessions', \App\Http\Controllers\PosSessionController::class);
 });
+
+// POS Operation routes
+Route::middleware(['auth'])->group(function () {
+    Route::get('pos/open', [\App\Http\Controllers\Pos\PosController::class, 'open'])->name('pos.open');
+    Route::post('pos/open', [\App\Http\Controllers\Pos\PosController::class, 'storeOpen'])->name('pos.storeOpen');
+    Route::get('pos/{session}', [\App\Http\Controllers\Pos\PosController::class, 'dashboard'])->name('pos.dashboard');
+    Route::post('pos/{session}/payment', [\App\Http\Controllers\Pos\PosController::class, 'payment'])->name('pos.payment');
+    Route::get('pos/{session}/payment', function ($session) {
+        return redirect()->route('pos.dashboard', ['session' => $session])
+            ->with('info', 'Debes agregar productos al carrito antes de procesar el pago');
+    })->name('pos.payment.redirect');
+    Route::post('pos/{session}/process', [\App\Http\Controllers\Pos\PosController::class, 'processPayment'])->name('pos.process');
+    Route::get('pos/{session}/close', [\App\Http\Controllers\Pos\PosController::class, 'close'])->name('pos.close');
+    Route::post('pos/{session}/close', [\App\Http\Controllers\Pos\PosController::class, 'storeClose'])->name('pos.storeClose');
+    
+    // POS API endpoints
+    Route::get('api/pos/customers', [\App\Http\Controllers\Pos\PosController::class, 'apiCustomers'])->name('api.pos.customers');
+});

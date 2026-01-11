@@ -94,7 +94,7 @@ class MemberController extends Controller
         ]);
 
         // SIEMPRE es customer
-        $validated['partner_type'] = 'customer';
+        $validated['is_customer'] = true;
         $validated['status'] = 'active';
 
         Partner::create($validated);
@@ -126,7 +126,7 @@ class MemberController extends Controller
     public function edit(Partner $member)
     {
         // Ensure it's a customer
-        if ($member->partner_type !== 'customer') {
+        if (! $member->is_customer) {
             abort(404);
         }
 

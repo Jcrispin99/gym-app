@@ -25,9 +25,10 @@ return new class extends Migration
                 ->constrained()
                 ->onDelete('set null');
 
-            // TIPO DE PARTNER
-            $table->enum('partner_type', ['customer', 'provider', 'supplier'])
-                ->default('customer');
+            // TIPOS DE PARTNER (Un partner puede ser múltiples tipos)
+            $table->boolean('is_customer')->default(false);
+            $table->boolean('is_provider')->default(false);
+            $table->boolean('is_supplier')->default(false);
 
             // ========================================
             // CAMPOS COMPARTIDOS (todos los partners)
@@ -105,10 +106,11 @@ return new class extends Migration
             $table->unique(['company_id', 'document_number']);
 
             // Índices para búsquedas rápidas
-            $table->index('partner_type');
+            $table->index('is_customer');
+            $table->index('is_provider');
+            $table->index('is_supplier');
             $table->index('email');
             $table->index('status');
-            $table->index(['company_id', 'partner_type']);
             $table->index(['company_id', 'status']);
         });
     }

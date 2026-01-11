@@ -16,7 +16,9 @@ class PosSession extends Model
         'user_id',
         'pos_config_id',
         'opening_balance',
+        'opening_note',
         'closing_balance',
+        'closing_note',
         'opened_at',
         'closed_at',
         'status',
@@ -46,6 +48,14 @@ class PosSession extends Model
     public function posConfig(): BelongsTo
     {
         return $this->belongsTo(PosConfig::class);
+    }
+
+    /**
+     * Payment methods used in this session
+     */
+    public function payments()
+    {
+        return $this->hasMany(PosSessionPayment::class);
     }
 
     // ========================================
