@@ -150,6 +150,15 @@ Route::middleware(['auth'])->group(function () {
         ->name('purchases.cancel');
 });
 
+// Sales routes
+Route::middleware(['auth'])->group(function () {
+    Route::resource('sales', \App\Http\Controllers\SaleController::class);
+    Route::post('sales/{sale}/post', [\App\Http\Controllers\SaleController::class, 'post'])
+        ->name('sales.post');
+    Route::post('sales/{sale}/cancel', [\App\Http\Controllers\SaleController::class, 'cancel'])
+        ->name('sales.cancel');
+});
+
 
 // POS Configs routes
 Route::middleware(['auth'])->group(function () {

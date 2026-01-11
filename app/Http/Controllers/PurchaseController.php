@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\Journal;
 use App\Models\Partner;
-use App\Models\ProductProduct;
 use App\Models\Purchase;
 use App\Models\Tax;
 use App\Models\Warehouse;
@@ -54,9 +53,9 @@ class PurchaseController extends Controller
      */
     public function create()
     {
-        $suppliers = Partner::where(function($query) {
+        $suppliers = Partner::where(function ($query) {
             $query->where('is_supplier', true)
-                  ->orWhere('is_provider', true);
+                ->orWhere('is_provider', true);
         })->get();
         $warehouses = Warehouse::all();
         $taxes = Tax::active()->get();
@@ -170,9 +169,9 @@ class PurchaseController extends Controller
             ->take(20)
             ->get();
 
-        $suppliers = Partner::where(function($query) {
+        $suppliers = Partner::where(function ($query) {
             $query->where('is_supplier', true)
-                  ->orWhere('is_provider', true);
+                ->orWhere('is_provider', true);
         })->get();
         $warehouses = Warehouse::all();
         $taxes = Tax::active()->get();

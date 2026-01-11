@@ -2,16 +2,19 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class Productable extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'product_product_id',
-        'productable_type',
         'productable_id',
+        'productable_type',
         'quantity',
         'price',
         'subtotal',
@@ -34,16 +37,25 @@ class Productable extends Model
     // RELATIONSHIPS
     // ========================================
 
-    public function productProduct(): BelongsTo
-    {
-        return $this->belongsTo(ProductProduct::class);
-    }
-
+    /**
+     * Get the parent model (Purchase, Sale, etc.)
+     */
     public function productable(): MorphTo
     {
         return $this->morphTo();
     }
 
+    /**
+     * Get the product variant
+     */
+    public function productProduct(): BelongsTo
+    {
+        return $this->belongsTo(ProductProduct::class, 'product_product_id');
+    }
+
+    /**
+     * Get the tax
+     */
     public function tax(): BelongsTo
     {
         return $this->belongsTo(Tax::class);
