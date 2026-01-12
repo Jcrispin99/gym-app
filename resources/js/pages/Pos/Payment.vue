@@ -46,12 +46,38 @@ interface PaymentMethod {
     is_active: boolean;
 }
 
+interface PosConfig {
+    id: number;
+    name: string;
+    warehouse_id: number;
+    company_id: number;
+}
+
 interface PosSession {
     id: number;
     user_id: number;
     pos_config_id: number;
     opened_at: string;
     status: string;
+    user?: {
+        name: string;
+        email: string;
+    };
+    posConfig?: PosConfig;
+}
+
+interface Company {
+    id: number;
+    business_name: string;
+    trade_name: string | null;
+    ruc: string;
+    address: string | null;
+    phone: string | null;
+    email: string | null;
+    district: string | null;
+    province: string | null;
+    department: string | null;
+    logo_url: string | null;
 }
 
 interface Props {
@@ -61,10 +87,19 @@ interface Props {
     cart: CartItem[];
     client: Client | null;
     total: number;
-    customers: Client[]; // Initial customers from server
+    customers: Client[];
+    company: Company;
 }
 
 const props = defineProps<Props>();
+
+// DEBUG: Ver qué llega en props
+console.log('🔍 [Payment Debug] Props recibidos:', {
+    session: props.session,
+    'session.pos_config': (props.session as any)?.pos_config,
+    'session.pos_config.name': (props.session as any)?.pos_config?.name,
+    company: props.company,
+});
 
 // Clients from API (hybrid: initialized with server data, refreshable)
 const clients = ref<Client[]>(props.customers);
@@ -430,19 +465,49 @@ const clearClient = () => {
                         <div class="px-6 py-4 border-b space-y-3">
                             <!-- Logo y Datos Empresa -->
                             <div class="text-center space-y-1">
-                                <!-- Logo Placeholder -->
-                                <div class="w-20 h-20 bg-gray-200 rounded-full mx-auto flex items-center justify-center text-gray-500 text-[10px]">
+                                <!-- Logo -->
+                                <img 
+                                    v-if="company.logo_url" 
+                                    :src="company.logo_url" 
+                                    alt="Logo"
+                                    class="h-20 mx-auto mb-2"
+                                />
+                                <div v-else class="w-20 h-20 bg-gray-200 rounded-full mx-auto flex items-center justify-center text-gray-500 text-[10px]">
                                     LOGO
                                 </div>
                                 
-                                <div class="text-sm font-semibold">GYM FITNESS CENTER</div>
-                                <div class="text-xs text-gray-700">RUC: 20123456789</div>
-                                <div class="text-xs text-gray-500">Av. Principal 123 - Lima</div>
+                                <!-- Nombre del Negocio -->
+                                <div class="text-sm font-semibold">
+                                    {{ company.trade_name || company.business_name }}
+                                </div>
+                                
+                                <!-- RUC -->
+                                <div class="text-xs text-gray-700">RUC: {{ company.ruc }}</div>
+                                
+                                <!-- Dirección -->
+                                <div class="text-xs text-gray-500" v-if="company.address">
+                                    {{ company.address }}
+                                </div>
+                                <div class="text-xs text-gray-500" v-if="company.district || company.province">
+                                    {{ company.district }}{{ company.province ? ', ' + company.province : '' }}{{ company.department ? ' - ' + company.department : '' }}
+                                </div>
+                                
+                                <!-- Contacto -->
+                                <div class="text-xs text-gray-500" v-if="company.phone || company.email">
+                                    <span v-if="company.phone">Tel: {{ company.phone }}</span>
+                                    <span v-if="company.phone && company.email"> | </span>
+                                    <span v-if="company.email">{{ company.email }}</span>
+                                </div>
                                 
                                 <!-- Tipo y Número de Comprobante -->
-                                <div class="text-xs font-medium mt-2">Boleta de Venta</div>
+                                <div class="text-xs font-medium mt-2">
+                                    {{ selectedJournal?.name || 'Documento' }}
+                                </div>
                                 <div class="text-base font-bold">
-                                    B001 <span class="text-gray-400 mx-1">-</span> 00001234
+                                    <span v-if="selectedJournal">
+                                        {{ selectedJournal.code }} <span class="text-gray-400 mx-1">-</span> <span class="text-gray-500">PENDIENTE</span>
+                                    </span>
+                                    <span v-else class="text-gray-400">--</span>
                                 </div>
                                 
                                 <!-- Sesión POS -->
@@ -457,7 +522,7 @@ const clearClient = () => {
                                 </div>
                                 <div class="flex justify-between">
                                     <span class="font-semibold text-gray-800">Punto de venta:</span>
-                                    <span class="text-gray-700">{{ selectedJournal?.code || '-' }}</span>
+                                    <span class="text-gray-700">{{ (session as any)?.pos_config?.name || '-' }}</span>
                                 </div>
                                 <div class="flex justify-between">
                                     <span class="font-semibold text-gray-800">Vendedor:</span>

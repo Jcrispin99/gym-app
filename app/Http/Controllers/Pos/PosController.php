@@ -281,6 +281,7 @@ class PosController extends Controller
             'client' => $client,
             'total' => $validated['total'],
             'customers' => $customers,
+            'company' => $session->posConfig->company,
         ]);
     }
 
