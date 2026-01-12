@@ -21,7 +21,7 @@ class SaleController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Sale::with(['partner', 'warehouse', 'journal', 'user', 'productables.productProduct'])
+        $query = Sale::with(['partner', 'warehouse', 'journal', 'user', 'products.productProduct'])
             ->orderBy('created_at', 'desc');
 
         // Filtro por estado
@@ -122,7 +122,7 @@ class SaleController extends Controller
                 'total' => 0,
             ]);
 
-            // Crear productables y calcular totales
+            // Crear products y calcular totales
             $subtotal = 0;
             $totalTax = 0;
 
@@ -139,7 +139,7 @@ class SaleController extends Controller
                 $taxAmount = $lineSubtotal * ($taxRate / 100);
                 $lineTotal = $lineSubtotal + $taxAmount;
 
-                $sale->productables()->create([
+                $sale->products()->create([
                     'product_product_id' => $productData['product_product_id'],
                     'quantity' => $quantity,
                     'price' => $price,
@@ -171,7 +171,7 @@ class SaleController extends Controller
      */
     public function show(Sale $sale)
     {
-        $sale->load(['partner', 'warehouse', 'journal', 'user', 'productables.productProduct']);
+        $sale->load(['partner', 'warehouse', 'journal', 'user', 'products.productProduct']);
 
         return Inertia::render('Sales/Show', [
             'sale' => $sale,
@@ -189,7 +189,7 @@ class SaleController extends Controller
                 ->with('error', 'Solo se pueden editar ventas en borrador.');
         }
 
-        $sale->load(['productables.productProduct']);
+        $sale->load(['products.productProduct']);
         $customers = Partner::customers()->active()->get();
         $warehouses = Warehouse::all();
         $taxes = Tax::active()->get();
@@ -232,10 +232,10 @@ class SaleController extends Controller
                 'notes' => $validated['notes'] ?? null,
             ]);
 
-            // Eliminar productables anteriores
-            $sale->productables()->delete();
+            // Eliminar products anteriores
+            $sale->products()->delete();
 
-            // Crear nuevos productables y calcular totales
+            // Crear nuevos products y calcular totales
             $subtotal = 0;
             $totalTax = 0;
 
@@ -252,7 +252,7 @@ class SaleController extends Controller
                 $taxAmount = $lineSubtotal * ($taxRate / 100);
                 $lineTotal = $lineSubtotal + $taxAmount;
 
-                $sale->productables()->create([
+                $sale->products()->create([
                     'product_product_id' => $productData['product_product_id'],
                     'quantity' => $quantity,
                     'price' => $price,
@@ -311,7 +311,7 @@ class SaleController extends Controller
             $sale->update(['status' => 'posted']);
 
             // TODO: Reducir inventario (implementar después)
-            // foreach ($sale->productables as $line) {
+            // foreach ($sale->products as $line) {
             //     KardexService::registerMovement([
             //         'type' => 'sale_out',
             //         'warehouse_id' => $sale->warehouse_id,
@@ -341,20 +341,24 @@ class SaleController extends Controller
             // Cambiar estado a cancelled
             $sale->update(['status' => 'cancelled']);
 
-            // TODO: Devolver inventario (implementar después)
-            // foreach ($sale->productables as $line) {
-            //     KardexService::registerMovement([
-            //         'type' => 'sale_return',
-            //         'warehouse_id' => $sale->warehouse_id,
-            //         'product_product_id' => $line->product_product_id,
-            //         'quantity' => $line->quantity,
-            //         'reference_type' => 'sale',
-            //         'reference_id' => $sale->id,
-            //     ]);
-            // }
+            // Devolver inventario al kardex
+            $kardexService = new \App\Services\KardexService();
+            foreach ($sale->products as $line) {
+                $kardexService->registerEntry(
+                    $sale,
+                    [
+                        'id' => $line->product_product_id,
+                        'quantity' => $line->quantity,
+                        'price' => $line->price,
+                        'subtotal' => $line->subtotal
+                    ],
+                    $sale->warehouse_id,
+                    "Devolución venta cancelada {$sale->document_number}"
+                );
+            }
         });
 
         return redirect()->route('sales.index')
-            ->with('success', 'Venta cancelada exitosamente.');
+            ->with('success', 'Venta cancelada y stock devuelto exitosamente.');
     }
 }

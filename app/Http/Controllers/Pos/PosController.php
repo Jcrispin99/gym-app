@@ -6,8 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\PosConfig;
 use App\Models\PosSession;
 use Illuminate\Http\Request;
-use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Inertia\Inertia;
 
 class PosController extends Controller
 {
@@ -17,8 +18,8 @@ class PosController extends Controller
     public function open(Request $request)
     {
         $configId = $request->query('config');
-        
-        if (!$configId) {
+
+        if (! $configId) {
             return redirect()->route('pos-configs.index')
                 ->with('error', 'Debe seleccionar una configuración POS');
         }
@@ -26,7 +27,7 @@ class PosController extends Controller
         $posConfig = PosConfig::with(['warehouse', 'tax'])->findOrFail($configId);
 
         // Check if POS is active
-        if (!$posConfig->is_active) {
+        if (! $posConfig->is_active) {
             return redirect()->route('pos-configs.index')
                 ->with('error', 'Este POS no está activo');
         }
@@ -59,7 +60,7 @@ class PosController extends Controller
 
         // Verify POS is active
         $posConfig = PosConfig::findOrFail($validated['pos_config_id']);
-        if (!$posConfig->is_active) {
+        if (! $posConfig->is_active) {
             return back()->withErrors(['pos_config_id' => 'Este POS no está activo']);
         }
 
@@ -99,7 +100,7 @@ class PosController extends Controller
         }
 
         // Verify session is open
-        if (!$session->isOpen()) {
+        if (! $session->isOpen()) {
             return redirect()->route('pos-configs.index')
                 ->with('error', 'Esta sesión no está abierta');
         }
@@ -115,7 +116,7 @@ class PosController extends Controller
             ->active()
             ->select(['id', 'first_name', 'last_name', 'business_name', 'document_number', 'email', 'phone'])
             ->get()
-            ->map(function($partner) {
+            ->map(function ($partner) {
                 return [
                     'id' => $partner->id,
                     'name' => $partner->display_name,
@@ -190,7 +191,7 @@ class PosController extends Controller
         $paymentsTotal = collect($validated['payments'])->sum('amount');
         if (abs($paymentsTotal - $validated['closing_balance']) > 0.01) {
             return back()->withErrors([
-                'payments' => 'La suma de los métodos de pago debe ser igual al balance final'
+                'payments' => 'La suma de los métodos de pago debe ser igual al balance final',
             ]);
         }
 
@@ -227,7 +228,7 @@ class PosController extends Controller
         }
 
         // Verify session is open
-        if (!$session->isOpen()) {
+        if (! $session->isOpen()) {
             return redirect()->route('pos-configs.index')
                 ->with('error', 'Esta sesión no está abierta');
         }
@@ -253,7 +254,7 @@ class PosController extends Controller
         $paymentMethods = \App\Models\PaymentMethod::active()->get();
 
         // Get client if selected
-        $client = $validated['client_id'] 
+        $client = $validated['client_id']
             ? \App\Models\Partner::find($validated['client_id'])
             : null;
 
@@ -262,7 +263,7 @@ class PosController extends Controller
             ->active()
             ->select(['id', 'first_name', 'last_name', 'business_name', 'document_number', 'email', 'phone'])
             ->get()
-            ->map(function($partner) {
+            ->map(function ($partner) {
                 return [
                     'id' => $partner->id,
                     'name' => $partner->display_name,
@@ -289,7 +290,7 @@ class PosController extends Controller
     public function processPayment(Request $request, PosSession $session)
     {
         // Verify session
-        if ($session->user_id !== Auth::id() || !$session->isOpen()) {
+        if ($session->user_id !== Auth::id() || ! $session->isOpen()) {
             return redirect()->route('pos.dashboard', $session->id)
                 ->with('error', 'Sesión inválida');
         }
@@ -297,7 +298,7 @@ class PosController extends Controller
         $validated = $request->validate([
             'journal_id' => 'required|exists:journals,id',
             'cart' => 'required|string', // JSON string
-            'client_id' => 'nullable|integer', // Removed exists check (using mock clients)
+            'client_id' => 'nullable|integer',
             'total' => 'required|numeric|min:0',
             'payments' => 'required|string', // JSON string
         ]);
@@ -306,23 +307,138 @@ class PosController extends Controller
         $cart = json_decode($validated['cart'], true);
         $payments = json_decode($validated['payments'], true);
 
+        // Validate cart not empty
+        if (empty($cart)) {
+            \Log::warning('[POS] Carrito vacío');
+
+            return back()->withErrors(['cart' => 'El carrito está vacío']);
+        }
+
         // Validate payments sum equals total
         $paymentsTotal = collect($payments)->sum('amount');
         if (abs($paymentsTotal - $validated['total']) > 0.01) {
+            \Log::warning('[POS] Suma de pagos incorrecta', [
+                'expected' => $validated['total'],
+                'received' => $paymentsTotal
+            ]);
+
             return back()->withErrors([
-                'payments' => 'La suma de los pagos debe ser igual al total'
+                'payments' => 'La suma de los pagos debe ser igual al total',
             ]);
         }
 
-        // TODO: Implement full sale creation logic
-        // - Create Sale record
-        // - Create SaleLines
-        // - Create Payment records
-        // - Update inventory
-        // - Generate invoice/receipt
+        try {
+            DB::transaction(function () use ($validated, $cart, $payments, $session) {
+                // 1. Get journal
+                $journal = \App\Models\Journal::findOrFail($validated['journal_id']);
 
-        return redirect()->route('pos.dashboard', $session->id)
-            ->with('success', 'Venta procesada exitosamente');
+                // 2. Generate document number
+                $numberParts = \App\Services\SequenceService::getNextParts($journal->id);
+
+                // 3. Get default tax (IGV 18%)
+                $defaultTax = \App\Models\Tax::active()->first();
+
+                // 4. Create Sale
+                $sale = \App\Models\Sale::create([
+                    'serie' => $numberParts['serie'],
+                    'correlative' => $numberParts['correlative'],
+                    'journal_id' => $journal->id,
+                    'partner_id' => $validated['client_id'] ?? null,
+                    'warehouse_id' => $session->posConfig->warehouse_id,
+                    'company_id' => $session->posConfig->company_id,
+                    'pos_session_id' => $session->id,
+                    'user_id' => Auth::id(),
+                    'status' => 'posted', // Directly posted from POS
+                    'payment_status' => 'paid', // Already paid
+                    'subtotal' => 0,
+                    'tax_amount' => 0,
+                    'total' => 0,
+                    'notes' => null,
+                ]);
+
+                // 5. Create product lines and calculate totals
+                $subtotal = 0;
+                $totalTax = 0;
+
+                foreach ($cart as $item) {
+                    // Get real product
+                    $product = \App\Models\ProductProduct::find($item['product_id']);
+
+                    if (! $product) {
+                        throw new \Exception("Producto {$item['product_id']} no encontrado");
+                    }
+
+                    $quantity = $item['qty'];
+                    $price = $item['price'];
+                    $lineSubtotal = $quantity * $price;
+
+                    // Calculate tax
+                    $taxRate = $defaultTax ? $defaultTax->rate_percent : 0;
+                    $taxAmount = $lineSubtotal * ($taxRate / 100);
+                    $lineTotal = $lineSubtotal + $taxAmount;
+
+                    // Create line (productable)
+                    $sale->products()->create([
+                        'product_product_id' => $product->id,
+                        'quantity' => $quantity,
+                        'price' => $price,
+                        'subtotal' => $lineSubtotal,
+                        'tax_id' => $defaultTax?->id,
+                        'tax_rate' => $taxRate,
+                        'tax_amount' => $taxAmount,
+                        'total' => $lineTotal,
+                    ]);
+
+                    $subtotal += $lineSubtotal;
+                    $totalTax += $taxAmount;
+                }
+
+                // 6. Update sale totals
+                $sale->update([
+                    'subtotal' => $subtotal,
+                    'tax_amount' => $totalTax,
+                    'total' => $subtotal + $totalTax,
+                ]);
+
+                // 7. Register payments
+                foreach ($payments as $payment) {
+                    \App\Models\PosSessionPayment::create([
+                        'pos_session_id' => $session->id,
+                        'sale_id' => $sale->id,
+                        'payment_method_id' => $payment['payment_method_id'],
+                        'amount' => $payment['amount'],
+                    ]);
+                }
+
+                // 8. Reduce inventory (kardex)
+                $kardexService = new \App\Services\KardexService;
+                foreach ($sale->products as $line) {
+
+                    $kardexService->registerExit(
+                        $sale,
+                        [
+                            'id' => $line->product_product_id,
+                            'quantity' => $line->quantity,
+                        ],
+                        $sale->warehouse_id,
+                        "Venta {$sale->document_number}"
+                    );
+                }
+            });
+
+            \Log::info('[POS] Venta creada exitosamente', [
+                'document' => DB::table('sales')->latest('id')->first()->serie . '-' . DB::table('sales')->latest('id')->first()->correlative,
+                'total' => $validated['total']
+            ]);
+
+            return redirect()->route('pos.dashboard', $session->id)
+                ->with('success', 'Venta procesada exitosamente');
+
+        } catch (\Exception $e) {
+            return back()->withErrors([
+                'error' => 'Error al procesar la venta: '.$e->getMessage(),
+            ]);
+        }
     }
 
     /**
@@ -334,7 +450,7 @@ class PosController extends Controller
             ->active()
             ->select(['id', 'first_name', 'last_name', 'business_name', 'document_number', 'email', 'phone'])
             ->get()
-            ->map(function($partner) {
+            ->map(function ($partner) {
                 return [
                     'id' => $partner->id,
                     'name' => $partner->display_name,

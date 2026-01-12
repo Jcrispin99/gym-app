@@ -172,20 +172,25 @@ const handleProcessPayment = () => {
             amount: parseFloat(amount)
         }));
 
-    router.post(`/pos/${props.session.id}/process`, {
+    const payloadData = {
         journal_id: parseInt(selectedJournalId.value),
         cart: JSON.stringify(props.cart),
         client_id: props.client?.id || null,
         total: props.total,
         payments: JSON.stringify(payments),
-    }, {
+    };
+
+    router.post(`/pos/${props.session.id}/process`, payloadData, {
         onSuccess: () => {
             // Clear sessionStorage on successful payment
             sessionStorage.removeItem(`pos_cart_${props.session.id}`);
             sessionStorage.removeItem(`pos_client_${props.session.id}`);
             
-            // Print receipt before redirecting
+            // Print receipt
             printReceipt();
+        },
+        onError: (errors) => {
+            console.error('Error al procesar venta:', errors);
         },
         onFinish: () => {
             isProcessing.value = false;

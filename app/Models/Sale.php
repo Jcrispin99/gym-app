@@ -81,6 +81,15 @@ class Sale extends Model
         return $this->morphMany(Productable::class, 'productable');
     }
 
+    /**
+     * Movimientos de inventario (kardex)
+     * Relación polimórfica con inventories
+     */
+    public function inventories(): MorphMany
+    {
+        return $this->morphMany(Inventory::class, 'inventoryable');
+    }
+
     // ========================================
     // ATTRIBUTES
     // ========================================
