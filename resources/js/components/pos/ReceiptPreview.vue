@@ -63,6 +63,9 @@ interface Props {
     selectedJournal?: Journal;
     cart: CartItem[];
     total: number;
+    applyTax?: boolean;
+    taxRate?: number;
+    pricesIncludeTax?: boolean;
     client?: Client | null;
     paymentMethods: PaymentMethod[];
     paymentAmounts: Record<number, string | number>;
@@ -71,6 +74,25 @@ interface Props {
 const props = defineProps<Props>();
 
 // Computed
+const effectiveTaxRate = computed(() => {
+    const rate = Number(props.taxRate || 0);
+    return rate > 0 ? rate : 0;
+});
+
+const isTaxApplied = computed(() => {
+    return Boolean(props.applyTax) && effectiveTaxRate.value > 0;
+});
+
+const taxBaseAmount = computed(() => {
+    if (!isTaxApplied.value) return props.total;
+    return props.total / (1 + effectiveTaxRate.value / 100);
+});
+
+const taxAmount = computed(() => {
+    if (!isTaxApplied.value) return 0;
+    return props.total - taxBaseAmount.value;
+});
+
 const getCurrentDateTime = () => {
     const now = new Date();
     return now.toLocaleString('es-PE', {
@@ -218,11 +240,11 @@ const activePayments = computed(() => {
                 <div class="w-full space-y-1">
                     <div class="flex justify-between">
                         <span>Subtotal</span>
-                        <span>{{ (total / 1.18).toFixed(2) }}</span>
+                        <span>{{ taxBaseAmount.toFixed(2) }}</span>
                     </div>
-                    <div class="flex justify-between">
-                        <span>IGV (18%)</span>
-                        <span>{{ (total - (total / 1.18)).toFixed(2) }}</span>
+                    <div v-if="isTaxApplied" class="flex justify-between">
+                        <span>IGV ({{ effectiveTaxRate.toFixed(2) }}%)</span>
+                        <span>{{ taxAmount.toFixed(2) }}</span>
                     </div>
                     <div class="border-t pt-2 flex justify-between font-semibold text-sm">
                         <span>Total</span>

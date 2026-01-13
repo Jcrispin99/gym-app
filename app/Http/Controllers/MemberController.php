@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Company;
 use App\Models\Partner;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Spatie\Activitylog\Models\Activity;
 
@@ -15,16 +16,9 @@ class MemberController extends Controller
      */
     public function index()
     {
-        $companyIds = session('selected_company_ids', []);
-
         $query = Partner::customers() // Solo partners tipo 'customer'
             ->with(['company', 'user']) // Cargar relación de usuario
             ->latest();
-
-        // Filtrar por compañías seleccionadas
-        if (! empty($companyIds)) {
-            $query->whereIn('company_id', $companyIds);
-        }
 
         $members = $query->get();
 
@@ -51,7 +45,7 @@ class MemberController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'company_id' => 'required|exists:companies,id',
+            'company_id' => 'nullable|exists:companies,id',
 
             // Documentos
             'document_type' => 'required|in:DNI,RUC,CE,Passport',
@@ -59,8 +53,9 @@ class MemberController extends Controller
                 'required',
                 'string',
                 'max:20',
-                // Único por compañía
-                'unique:partners,document_number,NULL,id,company_id,'.$request->company_id,
+                Rule::unique('partners', 'document_number')->where(
+                    fn ($q) => $q->where('document_type', $request->input('document_type'))
+                ),
             ],
 
             // Datos personales
@@ -142,7 +137,9 @@ class MemberController extends Controller
 
         // Get available membership plans for subscription creation
         $membershipPlans = \App\Models\MembershipPlan::active()
-            ->where('company_id', $member->company_id)
+            ->when($member->company_id, function ($q) use ($member) {
+                $q->where('company_id', $member->company_id);
+            })
             ->orderBy('price', 'asc')
             ->get();
 
@@ -164,7 +161,7 @@ class MemberController extends Controller
         }
 
         $validated = $request->validate([
-            'company_id' => 'required|exists:companies,id',
+            'company_id' => 'nullable|exists:companies,id',
 
             // Documentos
             'document_type' => 'required|in:DNI,RUC,CE,Passport',
@@ -172,8 +169,9 @@ class MemberController extends Controller
                 'required',
                 'string',
                 'max:20',
-                // Único por compañía, ignorando el actual
-                'unique:partners,document_number,'.$member->id.',id,company_id,'.$request->company_id,
+                Rule::unique('partners', 'document_number')
+                    ->ignore($member->id)
+                    ->where(fn ($q) => $q->where('document_type', $request->input('document_type'))),
             ],
 
             // Datos personales

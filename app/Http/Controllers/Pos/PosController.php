@@ -5,9 +5,12 @@ namespace App\Http\Controllers\Pos;
 use App\Http\Controllers\Controller;
 use App\Models\PosConfig;
 use App\Models\PosSession;
+use App\Models\Category;
+use App\Models\Partner;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
 class PosController extends Controller
@@ -106,13 +109,19 @@ class PosController extends Controller
         }
 
         // Load relationships
-        $session->load(['user', 'posConfig.warehouse', 'posConfig.tax']);
+        $session->load(['user', 'posConfig.warehouse', 'posConfig.tax', 'posConfig.company']);
+
+        // Get active categories
+        $categories = Category::where('is_active', true)
+            ->select(['id', 'name'])
+            ->orderBy('name')
+            ->get();
 
         // Get active payment methods
         $paymentMethods = \App\Models\PaymentMethod::active()->get();
 
-        // Get active customers for client selector (hybrid approach)
-        $customers = \App\Models\Partner::customers()
+        // Get active customers for client selector
+        $customers = Partner::customers()
             ->active()
             ->select(['id', 'first_name', 'last_name', 'business_name', 'document_number', 'email', 'phone'])
             ->get()
@@ -128,6 +137,7 @@ class PosController extends Controller
 
         return Inertia::render('Pos/Dashboard', [
             'session' => $session,
+            'categories' => $categories,
             'paymentMethods' => $paymentMethods,
             'customers' => $customers,
         ]);
@@ -156,9 +166,38 @@ class PosController extends Controller
         // Get active payment methods
         $paymentMethods = \App\Models\PaymentMethod::active()->get();
 
+        $salesQuery = \App\Models\Sale::query()
+            ->where('pos_session_id', $session->id)
+            ->where('status', 'posted');
+
+        $salesTotal = (float) $salesQuery->sum('total');
+        $salesCount = (int) $salesQuery->count();
+
+        $paymentsByMethod = \App\Models\PosSessionPayment::query()
+            ->where('pos_session_id', $session->id)
+            ->whereNotNull('sale_id')
+            ->selectRaw('payment_method_id, SUM(amount) as total')
+            ->groupBy('payment_method_id')
+            ->get()
+            ->map(function ($row) {
+                return [
+                    'payment_method_id' => (int) $row->payment_method_id,
+                    'total' => (float) $row->total,
+                ];
+            })
+            ->values();
+
+        $paymentsTotal = $paymentsByMethod->sum('total');
+
         return Inertia::render('Pos/Close', [
             'session' => $session,
             'paymentMethods' => $paymentMethods,
+            'systemSummary' => [
+                'sales_count' => $salesCount,
+                'sales_total' => $salesTotal,
+                'payments_total' => (float) $paymentsTotal,
+                'payments_by_method' => $paymentsByMethod,
+            ],
         ]);
     }
 
@@ -187,13 +226,7 @@ class PosController extends Controller
             'payments.*.amount' => 'required|numeric|min:0',
         ]);
 
-        // Verify that sum of payments equals closing_balance
         $paymentsTotal = collect($validated['payments'])->sum('amount');
-        if (abs($paymentsTotal - $validated['closing_balance']) > 0.01) {
-            return back()->withErrors([
-                'payments' => 'La suma de los métodos de pago debe ser igual al balance final',
-            ]);
-        }
 
         // Update session
         $session->update([
@@ -241,11 +274,35 @@ class PosController extends Controller
             'cart.*.price' => 'required|numeric|min:0',
             'cart.*.subtotal' => 'required|numeric|min:0',
             'client_id' => 'nullable|integer', // Removed exists check (using mock clients)
-            'total' => 'required|numeric|min:0',
+            'total' => 'nullable|numeric|min:0',
         ]);
 
         // Load session relationships
-        $session->load(['user', 'posConfig.warehouse', 'posConfig.company']);
+        $session->load(['user', 'posConfig.warehouse', 'posConfig.company', 'posConfig.tax']);
+
+        $posConfig = $session->posConfig;
+        $applyTax = (bool) ($posConfig?->apply_tax ?? true);
+        $pricesIncludeTax = (bool) ($posConfig?->prices_include_tax ?? false);
+        $tax = $applyTax && $posConfig?->tax_id ? $posConfig->tax : null;
+        $taxRate = $applyTax && $tax ? (float) $tax->rate_percent : 0.0;
+
+        $cartSubtotal = collect($validated['cart'])->sum('subtotal');
+        $cartTaxAmount = 0.0;
+        $cartTotal = 0.0;
+
+        if ($applyTax && $taxRate > 0) {
+            if ($pricesIncludeTax) {
+                $cartTotal = (float) $cartSubtotal;
+                $net = $cartTotal / (1 + ($taxRate / 100));
+                $cartTaxAmount = $cartTotal - $net;
+            } else {
+                $cartTaxAmount = (float) ($cartSubtotal * ($taxRate / 100));
+                $cartTotal = (float) ($cartSubtotal + $cartTaxAmount);
+            }
+        } else {
+            $cartTotal = (float) $cartSubtotal;
+            $cartTaxAmount = 0.0;
+        }
 
         // Get journals associated with THIS POS config (not all journals!)
         $journals = $session->posConfig->journals()->get();
@@ -255,11 +312,11 @@ class PosController extends Controller
 
         // Get client if selected
         $client = $validated['client_id']
-            ? \App\Models\Partner::find($validated['client_id'])
+            ? Partner::find($validated['client_id'])
             : null;
 
-        // Get active customers for client selector (hybrid approach)
-        $customers = \App\Models\Partner::customers()
+        // Get active customers for client selector
+        $customers = Partner::customers()
             ->active()
             ->select(['id', 'first_name', 'last_name', 'business_name', 'document_number', 'email', 'phone'])
             ->get()
@@ -279,9 +336,19 @@ class PosController extends Controller
             'paymentMethods' => $paymentMethods,
             'cart' => $validated['cart'],
             'client' => $client,
-            'total' => $validated['total'],
+            'total' => $cartTotal,
             'customers' => $customers,
             'company' => $session->posConfig->company,
+            'taxConfig' => [
+                'apply_tax' => $applyTax,
+                'prices_include_tax' => $pricesIncludeTax,
+                'tax_id' => $tax?->id,
+                'tax_name' => $tax?->name,
+                'tax_rate' => $taxRate,
+                'subtotal' => (float) $cartSubtotal,
+                'tax_amount' => (float) $cartTaxAmount,
+                'total' => (float) $cartTotal,
+            ],
         ]);
     }
 
@@ -300,7 +367,7 @@ class PosController extends Controller
             'journal_id' => 'required|exists:journals,id',
             'cart' => 'required|string', // JSON string
             'client_id' => 'nullable|integer',
-            'total' => 'required|numeric|min:0',
+            'total' => 'nullable|numeric|min:0',
             'payments' => 'required|string', // JSON string
         ]);
 
@@ -310,23 +377,12 @@ class PosController extends Controller
 
         // Validate cart not empty
         if (empty($cart)) {
-            \Log::warning('[POS] Carrito vacío');
+            Log::warning('[POS] Carrito vacío');
 
             return back()->withErrors(['cart' => 'El carrito está vacío']);
         }
 
-        // Validate payments sum equals total
-        $paymentsTotal = collect($payments)->sum('amount');
-        if (abs($paymentsTotal - $validated['total']) > 0.01) {
-            \Log::warning('[POS] Suma de pagos incorrecta', [
-                'expected' => $validated['total'],
-                'received' => $paymentsTotal
-            ]);
-
-            return back()->withErrors([
-                'payments' => 'La suma de los pagos debe ser igual al total',
-            ]);
-        }
+        $paymentsTotal = (float) collect($payments)->sum('amount');
 
         try {
             DB::transaction(function () use ($validated, $cart, $payments, $session) {
@@ -336,8 +392,11 @@ class PosController extends Controller
                 // 2. Generate document number
                 $numberParts = \App\Services\SequenceService::getNextParts($journal->id);
 
-                // 3. Get default tax (IGV 18%)
-                $defaultTax = \App\Models\Tax::active()->first();
+                $posConfig = $session->posConfig()->with('tax')->first();
+                $applyTax = (bool) ($posConfig?->apply_tax ?? true);
+                $pricesIncludeTax = (bool) ($posConfig?->prices_include_tax ?? false);
+                $tax = $applyTax && $posConfig?->tax_id ? $posConfig->tax : null;
+                $taxRate = $applyTax && $tax ? (float) $tax->rate_percent : 0.0;
 
                 // 4. Create Sale
                 $sale = \App\Models\Sale::create([
@@ -369,23 +428,36 @@ class PosController extends Controller
                         throw new \Exception("Producto {$item['product_id']} no encontrado");
                     }
 
-                    $quantity = $item['qty'];
-                    $price = $item['price'];
-                    $lineSubtotal = $quantity * $price;
+                    $quantity = (float) $item['qty'];
+                    $inputUnitPrice = (float) $item['price'];
 
-                    // Calculate tax
-                    $taxRate = $defaultTax ? $defaultTax->rate_percent : 0;
-                    $taxAmount = $lineSubtotal * ($taxRate / 100);
-                    $lineTotal = $lineSubtotal + $taxAmount;
+                    if ($applyTax && $taxRate > 0) {
+                        if ($pricesIncludeTax) {
+                            $unitNetPrice = $inputUnitPrice / (1 + ($taxRate / 100));
+                            $lineSubtotal = $quantity * $unitNetPrice;
+                            $lineTotal = $quantity * $inputUnitPrice;
+                            $taxAmount = $lineTotal - $lineSubtotal;
+                        } else {
+                            $unitNetPrice = $inputUnitPrice;
+                            $lineSubtotal = $quantity * $unitNetPrice;
+                            $taxAmount = $lineSubtotal * ($taxRate / 100);
+                            $lineTotal = $lineSubtotal + $taxAmount;
+                        }
+                    } else {
+                        $unitNetPrice = $inputUnitPrice;
+                        $lineSubtotal = $quantity * $unitNetPrice;
+                        $taxAmount = 0;
+                        $lineTotal = $lineSubtotal;
+                    }
 
                     // Create line (productable)
                     $sale->products()->create([
                         'product_product_id' => $product->id,
                         'quantity' => $quantity,
-                        'price' => $price,
+                        'price' => $unitNetPrice,
                         'subtotal' => $lineSubtotal,
-                        'tax_id' => $defaultTax?->id,
-                        'tax_rate' => $taxRate,
+                        'tax_id' => $applyTax ? $tax?->id : null,
+                        'tax_rate' => $applyTax ? $taxRate : 0,
                         'tax_amount' => $taxAmount,
                         'total' => $lineTotal,
                     ]);
@@ -400,6 +472,12 @@ class PosController extends Controller
                     'tax_amount' => $totalTax,
                     'total' => $subtotal + $totalTax,
                 ]);
+
+                $expectedTotal = (float) $sale->total;
+                $paymentsTotal = (float) collect($payments)->sum('amount');
+                if (abs($paymentsTotal - $expectedTotal) > 0.01) {
+                    throw new \Exception("La suma de los pagos debe ser igual al total ({$expectedTotal})");
+                }
 
                 // 7. Register payments
                 foreach ($payments as $payment) {
@@ -427,17 +505,17 @@ class PosController extends Controller
                 }
             });
 
-            \Log::info('[POS] Venta creada exitosamente', [
-                'document' => DB::table('sales')->latest('id')->first()->serie . '-' . DB::table('sales')->latest('id')->first()->correlative,
-                'total' => $validated['total']
+            $lastSale = DB::table('sales')->latest('id')->first();
+            Log::info('[POS] Venta creada exitosamente', [
+                'document' => $lastSale->serie . '-' . $lastSale->correlative,
+                'total' => $lastSale->total,
             ]);
 
-            return redirect()->route('pos.dashboard', $session->id)
+            return redirect()->route('pos.dashboard', ['session' => $session->id, 'clear_cart' => 1])
                 ->with('success', 'Venta procesada exitosamente');
-
         } catch (\Exception $e) {
             return back()->withErrors([
-                'error' => 'Error al procesar la venta: '.$e->getMessage(),
+                'error' => 'Error al procesar la venta: ' . $e->getMessage(),
             ]);
         }
     }
@@ -447,7 +525,7 @@ class PosController extends Controller
      */
     public function apiCustomers(Request $request)
     {
-        $customers = \App\Models\Partner::customers()
+        $customers = Partner::customers()
             ->active()
             ->select(['id', 'first_name', 'last_name', 'business_name', 'document_number', 'email', 'phone'])
             ->get()
@@ -462,5 +540,98 @@ class PosController extends Controller
             });
 
         return response()->json($customers);
+    }
+
+    public function apiPartnerLookup(Request $request)
+    {
+        $validated = $request->validate([
+            'document_number' => 'required|string|max:20',
+            'document_type' => 'nullable|in:DNI,RUC,CE,Passport',
+        ]);
+
+        $partner = Partner::query()
+            ->when(! empty($validated['document_type'] ?? null), function ($q) use ($validated) {
+                $q->where('document_type', $validated['document_type']);
+            })
+            ->where('document_number', $validated['document_number'])
+            ->first();
+
+        if (! $partner) {
+            return response()->json([
+                'found' => false,
+            ]);
+        }
+
+        return response()->json([
+            'found' => true,
+            'partner' => [
+                'id' => $partner->id,
+                'document_type' => $partner->document_type,
+                'document_number' => $partner->document_number,
+                'business_name' => $partner->business_name,
+                'first_name' => $partner->first_name,
+                'last_name' => $partner->last_name,
+                'email' => $partner->email,
+                'phone' => $partner->phone,
+                'mobile' => $partner->mobile,
+                'is_customer' => (bool) $partner->is_customer,
+                'is_provider' => (bool) $partner->is_provider,
+                'is_supplier' => (bool) $partner->is_supplier,
+                'status' => $partner->status,
+            ],
+        ]);
+    }
+
+    public function apiUpsertCustomer(Request $request)
+    {
+        $validated = $request->validate([
+            'document_type' => 'required|in:DNI,RUC,CE,Passport',
+            'document_number' => 'required|string|max:20',
+            'business_name' => 'nullable|string|max:200',
+            'first_name' => 'nullable|string|max:100',
+            'last_name' => 'nullable|string|max:100',
+            'email' => 'nullable|email|max:100',
+            'phone' => 'nullable|string|max:20',
+            'mobile' => 'nullable|string|max:20',
+        ]);
+
+        $partner = Partner::query()
+            ->where('document_type', $validated['document_type'])
+            ->where('document_number', $validated['document_number'])
+            ->first();
+
+        $dataToFill = [
+            'document_type' => $validated['document_type'],
+            'document_number' => $validated['document_number'],
+            'business_name' => $validated['business_name'] ?? null,
+            'first_name' => $validated['first_name'] ?? null,
+            'last_name' => $validated['last_name'] ?? null,
+            'email' => $validated['email'] ?? null,
+            'phone' => $validated['phone'] ?? null,
+            'mobile' => $validated['mobile'] ?? null,
+        ];
+
+        if ($partner) {
+            $partner->fill($dataToFill);
+        } else {
+            $partner = new Partner(array_merge($dataToFill, [
+                'status' => 'active',
+            ]));
+        }
+
+        $partner->is_customer = true;
+        if (empty($partner->status)) {
+            $partner->status = 'active';
+        }
+
+        $partner->save();
+
+        return response()->json([
+            'id' => $partner->id,
+            'name' => $partner->display_name,
+            'dni' => $partner->document_number,
+            'email' => $partner->email,
+            'phone' => $partner->phone,
+        ]);
     }
 }

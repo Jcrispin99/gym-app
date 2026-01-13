@@ -52,6 +52,14 @@ interface PosConfig {
     name: string;
     warehouse_id: number;
     company_id: number;
+    apply_tax?: boolean;
+    prices_include_tax?: boolean;
+    tax_id?: number | null;
+    tax?: {
+        id: number;
+        name: string;
+        rate_percent: number;
+    } | null;
 }
 
 interface PosSession {
@@ -90,6 +98,16 @@ interface Props {
     total: number;
     customers: Client[];
     company: Company;
+    taxConfig: {
+        apply_tax: boolean;
+        prices_include_tax: boolean;
+        tax_id: number | null;
+        tax_name: string | null;
+        tax_rate: number;
+        subtotal: number;
+        tax_amount: number;
+        total: number;
+    };
 }
 
 const props = defineProps<Props>();
@@ -126,6 +144,12 @@ props.paymentMethods.forEach((method) => {
 });
 
 // Computed
+const taxRate = computed(() => props.taxConfig?.tax_rate ?? 0);
+const applyTax = computed(() => props.taxConfig?.apply_tax ?? false);
+const pricesIncludeTax = computed(
+    () => props.taxConfig?.prices_include_tax ?? false,
+);
+
 const totalEntered = computed(() => {
     return Object.values(paymentAmounts.value).reduce(
         (sum, amount) => sum + parseFloat(amount || '0'),
@@ -581,6 +605,9 @@ const clearClient = () => {
                         :selected-journal="selectedJournal"
                         :cart="cart"
                         :total="total"
+                        :apply-tax="applyTax"
+                        :tax-rate="taxRate"
+                        :prices-include-tax="pricesIncludeTax"
                         :client="currentClient"
                         :payment-methods="paymentMethods"
                         :payment-amounts="paymentAmounts"

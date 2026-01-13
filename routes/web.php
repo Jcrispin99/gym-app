@@ -190,4 +190,6 @@ Route::middleware(['auth'])->group(function () {
     
     // POS API endpoints
     Route::get('api/pos/customers', [\App\Http\Controllers\Pos\PosController::class, 'apiCustomers'])->name('api.pos.customers');
+    Route::get('api/pos/partners/lookup', [\App\Http\Controllers\Pos\PosController::class, 'apiPartnerLookup'])->name('api.pos.partners.lookup');
+    Route::post('api/pos/customers', [\App\Http\Controllers\Pos\PosController::class, 'apiUpsertCustomer'])->name('api.pos.customers.upsert');
 });

@@ -5,24 +5,32 @@ import { reactiveOmit } from "@vueuse/core"
 import {
   SwitchRoot,
   SwitchThumb,
-  useForwardPropsEmits,
 } from "reka-ui"
 import { cn } from "@/lib/utils"
 
-const props = defineProps<SwitchRootProps & { class?: HTMLAttributes["class"] }>()
+const props = defineProps<
+  SwitchRootProps & {
+    class?: HTMLAttributes["class"]
+    checked?: SwitchRootProps["modelValue"]
+  }
+>()
 
-const emits = defineEmits<SwitchRootEmits>()
+const emits = defineEmits<
+  SwitchRootEmits & {
+    "update:checked": [payload: boolean]
+  }
+>()
 
-const delegatedProps = reactiveOmit(props, "class")
-
-const forwarded = useForwardPropsEmits(delegatedProps, emits)
+const delegatedProps = reactiveOmit(props, "class", "checked", "modelValue")
 </script>
 
 <template>
   <SwitchRoot
     v-slot="slotProps"
     data-slot="switch"
-    v-bind="forwarded"
+    v-bind="delegatedProps"
+    :model-value="props.checked ?? props.modelValue"
+    @update:modelValue="(v) => (emits('update:modelValue', v), emits('update:checked', v))"
     :class="cn(
       'peer data-[state=checked]:bg-primary data-[state=unchecked]:bg-input focus-visible:border-ring focus-visible:ring-ring/50 dark:data-[state=unchecked]:bg-input/80 inline-flex h-[1.15rem] w-8 shrink-0 items-center rounded-full border border-transparent shadow-xs transition-all outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50',
       props.class,

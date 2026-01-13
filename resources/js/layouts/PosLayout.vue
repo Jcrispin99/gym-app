@@ -32,7 +32,7 @@ const pageTitle = computed(() => props.title);
         </header>
 
         <!-- Main Content -->
-        <main class="container mx-auto p-4">
+        <main class="w-full p-0">
             <slot />
         </main>
     </div>

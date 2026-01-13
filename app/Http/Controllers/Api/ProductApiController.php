@@ -22,17 +22,42 @@ class ProductApiController extends Controller
     public function search(Request $request)
     {
         $query = $request->input('q', '');
-        $limit = $request->input('limit', 20);
+        $limit = (int) $request->input('limit', 20);
         $warehouseId = $request->input('warehouse_id');
         $requireStock = $request->input('require_stock', false);
+        $browse = filter_var($request->input('browse', false), FILTER_VALIDATE_BOOLEAN);
+        $categoryId = $request->input('category_id');
+        $onlyActive = filter_var($request->input('only_active', true), FILTER_VALIDATE_BOOLEAN);
 
         $productsQuery = ProductProduct::with(['template', 'attributeValues.attribute']);
 
+        if ($onlyActive) {
+            $productsQuery->whereHas('template', function ($q) {
+                $q->where('is_active', true);
+            });
+        }
+
+        if (!empty($categoryId)) {
+            $productsQuery->whereHas('template', function ($q) use ($categoryId) {
+                $q->where('category_id', $categoryId);
+            });
+        }
+
         // Si no hay búsqueda, retornar los 10 más usados (basado en productables)
-        if (empty($query)) {
+        if (empty($query) && !$browse) {
             $productsQuery->withCount('productables')
                 ->orderBy('productables_count', 'desc')
                 ->limit(10);
+        } elseif (empty($query) && $browse) {
+            $productsQuery
+                ->orderByDesc('is_principal')
+                ->orderBy(
+                    \App\Models\ProductTemplate::select('name')
+                        ->whereColumn('product_templates.id', 'product_products.product_template_id')
+                        ->limit(1),
+                )
+                ->orderBy('id')
+                ->limit($limit);
         } else {
             // Búsqueda por nombre, SKU, código de barras o atributos de variante
             $productsQuery->where(function ($q) use ($query) {
@@ -66,6 +91,7 @@ class ProductApiController extends Controller
                     'display_name' => $product->display_name,
                     'price' => $product->price,
                     'cost_price' => $product->cost_price,
+                    'category_id' => $product->template->category_id,
                     'stock' => $warehouseId
                         ? $product->getStockInWarehouse($warehouseId)
                         : $product->stock,

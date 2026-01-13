@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\Company;
 use App\Models\Partner;
 use Illuminate\Database\Seeder;
 
@@ -13,15 +12,12 @@ class PartnerSeeder extends Seeder
      */
     public function run(): void
     {
-        $mainOffice = Company::where('is_main_office', true)->first();
-
         // ========================================
         // CUSTOMERS (Miembros del gym)
         // ========================================
 
         // Customer 1: Miembro activo con portal
         Partner::create([
-            'company_id' => $mainOffice->id,
             'is_customer' => true,
             'document_type' => 'DNI',
             'document_number' => '12345678',
@@ -42,7 +38,6 @@ class PartnerSeeder extends Seeder
 
         // Customer 2: Miembro SIN portal (solo datos)
         Partner::create([
-            'company_id' => $mainOffice->id,
             'is_customer' => true,
             'document_type' => 'DNI',
             'document_number' => '87654321',
@@ -61,7 +56,6 @@ class PartnerSeeder extends Seeder
 
         // Provider 1: Proveedor de equipos
         Partner::create([
-            'company_id' => $mainOffice->id,
             'is_provider' => true,
             'document_type' => 'RUC',
             'document_number' => '20123456789',
@@ -79,7 +73,6 @@ class PartnerSeeder extends Seeder
 
         // Provider 2: Proveedor de suplementos
         Partner::create([
-            'company_id' => $mainOffice->id,
             'is_provider' => true,
             'document_type' => 'RUC',
             'document_number' => '20987654321',
@@ -97,7 +90,6 @@ class PartnerSeeder extends Seeder
 
         // Provider 3: Proveedor de servicios
         Partner::create([
-            'company_id' => $mainOffice->id,
             'is_provider' => true,
             'document_type' => 'RUC',
             'document_number' => '20555555555',
@@ -114,7 +106,6 @@ class PartnerSeeder extends Seeder
         // ========================================
 
         Partner::create([
-            'company_id' => $mainOffice->id,
             'is_supplier' => true,
             'document_type' => 'DNI',
             'document_number' => '45678912',
@@ -133,7 +124,6 @@ class PartnerSeeder extends Seeder
 
         // Partner que es BOTH customer AND provider
         Partner::create([
-            'company_id' => $mainOffice->id,
             'is_customer' => true,
             'is_provider' => true,
             'document_type' => 'RUC',

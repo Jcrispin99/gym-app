@@ -16,8 +16,9 @@ return new class extends Migration
 
             // Relación con company
             $table->foreignId('company_id')
+                ->nullable()
                 ->constrained()
-                ->onDelete('cascade');
+                ->nullOnDelete();
 
             // Relación OPCIONAL con user (si el partner tiene login)
             $table->foreignId('user_id')
@@ -103,7 +104,7 @@ return new class extends Migration
             // ========================================
 
             // Documento único por compañía
-            $table->unique(['company_id', 'document_number']);
+            $table->unique(['document_type', 'document_number']);
 
             // Índices para búsquedas rápidas
             $table->index('is_customer');
