@@ -490,8 +490,13 @@ class PosController extends Controller
                 }
 
                 // 8. Reduce inventory (kardex)
+                $sale->loadMissing('products.productProduct.template');
                 $kardexService = new \App\Services\KardexService;
                 foreach ($sale->products as $line) {
+                    $tracksInventory = $line->productProduct?->template?->tracks_inventory ?? true;
+                    if (! $tracksInventory) {
+                        continue;
+                    }
 
                     $kardexService->registerExit(
                         $sale,
@@ -574,8 +579,8 @@ class PosController extends Controller
                 'email' => $partner->email,
                 'phone' => $partner->phone,
                 'mobile' => $partner->mobile,
+                'is_member' => (bool) $partner->is_member,
                 'is_customer' => (bool) $partner->is_customer,
-                'is_provider' => (bool) $partner->is_provider,
                 'is_supplier' => (bool) $partner->is_supplier,
                 'status' => $partner->status,
             ],

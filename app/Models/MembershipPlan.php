@@ -13,6 +13,7 @@ class MembershipPlan extends Model
 
     protected $fillable = [
         'company_id',
+        'product_product_id',
         'name',
         'description',
         'duration_days',
@@ -42,6 +43,11 @@ class MembershipPlan extends Model
     public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
+    }
+
+    public function productProduct(): BelongsTo
+    {
+        return $this->belongsTo(ProductProduct::class, 'product_product_id');
     }
 
     public function subscriptions(): HasMany

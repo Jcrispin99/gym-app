@@ -3,8 +3,12 @@
 namespace Database\Seeders;
 
 use App\Models\Company;
+use App\Models\Category;
 use App\Models\MembershipPlan;
+use App\Models\ProductProduct;
+use App\Models\ProductTemplate;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Str;
 
 class MembershipPlanSeeder extends Seeder
 {
@@ -20,6 +24,16 @@ class MembershipPlanSeeder extends Seeder
             $this->command->warn('No hay compañías en la base de datos. Crea una primero.');
             return;
         }
+
+        $category = Category::firstOrCreate(
+            ['slug' => Str::slug('Suscripciones')],
+            [
+                'name' => 'Suscripciones',
+                'full_name' => 'Suscripciones',
+                'description' => 'Productos internos para planes y suscripciones.',
+                'is_active' => false,
+            ],
+        );
 
         $plans = [
             // Plan 1: Básico Matutino
@@ -168,7 +182,30 @@ class MembershipPlanSeeder extends Seeder
         ];
 
         foreach ($plans as $plan) {
-            MembershipPlan::create($plan);
+            $membershipPlan = MembershipPlan::create($plan);
+
+            $template = ProductTemplate::create([
+                'name' => "Plan: {$membershipPlan->name}",
+                'description' => $membershipPlan->description,
+                'price' => $membershipPlan->price,
+                'category_id' => $category->id,
+                'is_active' => true,
+                'is_pos_visible' => false,
+                'tracks_inventory' => false,
+            ]);
+
+            $variant = ProductProduct::create([
+                'product_template_id' => $template->id,
+                'sku' => null,
+                'barcode' => null,
+                'price' => $membershipPlan->price,
+                'cost_price' => 0,
+                'is_principal' => true,
+            ]);
+
+            $membershipPlan->update([
+                'product_product_id' => $variant->id,
+            ]);
         }
 
         $this->command->info('✅ Se crearon ' . count($plans) . ' planes de membresía.');

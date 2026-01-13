@@ -25,6 +25,7 @@ import {
     SelectContent,
     SelectTrigger,
 } from '@/components/ui/select';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
@@ -38,9 +39,10 @@ interface Company {
     trade_name: string;
 }
 
+type PartnerView = 'members' | 'customers' | 'suppliers';
+
 interface Member {
     id: number;
-    partner_type: string;
     document_number: string;
     first_name: string;
     last_name: string;
@@ -54,14 +56,47 @@ interface Member {
 
 interface Props {
     members: Member[];
+    view?: PartnerView;
 }
 
 const props = defineProps<Props>();
 
-const breadcrumbs: BreadcrumbItem[] = [
+const currentView = computed<PartnerView>(() => {
+    const view = props.view;
+    if (view === 'customers' || view === 'suppliers' || view === 'members') {
+        return view;
+    }
+    return 'members';
+});
+
+const viewMeta = computed(() => {
+    const meta: Record<PartnerView, { title: string; subtitle: string; listTitle: string; entityPlural: string }> = {
+        members: {
+            title: 'Miembros',
+            subtitle: 'Gestiona los miembros del gimnasio',
+            listTitle: 'Listado de Miembros',
+            entityPlural: 'miembros',
+        },
+        customers: {
+            title: 'Clientes',
+            subtitle: 'Gestiona los clientes (no miembros)',
+            listTitle: 'Listado de Clientes',
+            entityPlural: 'clientes',
+        },
+        suppliers: {
+            title: 'Proveedores',
+            subtitle: 'Gestiona los proveedores',
+            listTitle: 'Listado de Proveedores',
+            entityPlural: 'proveedores',
+        },
+    };
+    return meta[currentView.value];
+});
+
+const breadcrumbs = computed<BreadcrumbItem[]>(() => [
     { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Miembros', href: '/members' },
-];
+    { title: viewMeta.value.title, href: `/members?view=${currentView.value}` },
+]);
 
 const deleteDialogOpen = ref(false);
 const memberToDelete = ref<Member | null>(null);
@@ -145,33 +180,45 @@ const filteredMembers = computed(() => {
 const activeFiltersCount = computed(() => {
     return selectedStatuses.value.length + selectedPortalFilters.value.length;
 });
+
+const changeView = (view: PartnerView) => {
+    router.get('/members', { view }, { preserveScroll: true });
+};
 </script>
 
 <template>
-    <Head title="Miembros" />
+    <Head :title="viewMeta.title" />
 
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex flex-col gap-4 p-4">
             <!-- Header -->
             <div class="flex items-center justify-between">
                 <div>
-                    <h1 class="text-3xl font-bold tracking-tight">Miembros</h1>
+                    <h1 class="text-3xl font-bold tracking-tight">{{ viewMeta.title }}</h1>
                     <p class="text-muted-foreground">
-                        Gestiona los miembros del gimnasio
+                        {{ viewMeta.subtitle }}
                     </p>
                 </div>
-                <Button @click="router.visit('/members/create')">
+                <Button v-if="currentView === 'members'" @click="router.visit('/members/create')">
                     <UserPlus class="mr-2 h-4 w-4" />
                     Nuevo Miembro
                 </Button>
             </div>
+
+            <Tabs :model-value="currentView" @update:modelValue="changeView">
+                <TabsList class="grid w-full grid-cols-3 md:w-[520px]">
+                    <TabsTrigger value="members">Miembros</TabsTrigger>
+                    <TabsTrigger value="customers">Clientes</TabsTrigger>
+                    <TabsTrigger value="suppliers">Proveedores</TabsTrigger>
+                </TabsList>
+            </Tabs>
 
             <!-- Stats Cards - Compact (3 cards) -->
             <div class="grid gap-4 md:grid-cols-3">
                 <Card>
                     <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle class="text-sm font-medium">
-                            Total Miembros
+                            Total {{ viewMeta.title }}
                         </CardTitle>
                         <Users class="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
@@ -195,7 +242,7 @@ const activeFiltersCount = computed(() => {
                             {{ filteredMembers.filter(m => m.status === 'active').length }}
                         </div>
                         <p class="text-xs text-muted-foreground">
-                            Miembros activos
+                            {{ viewMeta.entityPlural }} activos
                         </p>
                     </CardContent>
                 </Card>
@@ -224,9 +271,9 @@ const activeFiltersCount = computed(() => {
                     <div class="flex items-start justify-between gap-4">
                         <!-- Title + Description (Left) -->
                         <div>
-                            <CardTitle>Listado de Miembros</CardTitle>
+                            <CardTitle>{{ viewMeta.listTitle }}</CardTitle>
                             <CardDescription>
-                                Mostrando {{ filteredMembers.length }} de {{ members.length }} miembros
+                                Mostrando {{ filteredMembers.length }} de {{ members.length }} {{ viewMeta.entityPlural }}
                             </CardDescription>
                         </div>
 
@@ -408,7 +455,7 @@ const activeFiltersCount = computed(() => {
                         </TableBody>
                     </Table>
                     <div v-else class="py-10 text-center text-muted-foreground">
-                        No hay miembros registrados
+                        No hay {{ viewMeta.entityPlural }} registrados
                     </div>
                 </CardContent>
             </Card>

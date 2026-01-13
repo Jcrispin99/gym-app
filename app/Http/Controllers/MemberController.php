@@ -12,18 +12,33 @@ use Spatie\Activitylog\Models\Activity;
 class MemberController extends Controller
 {
     /**
-     * Display a listing of members (customers)
+     * Display a listing of partners for member/customer/supplier views
      */
-    public function index()
+    public function index(Request $request)
     {
-        $query = Partner::customers() // Solo partners tipo 'customer'
-            ->with(['company', 'user']) // Cargar relación de usuario
+        $view = $request->input('view', 'members');
+        $allowedViews = ['members', 'customers', 'suppliers'];
+        if (! in_array($view, $allowedViews, true)) {
+            $view = 'members';
+        }
+
+        $query = Partner::query()
+            ->with(['company', 'user'])
             ->latest();
+
+        if ($view === 'members') {
+            $query->members();
+        } elseif ($view === 'customers') {
+            $query->customers()->where('is_member', false);
+        } elseif ($view === 'suppliers') {
+            $query->suppliers();
+        }
 
         $members = $query->get();
 
         return Inertia::render('Members/Index', [
             'members' => $members,
+            'view' => $view,
         ]);
     }
 
@@ -88,8 +103,7 @@ class MemberController extends Controller
             'photo_url' => 'nullable|string',
         ]);
 
-        // SIEMPRE es customer
-        $validated['is_customer'] = true;
+        $validated['is_member'] = true;
         $validated['status'] = 'active';
 
         Partner::create($validated);
@@ -103,8 +117,7 @@ class MemberController extends Controller
      */
     public function show(Partner $member)
     {
-        // Verificar que sea customer
-        if (! $member->isCustomer()) {
+        if (! $member->isMember()) {
             abort(404);
         }
 
@@ -120,8 +133,7 @@ class MemberController extends Controller
      */
     public function edit(Partner $member)
     {
-        // Ensure it's a customer
-        if (! $member->is_customer) {
+        if (! $member->is_member) {
             abort(404);
         }
 
@@ -155,8 +167,7 @@ class MemberController extends Controller
      */
     public function update(Request $request, Partner $member)
     {
-        // Verificar que sea customer
-        if (! $member->isCustomer()) {
+        if (! $member->isMember()) {
             abort(404);
         }
 
@@ -214,8 +225,7 @@ class MemberController extends Controller
      */
     public function destroy(Partner $member)
     {
-        // Verificar que sea customer
-        if (! $member->isCustomer()) {
+        if (! $member->isMember()) {
             abort(404);
         }
 
@@ -230,8 +240,7 @@ class MemberController extends Controller
      */
     public function activatePortal(Request $request, Partner $member)
     {
-        // Verificar que sea customer
-        if (! $member->isCustomer()) {
+        if (! $member->isMember()) {
             abort(404);
         }
 

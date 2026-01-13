@@ -28,12 +28,19 @@ class ProductApiController extends Controller
         $browse = filter_var($request->input('browse', false), FILTER_VALIDATE_BOOLEAN);
         $categoryId = $request->input('category_id');
         $onlyActive = filter_var($request->input('only_active', true), FILTER_VALIDATE_BOOLEAN);
+        $posMode = filter_var($request->input('pos_mode', false), FILTER_VALIDATE_BOOLEAN);
 
         $productsQuery = ProductProduct::with(['template', 'attributeValues.attribute']);
 
         if ($onlyActive) {
             $productsQuery->whereHas('template', function ($q) {
                 $q->where('is_active', true);
+            });
+        }
+
+        if ($posMode) {
+            $productsQuery->whereHas('template', function ($q) {
+                $q->where('is_pos_visible', true);
             });
         }
 

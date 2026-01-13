@@ -22,8 +22,8 @@ class Partner extends Model
     protected $fillable = [
         'company_id',
         'user_id',
+        'is_member',
         'is_customer',
-        'is_provider',
         'is_supplier',
 
         // Documentos
@@ -76,8 +76,8 @@ class Partner extends Model
     protected $casts = [
         'birth_date' => 'date',
         'credit_limit' => 'decimal:2',
+        'is_member' => 'boolean',
         'is_customer' => 'boolean',
-        'is_provider' => 'boolean',
         'is_supplier' => 'boolean',
     ];
 
@@ -143,19 +143,19 @@ class Partner extends Model
     // ========================================
 
     /**
+     * Check if partner is a member
+     */
+    public function isMember(): bool
+    {
+        return (bool) $this->is_member;
+    }
+
+    /**
      * Check if partner is a customer
      */
     public function isCustomer(): bool
     {
         return (bool) $this->is_customer;
-    }
-
-    /**
-     * Check if partner is a provider
-     */
-    public function isProvider(): bool
-    {
-        return (bool) $this->is_provider;
     }
 
     /**
@@ -203,19 +203,19 @@ class Partner extends Model
     // ========================================
 
     /**
+     * Scope to filter only members
+     */
+    public function scopeMembers($query)
+    {
+        return $query->where('is_member', true);
+    }
+
+    /**
      * Scope to filter only customers
      */
     public function scopeCustomers($query)
     {
         return $query->where('is_customer', true);
-    }
-
-    /**
-     * Scope to filter only providers
-     */
-    public function scopeProviders($query)
-    {
-        return $query->where('is_provider', true);
     }
 
     /**
@@ -281,8 +281,8 @@ class Partner extends Model
     {
         return LogOptions::defaults()
             ->logOnly([
+                'is_member',
                 'is_customer',
-                'is_provider',
                 'is_supplier',
                 'document_number',
                 'business_name',

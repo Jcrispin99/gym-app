@@ -275,6 +275,8 @@ const loadProducts = async () => {
             params.set('warehouse_id', warehouseId.value.toString());
         }
 
+        params.set('pos_mode', '1');
+
         const response = await fetch(
             `/api/products/search?${params.toString()}`,
         );
@@ -634,6 +636,11 @@ watch(
                     <Wifi v-if="isOnline" class="h-5 w-5 text-green-600" />
                     <WifiOff v-else class="h-5 w-5 text-red-600" />
                 </div>
+
+                <Button variant="outline" size="sm" type="button">
+                    <CreditCard class="mr-2 h-4 w-4" />
+                    Suscripciones
+                </Button>
 
                 <!-- Menu -->
                 <DropdownMenu>

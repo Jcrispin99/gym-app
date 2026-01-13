@@ -13,12 +13,12 @@ class PartnerSeeder extends Seeder
     public function run(): void
     {
         // ========================================
-        // CUSTOMERS (Miembros del gym)
+        // MEMBERS (Miembros del gym)
         // ========================================
 
-        // Customer 1: Miembro activo con portal
+        // Member 1: Miembro activo con portal
         Partner::create([
-            'is_customer' => true,
+            'is_member' => true,
             'document_type' => 'DNI',
             'document_number' => '12345678',
             'first_name' => 'Juan',
@@ -36,9 +36,9 @@ class PartnerSeeder extends Seeder
             // user_id se asignará después si quiere portal
         ]);
 
-        // Customer 2: Miembro SIN portal (solo datos)
+        // Member 2: Miembro SIN portal (solo datos)
         Partner::create([
-            'is_customer' => true,
+            'is_member' => true,
             'document_type' => 'DNI',
             'document_number' => '87654321',
             'first_name' => 'María',
@@ -51,12 +51,27 @@ class PartnerSeeder extends Seeder
         ]);
 
         // ========================================
-        // PROVIDERS (Proveedores)
+        // CUSTOMERS (Clientes POS - NO miembros)
         // ========================================
 
-        // Provider 1: Proveedor de equipos
         Partner::create([
-            'is_provider' => true,
+            'is_customer' => true,
+            'document_type' => 'DNI',
+            'document_number' => '33445566',
+            'first_name' => 'Lucía',
+            'last_name' => 'Ramos',
+            'email' => 'lucia.ramos@gmail.com',
+            'phone' => '900111222',
+            'status' => 'active',
+        ]);
+
+        // ========================================
+        // SUPPLIERS (Proveedores)
+        // ========================================
+
+        // Supplier 1: Proveedor de equipos
+        Partner::create([
+            'is_supplier' => true,
             'document_type' => 'RUC',
             'document_number' => '20123456789',
             'business_name' => 'GymEquip Peru S.A.C.',
@@ -71,9 +86,9 @@ class PartnerSeeder extends Seeder
             'status' => 'active',
         ]);
 
-        // Provider 2: Proveedor de suplementos
+        // Supplier 2: Proveedor de suplementos
         Partner::create([
-            'is_provider' => true,
+            'is_supplier' => true,
             'document_type' => 'RUC',
             'document_number' => '20987654321',
             'business_name' => 'Nutrition Plus E.I.R.L.',
@@ -88,9 +103,9 @@ class PartnerSeeder extends Seeder
             'status' => 'active',
         ]);
 
-        // Provider 3: Proveedor de servicios
+        // Supplier 3: Proveedor de servicios
         Partner::create([
-            'is_provider' => true,
+            'is_supplier' => true,
             'document_type' => 'RUC',
             'document_number' => '20555555555',
             'business_name' => 'Clean Services S.R.L.',
@@ -102,7 +117,7 @@ class PartnerSeeder extends Seeder
         ]);
 
         // ========================================
-        // SUPPLIER (Proveedores menores)
+        // SUPPLIERS (Proveedores menores)
         // ========================================
 
         Partner::create([
@@ -119,13 +134,13 @@ class PartnerSeeder extends Seeder
         ]);
 
         // ========================================
-        // MIXED ROLE (Customer AND Provider)
+        // MIXED ROLE (Member AND Supplier)
         // ========================================
 
-        // Partner que es BOTH customer AND provider
+        // Partner que es BOTH member AND supplier
         Partner::create([
-            'is_customer' => true,
-            'is_provider' => true,
+            'is_member' => true,
+            'is_supplier' => true,
             'document_type' => 'RUC',
             'document_number' => '20111222333',
             'business_name' => 'FitnessPro Consulting',

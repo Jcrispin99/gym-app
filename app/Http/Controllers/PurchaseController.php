@@ -53,10 +53,7 @@ class PurchaseController extends Controller
      */
     public function create()
     {
-        $suppliers = Partner::where(function ($query) {
-            $query->where('is_supplier', true)
-                ->orWhere('is_provider', true);
-        })->get();
+        $suppliers = Partner::suppliers()->get();
         $warehouses = Warehouse::all();
         $taxes = Tax::active()->get();
 
@@ -169,10 +166,7 @@ class PurchaseController extends Controller
             ->take(20)
             ->get();
 
-        $suppliers = Partner::where(function ($query) {
-            $query->where('is_supplier', true)
-                ->orWhere('is_provider', true);
-        })->get();
+        $suppliers = Partner::suppliers()->get();
         $warehouses = Warehouse::all();
         $taxes = Tax::active()->get();
 

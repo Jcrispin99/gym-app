@@ -25,11 +25,15 @@ class ProductTemplate extends Model
         'price',
         'category_id',
         'is_active',
+        'is_pos_visible',
+        'tracks_inventory',
     ];
 
     protected $casts = [
         'price' => 'decimal:2',
         'is_active' => 'boolean',
+        'is_pos_visible' => 'boolean',
+        'tracks_inventory' => 'boolean',
     ];
 
     protected $appends = [];
