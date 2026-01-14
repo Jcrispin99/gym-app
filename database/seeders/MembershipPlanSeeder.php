@@ -2,8 +2,8 @@
 
 namespace Database\Seeders;
 
-use App\Models\Company;
 use App\Models\Category;
+use App\Models\Company;
 use App\Models\MembershipPlan;
 use App\Models\ProductProduct;
 use App\Models\ProductTemplate;
@@ -20,8 +20,9 @@ class MembershipPlanSeeder extends Seeder
         // Obtener la primera compañía (o ajustar según necesites)
         $company = Company::first();
 
-        if (!$company) {
+        if (! $company) {
             $this->command->warn('No hay compañías en la base de datos. Crea una primero.');
+
             return;
         }
 
@@ -208,6 +209,6 @@ class MembershipPlanSeeder extends Seeder
             ]);
         }
 
-        $this->command->info('✅ Se crearon ' . count($plans) . ' planes de membresía.');
+        $this->command->info('✅ Se crearon '.count($plans).' planes de membresía con productos asociados.');
     }
 }

@@ -3,10 +3,13 @@
 namespace App\Http\Controllers\Pos;
 
 use App\Http\Controllers\Controller;
+use App\Models\Category;
+use App\Models\MembershipPlan;
+use App\Models\MembershipSubscription;
+use App\Models\Partner;
 use App\Models\PosConfig;
 use App\Models\PosSession;
-use App\Models\Category;
-use App\Models\Partner;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -273,6 +276,8 @@ class PosController extends Controller
             'cart.*.qty' => 'required|integer|min:1',
             'cart.*.price' => 'required|numeric|min:0',
             'cart.*.subtotal' => 'required|numeric|min:0',
+            'cart.*.subscription_start_date' => 'nullable|date',
+            'cart.*.subscription_end_date' => 'nullable|date',
             'client_id' => 'nullable|integer', // Removed exists check (using mock clients)
             'total' => 'nullable|numeric|min:0',
         ]);
@@ -357,8 +362,21 @@ class PosController extends Controller
      */
     public function processPayment(Request $request, PosSession $session)
     {
+        Log::info('🔵 [POS DEBUG] processPayment INICIADO', [
+            'session_id' => $session->id,
+            'user_id' => Auth::id(),
+            'request_has_cart' => $request->has('cart'),
+            'request_has_payments' => $request->has('payments'),
+        ]);
+
         // Verify session
         if ($session->user_id !== Auth::id() || ! $session->isOpen()) {
+            Log::error('❌ [POS DEBUG] Sesión inválida', [
+                'session_user' => $session->user_id,
+                'auth_user' => Auth::id(),
+                'is_open' => $session->isOpen(),
+            ]);
+
             return redirect()->route('pos.dashboard', $session->id)
                 ->with('error', 'Sesión inválida');
         }
@@ -377,20 +395,53 @@ class PosController extends Controller
 
         // Validate cart not empty
         if (empty($cart)) {
-            Log::warning('[POS] Carrito vacío');
 
             return back()->withErrors(['cart' => 'El carrito está vacío']);
         }
 
+        // DETECT SUBSCRIPTION PRODUCTS: Check if any product in cart is linked to a membership plan
+        $subscriptionProductIds = collect($cart)->pluck('product_id')->toArray();
+        Log::info('🔍 [POS DEBUG] Detectando suscripciones', [
+            'product_ids' => $subscriptionProductIds,
+        ]);
+
+        $membershipPlans = MembershipPlan::whereIn('product_product_id', $subscriptionProductIds)->get();
+        $hasSubscription = $membershipPlans->isNotEmpty();
+
+        Log::info('🔍 [POS DEBUG] Resultado detección', [
+            'has_subscription' => $hasSubscription,
+            'plans_found' => $membershipPlans->count(),
+            'plans' => $membershipPlans->pluck('name'),
+        ]);
+
+        // VALIDATE: Client is required for subscriptions
+        if ($hasSubscription && empty($validated['client_id'])) {
+            Log::warning('❌ [POS] Intento de venta de suscripción sin cliente', [
+                'cart' => $cart,
+            ]);
+
+            return back()->withErrors([
+                'error' => 'Se requiere seleccionar un cliente para vender suscripciones',
+            ]);
+        }
+
         $paymentsTotal = (float) collect($payments)->sum('amount');
 
+        Log::info('💰 [POS DEBUG] Iniciando transacción', [
+            'payments_total' => $paymentsTotal,
+        ]);
+
         try {
-            DB::transaction(function () use ($validated, $cart, $payments, $session) {
+            DB::transaction(function () use ($validated, $cart, $payments, $session, $hasSubscription, $membershipPlans) {
+                Log::info('🔄 [POS DEBUG] Dentro de transacción DB');
+
                 // 1. Get journal
                 $journal = \App\Models\Journal::findOrFail($validated['journal_id']);
+                Log::info('✅ [POS DEBUG] Journal encontrado', ['journal_id' => $journal->id]);
 
                 // 2. Generate document number
                 $numberParts = \App\Services\SequenceService::getNextParts($journal->id);
+                Log::info('✅ [POS DEBUG] Número generado', $numberParts);
 
                 $posConfig = $session->posConfig()->with('tax')->first();
                 $applyTax = (bool) ($posConfig?->apply_tax ?? true);
@@ -399,6 +450,7 @@ class PosController extends Controller
                 $taxRate = $applyTax && $tax ? (float) $tax->rate_percent : 0.0;
 
                 // 4. Create Sale
+                Log::info('📝 [POS DEBUG] Creando Sale...');
                 $sale = \App\Models\Sale::create([
                     'serie' => $numberParts['serie'],
                     'correlative' => $numberParts['correlative'],
@@ -414,6 +466,11 @@ class PosController extends Controller
                     'tax_amount' => 0,
                     'total' => 0,
                     'notes' => null,
+                ]);
+
+                Log::info('✅ [POS DEBUG] Sale creado!', [
+                    'sale_id' => $sale->id,
+                    'document_number' => $sale->document_number,
                 ]);
 
                 // 5. Create product lines and calculate totals
@@ -508,11 +565,100 @@ class PosController extends Controller
                         "Venta {$sale->document_number}"
                     );
                 }
+
+                // 9. CREATE MEMBERSHIP SUBSCRIPTIONS (if any)
+                if ($hasSubscription && ! empty($validated['client_id'])) {
+                    Log::info('🎫 [POS DEBUG] Entrando a creación de suscripciones', [
+                        'client_id' => $validated['client_id'],
+                        'cart_count' => count($cart),
+                    ]);
+
+                    foreach ($cart as $item) {
+                        Log::info('🔍 [POS DEBUG] Procesando item del carrito', [
+                            'product_id' => $item['product_id'],
+                            'name' => $item['name'] ?? 'Sin nombre',
+                        ]);
+
+                        $plan = $membershipPlans->firstWhere('product_product_id', $item['product_id']);
+
+                        if ($plan) {
+                            Log::info('✅ [POS DEBUG] Plan encontrado para producto', [
+                                'plan_id' => $plan->id,
+                                'plan_name' => $plan->name,
+                            ]);
+
+                            try {
+                                $firstPayment = $payments[0] ?? null;
+                                
+                                // Use custom dates from cart if provided, otherwise auto-calculate
+                                if (!empty($item['subscription_start_date']) && !empty($item['subscription_end_date'])) {
+                                    $startDate = Carbon::parse($item['subscription_start_date']);
+                                    $endDate = Carbon::parse($item['subscription_end_date']);
+                                    
+                                    Log::info('📅 [POS DEBUG] Usando fechas personalizadas del carrito', [
+                                        'start_date' => $startDate->toDateString(),
+                                        'end_date' => $endDate->toDateString(),
+                                    ]);
+                                } else {
+                                    $startDate = Carbon::now();
+                                    $endDate = Carbon::now()->addDays($plan->duration_days);
+                                    
+                                    Log::info('📅 [POS DEBUG] Generando fechas automáticamente', [
+                                        'start_date' => $startDate->toDateString(),
+                                        'end_date' => $endDate->toDateString(),
+                                    ]);
+                                }
+
+                                $subscription = MembershipSubscription::create([
+                                    'partner_id' => $validated['client_id'],
+                                    'membership_plan_id' => $plan->id,
+                                    'company_id' => $session->posConfig->company_id,
+                                    'start_date' => $startDate,
+                                    'end_date' => $endDate,
+                                    'original_end_date' => $endDate, // Required field for freeze tracking
+                                    'status' => 'active',
+                                    'amount_paid' => $item['price'] ?? $plan->price,
+                                    'payment_method' => $firstPayment['payment_method_id'] ?? 'efectivo',
+                                    'payment_reference' => "Venta {$sale->document_number}",
+                                    'sold_by' => Auth::id(),
+                                    'remaining_freeze_days' => $plan->max_freeze_days ?? 0,
+                                ]);
+
+                                Log::info('🎉 [POS] Suscripción creada', [
+                                    'subscription_id' => $subscription->id,
+                                    'plan' => $plan->name,
+                                    'partner_id' => $validated['client_id'],
+                                    'sale' => $sale->document_number,
+                                ]);
+                            } catch (\Exception $e) {
+                                Log::error('❌ [POS ERROR] Error creando suscripción', [
+                                    'error' => $e->getMessage(),
+                                    'line' => $e->getLine(),
+                                    'plan_id' => $plan->id,
+                                ]);
+                                throw $e; // Re-throw para que la transacción haga rollback
+                            }
+                        } else {
+                            Log::info('ℹ️  [POS DEBUG] Item no es plan de membresía', [
+                                'product_id' => $item['product_id'],
+                            ]);
+                        }
+                    }
+
+                    // AUTO-MARK as member: Update partner's is_member flag to true
+                    Log::info('👤 [POS DEBUG] Marcando partner como miembro...');
+                    Partner::where('id', $validated['client_id'])
+                        ->update(['is_member' => true]);
+
+                    Log::info('✅ [POS] Partner marcado como miembro', [
+                        'partner_id' => $validated['client_id'],
+                    ]);
+                }
             });
 
             $lastSale = DB::table('sales')->latest('id')->first();
             Log::info('[POS] Venta creada exitosamente', [
-                'document' => $lastSale->serie . '-' . $lastSale->correlative,
+                'document' => $lastSale->serie.'-'.$lastSale->correlative,
                 'total' => $lastSale->total,
             ]);
 
@@ -520,7 +666,7 @@ class PosController extends Controller
                 ->with('success', 'Venta procesada exitosamente');
         } catch (\Exception $e) {
             return back()->withErrors([
-                'error' => 'Error al procesar la venta: ' . $e->getMessage(),
+                'error' => 'Error al procesar la venta: '.$e->getMessage(),
             ]);
         }
     }

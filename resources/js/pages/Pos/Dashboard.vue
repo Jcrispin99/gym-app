@@ -64,6 +64,8 @@ interface Product {
     category_id: number;
     image?: string;
     duration?: string;
+    subscription_start_date?: string; // For subscription products
+    subscription_end_date?: string;   // For subscription products
 }
 
 interface CartItem {
@@ -72,6 +74,8 @@ interface CartItem {
     qty: number;
     price: number;
     subtotal: number;
+    subscription_start_date?: string; // For subscription products
+    subscription_end_date?: string;   // For subscription products
 }
 
 interface PaymentMethod {
@@ -92,6 +96,24 @@ interface Client {
     dni?: string;
     email?: string;
     phone?: string;
+}
+
+interface MembershipPlan {
+    id: number;
+    name: string;
+    description: string;
+    duration_days: number;
+    price: number;
+    product_product_id: number;
+    product_name: string;
+    max_entries_per_month: number | null;
+    max_entries_per_day: number;
+    time_restricted: boolean;
+    allowed_time_start: string | null;
+    allowed_time_end: string | null;
+    allowed_days: string[] | null;
+    allows_freezing: boolean;
+    max_freeze_days: number;
 }
 
 interface PosSession {
@@ -182,6 +204,13 @@ const clearPersistedData = () => {
 const cart = ref<CartItem[]>([]);
 const showCloseModal = ref<boolean>(false);
 const showClientModal = ref<boolean>(false);
+// Subscriptions Modal State
+const showSubscriptionsModal = ref<boolean>(false);
+const membershipPlans = ref<MembershipPlan[]>([]);
+const isLoadingPlans = ref<boolean>(false);
+const selectedPlan = ref<MembershipPlan | null>(null);
+const subscriptionStartDate = ref<string>('');
+const subscriptionEndDate = ref<string>('');
 const selectedClient = ref<Client | null>(null);
 const clientSearchQuery = ref<string>('');
 const showCreateClient = ref<boolean>(false);
@@ -304,13 +333,22 @@ const addToCart = (product: Product) => {
         existing.qty++;
         existing.subtotal = existing.qty * existing.price;
     } else {
-        cart.value.push({
+        const cartItem: CartItem = {
             product_id: product.id,
             name: product.name,
             qty: 1,
             price: product.price,
             subtotal: product.price,
-        });
+        };
+        
+        if (product.subscription_start_date) {
+            cartItem.subscription_start_date = product.subscription_start_date;
+        }
+        if (product.subscription_end_date) {
+            cartItem.subscription_end_date = product.subscription_end_date;
+        }
+        
+        cart.value.push(cartItem);
     }
 };
 
@@ -335,8 +373,7 @@ const removeFromCart = (productId: number) => {
 
 const processPayment = () => {
     if (cart.value.length === 0) return;
-
-    // Navigate to payment view
+    
     router.post(`/pos/${props.session.id}/payment`, {
         cart: cart.value,
         client_id: selectedClient.value?.id || null,
@@ -388,6 +425,76 @@ const selectClient = (client: Client) => {
 
 const clearClient = () => {
     selectedClient.value = null;
+};
+
+const openSubscriptionsModal = async () =>{
+    showSubscriptionsModal.value = true;
+    selectedPlan.value = null;
+    subscriptionStartDate.value = new Date().toISOString().split('T')[0];
+    subscriptionEndDate.value = '';
+    await loadMembershipPlans();
+};
+
+const loadMembershipPlans = async () => {
+    isLoadingPlans.value = true;
+    try {
+        const response = await fetch('/api/pos/membership-plans');
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        const data = await response.json();
+        membershipPlans.value = data;
+    } catch (e) {
+        console.error('❌ [ERROR] Error loading membership plans:', e);
+        membershipPlans.value = [];
+    } finally {
+        isLoadingPlans.value = false;
+    }
+};
+
+// Calculate end date based on start date and plan duration
+const calculateEndDate = (startDate: string, durationDays: number): string => {
+    const start = new Date(startDate);
+    const end = new Date(start);
+    end.setDate(end.getDate() + durationDays);
+    return end.toISOString().split('T')[0];
+};
+
+// Handle plan selection (doesn't add to cart yet, just selects the plan)
+const selectSubscriptionPlan = (plan: MembershipPlan) => {
+    selectedPlan.value = plan;
+    subscriptionEndDate.value = calculateEndDate(subscriptionStartDate.value, plan.duration_days);
+};
+
+const onStartDateChange = () => {
+    if (selectedPlan.value && subscriptionStartDate.value) {
+        subscriptionEndDate.value = calculateEndDate(subscriptionStartDate.value, selectedPlan.value.duration_days);
+    }
+};
+
+const addSubscriptionToCart = () => {
+    if (!selectedPlan.value) return;
+    
+    const plan = selectedPlan.value;
+    
+    addToCart({
+        id: plan.product_product_id,
+        name: plan.product_name,
+        price: plan.price,
+        category_id: 0,
+        duration: `${plan.duration_days} días`,
+        subscription_start_date: subscriptionStartDate.value,
+        subscription_end_date: subscriptionEndDate.value,
+    });
+    
+    showSubscriptionsModal.value = false;
+    selectedPlan.value = null;
+    
+    // Si no hay cliente seleccionado, abrir modal de clientes
+    if (!selectedClient.value) {
+        setTimeout(() => {
+            openClientModal();
+        }, 200);
+    }
 };
 
 const csrfToken = () => {
@@ -637,7 +744,12 @@ watch(
                     <WifiOff v-else class="h-5 w-5 text-red-600" />
                 </div>
 
-                <Button variant="outline" size="sm" type="button">
+                <Button 
+                    variant="outline" 
+                    size="sm" 
+                    type="button"
+                    @click="openSubscriptionsModal"
+                >
                     <CreditCard class="mr-2 h-4 w-4" />
                     Suscripciones
                 </Button>
@@ -1183,6 +1295,160 @@ watch(
                                             ? 'Guardando...'
                                             : 'Crear y seleccionar'
                                     }}
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </DialogContent>
+        </Dialog>
+
+        <!-- Subscriptions Modal -->
+        <Dialog v-model:open="showSubscriptionsModal">
+            <DialogContent 
+                class="inset-4 h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] max-w-none translate-x-0 translate-y-0 overflow-hidden p-0 sm:max-w-none"
+            >
+                <div class="flex h-full flex-col">
+                    <div class="flex items-start justify-between gap-4 border-b p-6">
+                        <div class="space-y-1">
+                            <h2 class="text-2xl font-bold">Planes de Membresía</h2>
+                            <p class="text-sm text-muted-foreground">
+                                Selecciona un plan para agregar al carrito
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="grid min-h-0 flex-1 gap-6 overflow-y-auto p-6">
+                        <!-- Step 1: No plan selected - show grid of plans -->
+                        <div v-if="!selectedPlan">
+                            <div 
+                                v-if="isLoadingPlans" 
+                                class="flex items-center justify-center py-16"
+                            >
+                                Cargando planes...
+                            </div>
+                            
+                            <div 
+                                v-else-if="membershipPlans.length === 0"
+                                class="flex items-center justify-center py-16 text-muted-foreground"
+                            >
+                                No hay planes disponibles
+                            </div>
+
+                            <div 
+                                v-else 
+                                class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3"
+                            >
+                                <Card
+                                    v-for="plan in membershipPlans"
+                                    :key="plan.id"
+                                    class="flex cursor-pointer flex-col p-6 transition-all hover:shadow-lg hover:border-primary"
+                                    @click="selectSubscriptionPlan(plan)"
+                                >
+                                    <div class="mb-3 flex items-start justify-between">
+                                        <h3 class="text-lg font-bold">{{ plan.name }}</h3>
+                                        <Badge variant="secondary">
+                                            {{ plan.duration_days }} días
+                                        </Badge>
+                                    </div>
+                                    
+                                    <p class="mb-4 flex-1 text-sm text-muted-foreground line-clamp-2">
+                                        {{ plan.description }}
+                                    </p>
+                                    
+                                    <div class="space-y-2 text-xs text-muted-foreground">
+                                        <div v-if="plan.max_entries_per_month" class="flex items-center gap-2">
+                                            <Badge variant="outline" class="text-xs">
+                                                {{ plan.max_entries_per_month }} entradas/mes
+                                            </Badge>
+                                        </div>
+                                        <div v-else class="flex items-center gap-2">
+                                            <Badge variant="outline" class="text-xs">
+                                                ✨ Entradas ilimitadas
+                                            </Badge>
+                                        </div>
+                                        
+                                        <div v-if="plan.time_restricted" class="flex items-center gap-2">
+                                            <Badge variant="outline" class="text-xs">
+                                                🕐 {{ plan.allowed_time_start }} - {{ plan.allowed_time_end }}
+                                            </Badge>
+                                        </div>
+                                    </div>
+                                    
+                                    <Separator class="my-4" />
+                                    
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-2xl font-bold text-primary">
+                                            S/ {{ plan.price.toFixed(2) }}
+                                        </span>
+                                        <Button size="sm" variant="default">
+                                            Seleccionar
+                                        </Button>
+                                    </div>
+                                </Card>
+                            </div>
+                        </div>
+
+                        <!-- Step 2: Plan selected - show date configuration -->
+                        <div v-else class="mx-auto w-full max-w-2xl space-y-6">
+                            <!-- Selected Plan Summary -->
+                            <Card class="p-6">
+                                <div class="mb-4 flex items-start justify-between">
+                                    <div>
+                                        <h3 class="text-2xl font-bold">{{ selectedPlan.name }}</h3>
+                                        <p class="text-sm text-muted-foreground">{{ selectedPlan.description }}</p>
+                                    </div>
+                                    <Button variant="ghost" size="sm" @click="selectedPlan = null">
+                                        Cambiar plan
+                                    </Button>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <Badge variant="secondary">{{ selectedPlan.duration_days }} días</Badge>
+                                    <span class="text-2xl font-bold text-primary">S/ {{ selectedPlan.price.toFixed(2) }}</span>
+                                </div>
+                            </Card>
+
+                            <!-- Date Configuration -->
+                            <Card class="p-6">
+                                <h4 class="mb-4 text-lg font-semibold">Configuración de Fechas</h4>
+                                
+                                <div class="space-y-4">
+                                    <!-- Start Date -->
+                                    <div class="space-y-2">
+                                        <label class="text-sm font-medium">Fecha de Inicio</label>
+                                        <input
+                                            type="date"
+                                            v-model="subscriptionStartDate"
+                                            @change="onStartDateChange"
+                                            :min="new Date().toISOString().split('T')[0]"
+                                            class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                        />
+                                    </div>
+
+                                    <!-- End Date (Read-only, auto-calculated) -->
+                                    <div class="space-y-2">
+                                        <label class="text-sm font-medium">Fecha de Fin (calculada automáticamente)</label>
+                                        <input
+                                            type="date"
+                                            v-model="subscriptionEndDate"
+                                            readonly
+                                            disabled
+                                            class="flex h-10 w-full rounded-md border border-input bg-muted px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                        />
+                                        <p class="text-xs text-muted-foreground">
+                                            La suscripción durará {{ selectedPlan.duration_days }} días desde la fecha de inicio
+                                        </p>
+                                    </div>
+                                </div>
+                            </Card>
+
+                            <!-- Add to Cart Button -->
+                            <div class="flex gap-3">
+                                <Button variant="outline" class="flex-1" @click="selectedPlan = null">
+                                    Cancelar
+                                </Button>
+                                <Button class="flex-1" @click="addSubscriptionToCart">
+                                    Agregar al Carrito
                                 </Button>
                             </div>
                         </div>

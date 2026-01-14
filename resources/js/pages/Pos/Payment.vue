@@ -24,6 +24,8 @@ interface CartItem {
     qty: number;
     price: number;
     subtotal: number;
+    subscription_start_date?: string; // For subscription products
+    subscription_end_date?: string;   // For subscription products
 }
 
 interface Client {
@@ -111,14 +113,6 @@ interface Props {
 }
 
 const props = defineProps<Props>();
-
-// DEBUG: Ver qué llega en props
-console.log('🔍 [Payment Debug] Props recibidos:', {
-    session: props.session,
-    'session.pos_config': (props.session as any)?.pos_config,
-    'session.pos_config.name': (props.session as any)?.pos_config?.name,
-    company: props.company,
-});
 
 // Clients from API (hybrid: initialized with server data, refreshable)
 const clients = ref<Client[]>(props.customers);
