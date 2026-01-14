@@ -16,29 +16,14 @@ class MemberController extends Controller
      */
     public function index(Request $request)
     {
-        $view = $request->input('view', 'members');
-        $allowedViews = ['members', 'customers', 'suppliers'];
-        if (! in_array($view, $allowedViews, true)) {
-            $view = 'members';
-        }
-
-        $query = Partner::query()
+        $members = Partner::query()
             ->with(['company', 'user'])
-            ->latest();
-
-        if ($view === 'members') {
-            $query->members();
-        } elseif ($view === 'customers') {
-            $query->customers()->where('is_member', false);
-        } elseif ($view === 'suppliers') {
-            $query->suppliers();
-        }
-
-        $members = $query->get();
+            ->latest()
+            ->members()
+            ->get();
 
         return Inertia::render('Members/Index', [
             'members' => $members,
-            'view' => $view,
         ]);
     }
 

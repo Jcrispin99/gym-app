@@ -38,7 +38,7 @@ interface Company {
     trade_name: string;
 }
 
-interface Member {
+interface Customer {
     id: number;
     document_number: string;
     first_name: string;
@@ -52,35 +52,35 @@ interface Member {
 }
 
 interface Props {
-    members: Member[];
+    customers: Customer[];
 }
 
 const props = defineProps<Props>();
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Miembros', href: '/members' },
+    { title: 'Clientes', href: '/customers' },
 ];
 
 const deleteDialogOpen = ref(false);
-const memberToDelete = ref<Member | null>(null);
+const customerToDelete = ref<Customer | null>(null);
 
 // Search and multi-select filters
 const searchQuery = ref('');
 const selectedStatuses = ref<string[]>([]);
 const selectedPortalFilters = ref<string[]>([]);
 
-const openDeleteDialog = (member: Member) => {
-    memberToDelete.value = member;
+const openDeleteDialog = (customer: Customer) => {
+    customerToDelete.value = customer;
     deleteDialogOpen.value = true;
 };
 
-const deleteMember = () => {
-    if (memberToDelete.value) {
-        router.delete(`/members/${memberToDelete.value.id}`, {
+const deleteCustomer = () => {
+    if (customerToDelete.value) {
+        router.delete(`/customers/${customerToDelete.value.id}`, {
             onSuccess: () => {
                 deleteDialogOpen.value = false;
-                memberToDelete.value = null;
+                customerToDelete.value = null;
             },
         });
     }
@@ -103,18 +103,18 @@ const getStatusBadge = (status: string) => {
     return badges[status] || badges.active;
 };
 
-// Filtered members with multi-select checkboxes
-const filteredMembers = computed(() => {
-    let filtered = props.members;
+// Filtered customers with multi-select checkboxes
+const filteredCustomers = computed(() => {
+    let filtered = props.customers;
 
     // Search filter
     if (searchQuery.value) {
         const query = searchQuery.value.toLowerCase();
-        filtered = filtered.filter(member =>
-            member.first_name.toLowerCase().includes(query) ||
-            member.last_name.toLowerCase().includes(query) ||
-            member.document_number.toLowerCase().includes(query) ||
-            member.email?.toLowerCase().includes(query)
+        filtered = filtered.filter(customer =>
+            customer.first_name.toLowerCase().includes(query) ||
+            customer.last_name.toLowerCase().includes(query) ||
+            customer.document_number.toLowerCase().includes(query) ||
+            customer.email?.toLowerCase().includes(query)
         );
     }
 
@@ -125,7 +125,7 @@ const filteredMembers = computed(() => {
 
     // Portal access filter (multiple selection)
     if (selectedPortalFilters.value.length > 0) {
-        let portalFiltered: Member[] = [];
+        let portalFiltered: Customer[] = [];
         if (selectedPortalFilters.value.includes('with_portal')) {
             portalFiltered = [...portalFiltered, ...filtered.filter(m => m.user_id !== null)];
         }
@@ -147,21 +147,21 @@ const activeFiltersCount = computed(() => {
 </script>
 
 <template>
-    <Head title="Miembros" />
+    <Head title="Clientes" />
 
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex flex-col gap-4 p-4">
             <!-- Header -->
             <div class="flex items-center justify-between">
                 <div>
-                    <h1 class="text-3xl font-bold tracking-tight">Miembros</h1>
+                    <h1 class="text-3xl font-bold tracking-tight">Clientes</h1>
                     <p class="text-muted-foreground">
-                        Gestiona los miembros del gimnasio
+                        Gestiona los clientes del gimnasio
                     </p>
                 </div>
-                <Button @click="router.visit('/members/create')">
+                <Button @click="router.visit('/customers/create')">
                     <UserPlus class="mr-2 h-4 w-4" />
-                    Nuevo Miembro
+                    Nuevo Cliente
                 </Button>
             </div>
 
@@ -170,12 +170,12 @@ const activeFiltersCount = computed(() => {
                 <Card>
                     <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle class="text-sm font-medium">
-                            Total Miembros
+                            Total Clientes
                         </CardTitle>
                         <Users class="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div class="text-2xl font-bold">{{ filteredMembers.length }}</div>
+                        <div class="text-2xl font-bold">{{ filteredCustomers.length }}</div>
                         <p class="text-xs text-muted-foreground">
                             Registrados
                         </p>
@@ -191,10 +191,10 @@ const activeFiltersCount = computed(() => {
                     </CardHeader>
                     <CardContent>
                         <div class="text-2xl font-bold">
-                            {{ filteredMembers.filter(m => m.status === 'active').length }}
+                            {{ filteredCustomers.filter(m => m.status === 'active').length }}
                         </div>
                         <p class="text-xs text-muted-foreground">
-                            miembros activos
+                            clientes activos
                         </p>
                     </CardContent>
                 </Card>
@@ -208,7 +208,7 @@ const activeFiltersCount = computed(() => {
                     </CardHeader>
                     <CardContent>
                         <div class="text-2xl font-bold">
-                            {{ filteredMembers.filter(m => m.status === 'suspended').length }}
+                            {{ filteredCustomers.filter(m => m.status === 'suspended').length }}
                         </div>
                         <p class="text-xs text-muted-foreground">
                             Suspendidos
@@ -217,15 +217,15 @@ const activeFiltersCount = computed(() => {
                 </Card>
             </div>
 
-            <!-- Members Table -->
+            <!-- Customers Table -->
             <Card>
                 <CardHeader>
                     <div class="flex items-start justify-between gap-4">
                         <!-- Title + Description (Left) -->
                         <div>
-                            <CardTitle>Listado de Miembros</CardTitle>
+                            <CardTitle>Listado de Clientes</CardTitle>
                             <CardDescription>
-                                Mostrando {{ filteredMembers.length }} de {{ members.length }} miembros
+                                Mostrando {{ filteredCustomers.length }} de {{ customers.length }} clientes
                             </CardDescription>
                         </div>
 
@@ -261,7 +261,7 @@ const activeFiltersCount = computed(() => {
                                             <label class="flex items-center gap-2 cursor-pointer">
                                                 <Checkbox
                                                     :checked="selectedStatuses.includes('active')"
-                                                    @update:checked="(checked: boolean) => {
+                                                    @update:checked="(checked: any) => {
                                                         selectedStatuses = checked 
                                                             ? [...selectedStatuses, 'active']
                                                             : selectedStatuses.filter(s => s !== 'active');
@@ -272,7 +272,7 @@ const activeFiltersCount = computed(() => {
                                             <label class="flex items-center gap-2 cursor-pointer">
                                                 <Checkbox
                                                     :checked="selectedStatuses.includes('inactive')"
-                                                    @update:checked="(checked: boolean) => {
+                                                    @update:checked="(checked: any) => {
                                                         selectedStatuses = checked 
                                                             ? [...selectedStatuses, 'inactive']
                                                             : selectedStatuses.filter(s => s !== 'inactive');
@@ -283,7 +283,7 @@ const activeFiltersCount = computed(() => {
                                             <label class="flex items-center gap-2 cursor-pointer">
                                                 <Checkbox
                                                     :checked="selectedStatuses.includes('suspended')"
-                                                    @update:checked="(checked: boolean) => {
+                                                    @update:checked="(checked: any) => {
                                                         selectedStatuses = checked 
                                                             ? [...selectedStatuses, 'suspended']
                                                             : selectedStatuses.filter(s => s !== 'suspended');
@@ -294,43 +294,14 @@ const activeFiltersCount = computed(() => {
                                         </div>
                                     </div>
 
-                                    <div class="border-t my-2"></div>
 
-                                    <!-- Portal Filters -->
-                                    <div class="px-2 py-1.5">
-                                        <p class="text-xs font-semibold text-muted-foreground mb-2">Acceso Portal</p>
-                                        <div class="space-y-2">
-                                            <label class="flex items-center gap-2 cursor-pointer">
-                                                <Checkbox
-                                                    :checked="selectedPortalFilters.includes('with_portal')"
-                                                    @update:checked="(checked: boolean) => {
-                                                        selectedPortalFilters = checked 
-                                                            ? [...selectedPortalFilters, 'with_portal']
-                                                            : selectedPortalFilters.filter(f => f !== 'with_portal');
-                                                    }"
-                                                />
-                                                <span class="text-sm">Con acceso</span>
-                                            </label>
-                                            <label class="flex items-center gap-2 cursor-pointer">
-                                                <Checkbox
-                                                    :checked="selectedPortalFilters.includes('without_portal')"
-                                                    @update:checked="(checked: boolean) => {
-                                                        selectedPortalFilters = checked 
-                                                            ? [...selectedPortalFilters, 'without_portal']
-                                                            : selectedPortalFilters.filter(f => f !== 'without_portal');
-                                                    }"
-                                                />
-                                                <span class="text-sm">Sin acceso</span>
-                                            </label>
-                                        </div>
-                                    </div>
                                 </SelectContent>
                             </Select>
                         </div>
                     </div>
                 </CardHeader>
                 <CardContent>
-                    <Table v-if="filteredMembers.length > 0">
+                    <Table v-if="filteredCustomers.length > 0">
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Documento</TableHead>
@@ -338,67 +309,52 @@ const activeFiltersCount = computed(() => {
                                 <TableHead>Email</TableHead>
                                 <TableHead>Teléfono</TableHead>
                                 <TableHead>Compañía</TableHead>
-                                <TableHead>Portal</TableHead>
                                 <TableHead>Estado</TableHead>
                                 <TableHead>Registro</TableHead>
                                 <TableHead class="text-right">Acciones</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            <TableRow v-for="member in filteredMembers" :key="member.id">
+                            <TableRow v-for="customer in filteredCustomers" :key="customer.id">
                                 <TableCell class="font-medium">
-                                    {{ member.document_number }}
+                                    {{ customer.document_number }}
                                 </TableCell>
                                 <TableCell>
-                                    {{ member.first_name }} {{ member.last_name }}
+                                    {{ customer.first_name }} {{ customer.last_name }}
                                 </TableCell>
                                 <TableCell>
-                                    {{ member.email || '-' }}
+                                    {{ customer.email || '-' }}
                                 </TableCell>
                                 <TableCell>
-                                    {{ member.phone || '-' }}
+                                    {{ customer.phone || '-' }}
                                 </TableCell>
                                 <TableCell>
-                                    {{ member.company?.trade_name || '-' }}
-                                </TableCell>
-                                <TableCell>
-                                    <span 
-                                        v-if="member.user_id"
-                                        class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-green-100 text-green-800"
-                                    >
-                                        ✓ Activo
-                                    </span>
-                                    <span 
-                                        v-else
-                                        class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-gray-100 text-gray-600"
-                                    >
-                                        Sin acceso
-                                    </span>
+                                    {{ customer.company?.trade_name || '-' }}
                                 </TableCell>
                                 <TableCell>
                                     <span 
                                         class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
-                                        :class="getStatusBadge(member.status)"
+                                        :class="getStatusBadge(customer.status)"
                                     >
-                                        {{ member.status }}
+                                        {{ customer.status }}
                                     </span>
                                 </TableCell>
                                 <TableCell>
-                                    {{ formatDate(member.created_at) }}
+                                    {{ formatDate(customer.created_at) }}
                                 </TableCell>
                                 <TableCell class="text-right">
                                     <div class="flex justify-end gap-2">
                                         <Button
                                             variant="ghost"
                                             size="sm"
-                                            @click="router.visit(`/members/${member.id}/edit`)"
+                                            @click="router.visit(`/customers/${customer.id}/edit`)"
                                         >
                                             <Edit class="h-4 w-4" />
                                         </Button>
                                         <Button
                                             variant="ghost"
                                             size="sm"
-                                            @click="openDeleteDialog(member)"
+                                            @click="openDeleteDialog(customer)"
                                         >
                                             <Trash2 class="h-4 w-4 text-red-500" />
                                         </Button>
@@ -408,7 +364,7 @@ const activeFiltersCount = computed(() => {
                         </TableBody>
                     </Table>
                     <div v-else class="py-10 text-center text-muted-foreground">
-                        No hay miembros registrados
+                        No hay clientes registrados
                     </div>
                 </CardContent>
             </Card>
@@ -419,16 +375,16 @@ const activeFiltersCount = computed(() => {
                     <AlertDialogHeader>
                         <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
                         <AlertDialogDescription>
-                            Esta acción eliminará permanentemente al miembro
-                            <strong v-if="memberToDelete">
-                                {{ memberToDelete.first_name }} {{ memberToDelete.last_name }}
+                            Esta acción eliminará permanentemente al cliente
+                            <strong v-if="customerToDelete">
+                                {{ customerToDelete.first_name }} {{ customerToDelete.last_name }}
                             </strong>.
                             Esta acción no se puede deshacer.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction @click="deleteMember">
+                        <AlertDialogAction @click="deleteCustomer">
                             Eliminar
                         </AlertDialogAction>
                     </AlertDialogFooter>

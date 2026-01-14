@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import CompanySwitcher from '@/components/CompanySwitcher.vue';
+
 import NavFooter from '@/components/NavFooter.vue';
 import NavUser from '@/components/NavUser.vue';
 import {
@@ -60,6 +60,8 @@ const membershipPlans = () => ({ url: '/membership-plans', method: 'get' as cons
 const attendances = () => ({ url: '/attendances', method: 'get' as const });
 const journals = () => ({ url: '/journals', method: 'get' as const });
 const taxes = () => ({ url: '/taxes', method: 'get' as const });
+const suppliers = () => ({ url: '/suppliers', method: 'get' as const });
+const customers = () => ({ url: '/customers', method: 'get' as const });
 
 // Inventario routes (placeholder - to be implemented)
 const categories = () => ({ url: '/categories', method: 'get' as const });
@@ -75,6 +77,7 @@ const dashboardItem: NavItem = {
     href: dashboard(),
     icon: LayoutDashboard,
 };
+
 
 // Gym section
 const gymItems: NavItem[] = [
@@ -126,6 +129,11 @@ const purchaseItems: NavItem[] = [
         href: purchases(),
         icon: ShoppingCart,
     },
+    {
+        title: 'Proveedores',
+        href: suppliers(),
+        icon: Users,
+    },
 ];
 
 // Ventas section
@@ -134,6 +142,11 @@ const salesItems: NavItem[] = [
         title: 'POS',
         href: posConfigs(),
         icon: Store,
+    },
+    {
+        title: 'Clientes',
+        href: customers(),
+        icon: Users,
     },
 ];
 
@@ -178,14 +191,9 @@ const footerNavItems: NavItem[] = [
 <template>
     <Sidebar collapsible="icon" variant="inset">
         <SidebarHeader>
-            <CompanySwitcher />
             <SidebarMenu>
                 <SidebarMenuItem>
-                    <SidebarMenuButton size="lg" as-child>
-                        <Link :href="dashboard()">
-                            <AppLogo />
-                        </Link>
-                    </SidebarMenuButton>
+                    <AppLogo />
                 </SidebarMenuItem>
             </SidebarMenu>
         </SidebarHeader>

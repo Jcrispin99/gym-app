@@ -32,7 +32,7 @@ Route::middleware(['auth'])->group(function () {
 Route::middleware(['auth'])->group(function () {
     Route::get('/api/companies', [\App\Http\Controllers\CompanyController::class, 'index'])->name('companies.index');
     Route::post('/api/companies/switch', [\App\Http\Controllers\CompanyController::class, 'switch'])->name('companies.switch');
-    
+
     // Product search API
     Route::get('/api/products/search', [\App\Http\Controllers\Api\ProductApiController::class, 'search'])->name('products.search');
     Route::get('/api/products/{id}', [\App\Http\Controllers\Api\ProductApiController::class, 'show'])->name('products.show');
@@ -52,17 +52,24 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('users/{user}', [\App\Http\Controllers\UserController::class, 'destroy'])->name('users.destroy');
 });
 
-// Members (Customers) routes
+// Members routes
 Route::middleware(['auth', 'staff'])->group(function () {
     Route::resource('members', \App\Http\Controllers\MemberController::class);
     Route::post('members/{member}/activate-portal', [\App\Http\Controllers\MemberController::class, 'activatePortal'])
         ->name('members.activate-portal');
 });
 
+// Customers routes
+Route::middleware(['auth', 'staff'])->group(function () {
+    Route::resource('customers', \App\Http\Controllers\CustomerController::class);
+    Route::post('customers/{customer}/activate-portal', [\App\Http\Controllers\CustomerController::class, 'activatePortal'])
+        ->name('customers.activate-portal');
+});
+
 // Membership Plans routes
 Route::middleware(['auth', 'staff'])->group(function () {
     Route::resource('membership-plans', \App\Http\Controllers\MembershipPlanController::class)->parameters([
-        'membership-plans' => 'membershipPlan'
+        'membership-plans' => 'membershipPlan',
     ]);
     Route::post('membership-plans/{membershipPlan}/toggle-status', [\App\Http\Controllers\MembershipPlanController::class, 'toggleStatus'])
         ->name('membership-plans.toggle-status');
@@ -124,7 +131,6 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('warehouses', \App\Http\Controllers\WarehouseController::class);
 });
 
-
 // Journals routes
 Route::middleware(['auth'])->group(function () {
     Route::resource('journals', \App\Http\Controllers\JournalController::class);
@@ -132,14 +138,12 @@ Route::middleware(['auth'])->group(function () {
         ->name('journals.reset-sequence');
 });
 
-
 // Taxes routes
 Route::middleware(['auth'])->group(function () {
     Route::resource('taxes', \App\Http\Controllers\TaxController::class);
     Route::post('taxes/{tax}/toggle-status', [\App\Http\Controllers\TaxController::class, 'toggleStatus'])
         ->name('taxes.toggle-status');
 });
-
 
 // Purchases routes
 Route::middleware(['auth'])->group(function () {
@@ -150,6 +154,11 @@ Route::middleware(['auth'])->group(function () {
         ->name('purchases.cancel');
 });
 
+// Suppliers routes
+Route::middleware(['auth'])->group(function () {
+    Route::resource('suppliers', \App\Http\Controllers\SupplierController::class);
+});
+
 // Sales routes
 Route::middleware(['auth'])->group(function () {
     Route::resource('sales', \App\Http\Controllers\SaleController::class);
@@ -158,7 +167,6 @@ Route::middleware(['auth'])->group(function () {
     Route::post('sales/{sale}/cancel', [\App\Http\Controllers\SaleController::class, 'cancel'])
         ->name('sales.cancel');
 });
-
 
 // POS Configs routes
 Route::middleware(['auth'])->group(function () {
@@ -187,7 +195,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('pos/{session}/process', [\App\Http\Controllers\Pos\PosController::class, 'processPayment'])->name('pos.process');
     Route::get('pos/{session}/close', [\App\Http\Controllers\Pos\PosController::class, 'close'])->name('pos.close');
     Route::post('pos/{session}/close', [\App\Http\Controllers\Pos\PosController::class, 'storeClose'])->name('pos.storeClose');
-    
+
     // POS API endpoints
     Route::get('api/pos/customers', [\App\Http\Controllers\Pos\PosController::class, 'apiCustomers'])->name('api.pos.customers');
     Route::get('api/pos/partners/lookup', [\App\Http\Controllers\Pos\PosController::class, 'apiPartnerLookup'])->name('api.pos.partners.lookup');
