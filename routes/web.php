@@ -79,6 +79,10 @@ Route::middleware(['auth', 'staff'])->group(function () {
 
 // Subscriptions routes
 Route::middleware(['auth', 'staff'])->group(function () {
+    Route::get('subscriptions', [\App\Http\Controllers\SubscriptionController::class, 'index'])
+        ->name('subscriptions.index');
+    Route::get('subscriptions/{subscription}', [\App\Http\Controllers\SubscriptionController::class, 'show'])
+        ->name('subscriptions.show');
     Route::post('subscriptions', [\App\Http\Controllers\SubscriptionController::class, 'store'])
         ->name('subscriptions.store');
     Route::post('subscriptions/{subscription}/freeze', [\App\Http\Controllers\SubscriptionController::class, 'freeze'])
@@ -124,7 +128,7 @@ Route::middleware(['auth', 'staff'])->group(function () {
         ->name('attendances.checkOut');
 });
 
-require __DIR__.'/settings.php';
+require __DIR__ . '/settings.php';
 
 // Warehouses routes
 Route::middleware(['auth'])->group(function () {

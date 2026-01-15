@@ -119,6 +119,8 @@ class MembershipSubscription extends Model
 
     public function canEntry(): bool
     {
+        $this->applyScheduledFreezeIfNeeded();
+
         if (! $this->isActive()) {
             return false;
         }
@@ -227,6 +229,77 @@ class MembershipSubscription extends Model
     public function unfreeze(): void
     {
         $this->status = 'active';
+        $this->save();
+    }
+
+    public function freezeWithDates(Carbon $freezeStartDate, Carbon $freezeEndDate, ?string $reason = null, ?int $userId = null): MembershipFreeze
+    {
+        if (! in_array($this->status, ['active'])) {
+            throw new \DomainException('Solo se pueden congelar suscripciones activas.');
+        }
+
+        if (! $this->plan->allows_freezing) {
+            throw new \DomainException('Este plan no permite congelamiento.');
+        }
+
+        if ($this->freezes()->where('status', 'active')->exists()) {
+            throw new \DomainException('Ya existe un congelamiento activo para esta suscripción.');
+        }
+
+        $freezeStartDate = $freezeStartDate->copy()->startOfDay();
+        $freezeEndDate = $freezeEndDate->copy()->startOfDay();
+        $plannedDays = $freezeStartDate->diffInDays($freezeEndDate);
+
+        if ($plannedDays < 1) {
+            throw new \DomainException('El rango de congelamiento debe ser de al menos 1 día.');
+        }
+
+        if ($plannedDays > $this->remaining_freeze_days) {
+            throw new \DomainException("Solo quedan {$this->remaining_freeze_days} días de congelamiento disponibles.");
+        }
+
+        $this->remaining_freeze_days -= $plannedDays;
+        $this->save();
+
+        if ($freezeStartDate->lessThanOrEqualTo(now()->startOfDay())) {
+            $this->end_date = $this->end_date->copy()->addDays($plannedDays);
+            $this->status = 'frozen';
+            $this->save();
+        }
+
+        return $this->freezes()->create([
+            'freeze_start_date' => $freezeStartDate,
+            'freeze_end_date' => $freezeEndDate,
+            'days_frozen' => 0,
+            'planned_days' => $plannedDays,
+            'reason' => $reason,
+            'requested_by' => $userId,
+            'approved_by' => $userId,
+            'status' => 'active',
+        ]);
+    }
+
+    public function applyScheduledFreezeIfNeeded(): void
+    {
+        if ($this->status !== 'active') {
+            return;
+        }
+
+        $today = now()->startOfDay();
+
+        $freeze = $this->freezes()
+            ->where('status', 'active')
+            ->whereDate('freeze_start_date', '<=', $today->toDateString())
+            ->whereDate('freeze_end_date', '>', $today->toDateString())
+            ->latest('id')
+            ->first();
+
+        if (! $freeze) {
+            return;
+        }
+
+        $this->end_date = $this->end_date->copy()->addDays((int) $freeze->planned_days);
+        $this->status = 'frozen';
         $this->save();
     }
 }

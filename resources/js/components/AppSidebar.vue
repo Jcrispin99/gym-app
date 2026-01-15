@@ -34,6 +34,7 @@ import {
     Percent,
     Settings,
     ShoppingCart,
+    Snowflake,
     Store,
     Tags,
     Users,
@@ -57,6 +58,7 @@ const companies = () => ({ url: '/companies', method: 'get' as const });
 const users = () => ({ url: '/users', method: 'get' as const });
 const members = () => ({ url: '/members', method: 'get' as const });
 const membershipPlans = () => ({ url: '/membership-plans', method: 'get' as const });
+const subscriptions = () => ({ url: '/subscriptions', method: 'get' as const });
 const attendances = () => ({ url: '/attendances', method: 'get' as const });
 const journals = () => ({ url: '/journals', method: 'get' as const });
 const taxes = () => ({ url: '/taxes', method: 'get' as const });
@@ -91,6 +93,11 @@ const gymItems: NavItem[] = [
         title: 'Planes',
         href: membershipPlans(),
         icon: CreditCard,
+    },
+    {
+        title: 'Suscripciones',
+        href: subscriptions(),
+        icon: Snowflake,
     },
     {
         title: 'Asistencias',
@@ -391,4 +398,3 @@ const footerNavItems: NavItem[] = [
     </Sidebar>
     <slot />
 </template>
-

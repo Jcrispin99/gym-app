@@ -5,10 +5,12 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class MembershipFreeze extends Model
 {
-    use HasFactory;
+    use HasFactory, LogsActivity;
 
     protected $fillable = [
         'membership_subscription_id',
@@ -26,6 +28,24 @@ class MembershipFreeze extends Model
         'freeze_start_date' => 'date',
         'freeze_end_date' => 'date',
     ];
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly([
+                'membership_subscription_id',
+                'freeze_start_date',
+                'freeze_end_date',
+                'days_frozen',
+                'planned_days',
+                'reason',
+                'requested_by',
+                'approved_by',
+                'status',
+            ])
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs();
+    }
 
     // Relationships
     public function subscription(): BelongsTo
