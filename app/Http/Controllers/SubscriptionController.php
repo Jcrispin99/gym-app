@@ -25,6 +25,8 @@ class SubscriptionController extends Controller
             'notes' => 'nullable|string',
         ]);
 
+        // ... existing subscription creation ...
+
         $partner = Partner::findOrFail($validated['partner_id']);
         $plan = MembershipPlan::findOrFail($validated['membership_plan_id']);
 
@@ -35,35 +37,92 @@ class SubscriptionController extends Controller
         
         $endDate = $startDate->copy()->addDays($plan->duration_days);
 
-        // Create subscription
-        $subscription = MembershipSubscription::create([
-            'partner_id' => $partner->id,
-            'membership_plan_id' => $plan->id,
-            'company_id' => $partner->company_id,
-            'start_date' => $startDate,
-            'end_date' => $endDate,
-            'original_end_date' => $endDate,
-            'amount_paid' => $validated['amount_paid'],
-            'payment_method' => $validated['payment_method'],
-            'payment_reference' => $validated['payment_reference'] ?? null,
-            'notes' => $validated['notes'] ?? null,
-            'sold_by' => auth()->id(),
-            'status' => 'active',
-            'remaining_freeze_days' => $plan->allows_freezing ? $plan->max_freeze_days : 0,
-        ]);
-
-        activity()
-            ->performedOn($subscription)
-            ->causedBy(auth()->user())
-            ->withProperties([
-                'plan_name' => $plan->name,
-                'partner_name' => $partner->full_name,
+        // Transaction to ensure both subscription and sale are created
+        \Illuminate\Support\Facades\DB::transaction(function () use ($validated, $partner, $plan, $startDate, $endDate) {
+            // 1. Create subscription
+            $subscription = MembershipSubscription::create([
+                'partner_id' => $partner->id,
+                'membership_plan_id' => $plan->id,
+                'company_id' => $partner->company_id ?? \App\Models\Company::first()->id,
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+                'original_end_date' => $endDate,
                 'amount_paid' => $validated['amount_paid'],
                 'payment_method' => $validated['payment_method'],
-                'start_date' => $startDate->format('Y-m-d'),
-                'end_date' => $endDate->format('Y-m-d'),
-            ])
-            ->log('Suscripción creada');
+                'payment_reference' => $validated['payment_reference'] ?? null,
+                'notes' => $validated['notes'] ?? null,
+                'sold_by' => auth()->id(),
+                'status' => 'active',
+                'remaining_freeze_days' => $plan->allows_freezing ? $plan->max_freeze_days : 0,
+            ]);
+
+            // 2. Create Sale (Factura/Boleta interna)
+            
+            // Determine company (fallback to first if partner has none)
+            $companyId = $partner->company_id ?? \App\Models\Company::first()->id;
+
+            // Find default sales journal
+            $journal = \App\Models\Journal::where('type', 'sale')
+                ->where('company_id', $companyId)
+                ->first();
+            
+            // Find default warehouse (first one)
+            $warehouse = \App\Models\Warehouse::where('company_id', $companyId)->first() 
+                ?? \App\Models\Warehouse::first();
+
+            $sale = null;
+
+            if ($journal && $warehouse) {
+                // Generate sequence
+                $sequence = \App\Services\SequenceService::getNextParts($journal->id);
+                
+                // Create Sale Header
+                $sale = \App\Models\Sale::create([
+                    'partner_id' => $partner->id,
+                    'warehouse_id' => $warehouse->id,
+                    'journal_id' => $journal->id,
+                    'company_id' => $companyId,
+                    'user_id' => auth()->id(),
+                    'notes' => 'Suscripción generada automáticamente: ' . $plan->name,
+                    'status' => 'posted', // Directly posted
+                    'payment_status' => 'paid', // Assumed paid as it's a subscription entry
+                    'serie' => $sequence['serie'],
+                    'correlative' => $sequence['correlative'],
+                    'subtotal' => $validated['amount_paid'], // Asumiendo precio incluye IGV o es total
+                    'tax_amount' => 0, // Simplificación: Todo al subtotal por ahora si no hay desglose
+                    'total' => $validated['amount_paid'],
+                ]);
+
+                // Create Sale Line
+                // TODO: Calcular desglose de impuestos si es necesario
+                $sale->products()->create([
+                    'product_product_id' => $plan->product_product_id,
+                    'quantity' => 1,
+                    'price' => $validated['amount_paid'],
+                    'subtotal' => $validated['amount_paid'],
+                    'tax_id' => null,
+                    'tax_rate' => 0,
+                    'tax_amount' => 0,
+                    'total' => $validated['amount_paid'],
+                ]);
+
+                // NOTE: No deduct stock via Kardex because plans have tracks_inventory = false
+            }
+
+            activity()
+                ->performedOn($subscription)
+                ->causedBy(auth()->user())
+                ->withProperties([
+                    'plan_name' => $plan->name,
+                    'partner_name' => $partner->full_name,
+                    'amount_paid' => $validated['amount_paid'],
+                    'payment_method' => $validated['payment_method'],
+                    'start_date' => $startDate->format('Y-m-d'),
+                    'end_date' => $endDate->format('Y-m-d'),
+                    'generated_sale' => $sale ? ($sale->serie . '-' . $sale->correlative) : 'N/A',
+                ])
+                ->log('Suscripción creada');
+        });
 
         return redirect()->back()
             ->with('success', 'Suscripción creada exitosamente.');

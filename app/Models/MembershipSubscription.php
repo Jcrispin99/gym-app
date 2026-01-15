@@ -2,12 +2,12 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Carbon\Carbon;
 
 class MembershipSubscription extends Model
 {
@@ -86,7 +86,7 @@ class MembershipSubscription extends Model
         return $query->where('status', 'expired')
             ->orWhere(function ($q) {
                 $q->where('status', 'active')
-                  ->where('end_date', '<', now()->toDateString());
+                    ->where('end_date', '<', now()->toDateString());
             });
     }
 
@@ -108,7 +108,7 @@ class MembershipSubscription extends Model
 
     public function isExpired(): bool
     {
-        return $this->status === 'expired' || 
+        return $this->status === 'expired' ||
                ($this->status === 'active' && $this->end_date->isPast());
     }
 
@@ -119,7 +119,7 @@ class MembershipSubscription extends Model
 
     public function canEntry(): bool
     {
-        if (!$this->isActive()) {
+        if (! $this->isActive()) {
             return false;
         }
 
@@ -127,7 +127,7 @@ class MembershipSubscription extends Model
         $this->resetMonthlyCounterIfNeeded();
 
         // Check monthly limit
-        if (!is_null($this->plan->max_entries_per_month)) {
+        if (! is_null($this->plan->max_entries_per_month)) {
             if ($this->entries_this_month >= $this->plan->max_entries_per_month) {
                 return false;
             }
@@ -150,6 +150,7 @@ class MembershipSubscription extends Model
         if ($this->end_date->isPast()) {
             return 0;
         }
+
         return now()->diffInDays($this->end_date, false);
     }
 
@@ -157,25 +158,27 @@ class MembershipSubscription extends Model
     {
         $total = $this->start_date->diffInDays($this->original_end_date);
         $used = $this->start_date->diffInDays(now());
-        
-        if ($total == 0) return 100;
-        
+
+        if ($total == 0) {
+            return 100;
+        }
+
         return min(100, ($used / $total) * 100);
     }
 
     public function recordEntry(): void
     {
         $this->resetMonthlyCounterIfNeeded();
-        
+
         $this->increment('entries_used');
         $this->increment('entries_this_month');
         $this->last_entry_date = now();
         $this->save();
     }
 
-    protected function resetMonthlyCounterIfNeeded(): void
+    public function resetMonthlyCounterIfNeeded(): void
     {
-        if (!$this->current_month_start || !$this->current_month_start->isSameMonth(now())) {
+        if (! $this->current_month_start || ! $this->current_month_start->isSameMonth(now())) {
             $this->entries_this_month = 0;
             $this->current_month_start = now()->startOfMonth();
             $this->save();
@@ -204,9 +207,9 @@ class MembershipSubscription extends Model
         $this->save();
     }
 
-    public function freeze(int $days, string $reason = null): bool
+    public function freeze(int $days, ?string $reason = null): bool
     {
-        if (!$this->plan->allows_freezing) {
+        if (! $this->plan->allows_freezing) {
             return false;
         }
 

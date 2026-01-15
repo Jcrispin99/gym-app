@@ -116,11 +116,17 @@ class AttendanceController extends Controller
         }
 
         // Create attendance
-        $subscriptionId = isset($validation['subscription']) ? $validation['subscription']->getKey() : null;
+        $subscription = isset($validation['subscription']) ? $validation['subscription'] : null;
+        $subscriptionId = $subscription ? $subscription->getKey() : null;
+        
+        $companyId = $partner->company_id 
+            ?? $subscription?->company_id 
+            ?? Auth::user()->company_id;
+
         $attendance = Attendance::create([
             'partner_id' => $partner->id,
             'membership_subscription_id' => $subscriptionId,
-            'company_id' => $partner->company_id,
+            'company_id' => $companyId,
             'check_in_time' => Carbon::now(),
             'status' => $request->force ? 'manual_override' : 'valid',
             'validation_message' => $request->force ? 'Acceso manual aprobado por staff' : $validation['message'],
@@ -129,8 +135,8 @@ class AttendanceController extends Controller
         ]);
 
         // Update subscription counters if valid
-        if ($validation['allowed'] && isset($validation['subscription'])) {
-            $validation['subscription']->recordEntry();
+        if ($validation['allowed'] && $subscription) {
+            $subscription->recordEntry();
         }
 
         return redirect()->back()

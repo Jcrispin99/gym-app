@@ -310,17 +310,21 @@ class SaleController extends Controller
             // Cambiar estado a posted
             $sale->update(['status' => 'posted']);
 
-            // TODO: Reducir inventario (implementar después)
-            // foreach ($sale->products as $line) {
-            //     KardexService::registerMovement([
-            //         'type' => 'sale_out',
-            //         'warehouse_id' => $sale->warehouse_id,
-            //         'product_product_id' => $line->product_product_id,
-            //         'quantity' => -$line->quantity,
-            //         'reference_type' => 'sale',
-            //         'reference_id' => $sale->id,
-            //     ]);
-            // }
+            // Reducir inventario
+            $kardexService = new KardexService();
+            foreach ($sale->products as $line) {
+                // Para ventas, usamos registerExit. El costo será calculado automáticamente
+                // por el servicio usando el Costo Promedio actual.
+                $kardexService->registerExit(
+                    $sale,
+                    [
+                        'id' => $line->product_product_id,
+                        'quantity' => $line->quantity
+                    ],
+                    $sale->warehouse_id,
+                    "Venta Publicada {$sale->serie}-{$sale->correlative}"
+                );
+            }
         });
 
         return redirect()->route('sales.index')
@@ -342,18 +346,24 @@ class SaleController extends Controller
             $sale->update(['status' => 'cancelled']);
 
             // Devolver inventario al kardex
-            $kardexService = new \App\Services\KardexService();
+            $kardexService = new KardexService();
             foreach ($sale->products as $line) {
+                // Para devolución, necesitamos re-ingresar el stock.
+                // IMPORTANTE: No usar $line->price (Precio de Venta) porque inflaría el costo.
+                // Usamos el costo promedio actual del almacén para la re-entrada.
+                $lastRecord = $kardexService->getLastRecord($line->product_product_id, $sale->warehouse_id);
+                $currentCost = $lastRecord['cost'] ?? 0;
+
                 $kardexService->registerEntry(
                     $sale,
                     [
                         'id' => $line->product_product_id,
                         'quantity' => $line->quantity,
-                        'price' => $line->price,
-                        'subtotal' => $line->subtotal
+                        'price' => $currentCost, // Usamos el costo actual
+                        'subtotal' => $line->quantity * $currentCost
                     ],
                     $sale->warehouse_id,
-                    "Devolución venta cancelada {$sale->document_number}"
+                    "Devolución venta cancelada {$sale->serie}-{$sale->correlative}"
                 );
             }
         });

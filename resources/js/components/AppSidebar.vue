@@ -69,6 +69,7 @@ const products = () => ({ url: '/products', method: 'get' as const });
 const attributes = () => ({ url: '/attributes', method: 'get' as const });
 const warehouses = () => ({ url: '/warehouses', method: 'get' as const });
 const purchases = () => ({ url: '/purchases', method: 'get' as const });
+const sales = () => ({ url: '/sales', method: 'get' as const });
 const posConfigs = () => ({ url: '/pos-configs', method: 'get' as const });
 
 // Dashboard
@@ -142,6 +143,11 @@ const salesItems: NavItem[] = [
         title: 'POS',
         href: posConfigs(),
         icon: Store,
+    },
+    {
+        title: 'Ventas', 
+        href: sales(),
+        icon: ShoppingCart,
     },
     {
         title: 'Clientes',
