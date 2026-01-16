@@ -65,7 +65,7 @@ interface Product {
     image?: string;
     duration?: string;
     subscription_start_date?: string; // For subscription products
-    subscription_end_date?: string;   // For subscription products
+    subscription_end_date?: string; // For subscription products
 }
 
 interface CartItem {
@@ -75,7 +75,7 @@ interface CartItem {
     price: number;
     subtotal: number;
     subscription_start_date?: string; // For subscription products
-    subscription_end_date?: string;   // For subscription products
+    subscription_end_date?: string; // For subscription products
 }
 
 interface PaymentMethod {
@@ -340,14 +340,14 @@ const addToCart = (product: Product) => {
             price: product.price,
             subtotal: product.price,
         };
-        
+
         if (product.subscription_start_date) {
             cartItem.subscription_start_date = product.subscription_start_date;
         }
         if (product.subscription_end_date) {
             cartItem.subscription_end_date = product.subscription_end_date;
         }
-        
+
         cart.value.push(cartItem);
     }
 };
@@ -373,7 +373,7 @@ const removeFromCart = (productId: number) => {
 
 const processPayment = () => {
     if (cart.value.length === 0) return;
-    
+
     router.post(`/pos/${props.session.id}/payment`, {
         cart: cart.value,
         client_id: selectedClient.value?.id || null,
@@ -398,8 +398,7 @@ const openCloseModal = () => {
 };
 
 const viewOrders = () => {
-    // Mock for now
-    console.log('Ver órdenes');
+    router.visit(`/pos/${props.session.id}/orders`);
 };
 
 const openClientModal = () => {
@@ -427,7 +426,7 @@ const clearClient = () => {
     selectedClient.value = null;
 };
 
-const openSubscriptionsModal = async () =>{
+const openSubscriptionsModal = async () => {
     showSubscriptionsModal.value = true;
     selectedPlan.value = null;
     subscriptionStartDate.value = new Date().toISOString().split('T')[0];
@@ -440,7 +439,7 @@ const loadMembershipPlans = async () => {
     try {
         const response = await fetch('/api/pos/membership-plans');
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        
+
         const data = await response.json();
         membershipPlans.value = data;
     } catch (e) {
@@ -462,20 +461,26 @@ const calculateEndDate = (startDate: string, durationDays: number): string => {
 // Handle plan selection (doesn't add to cart yet, just selects the plan)
 const selectSubscriptionPlan = (plan: MembershipPlan) => {
     selectedPlan.value = plan;
-    subscriptionEndDate.value = calculateEndDate(subscriptionStartDate.value, plan.duration_days);
+    subscriptionEndDate.value = calculateEndDate(
+        subscriptionStartDate.value,
+        plan.duration_days,
+    );
 };
 
 const onStartDateChange = () => {
     if (selectedPlan.value && subscriptionStartDate.value) {
-        subscriptionEndDate.value = calculateEndDate(subscriptionStartDate.value, selectedPlan.value.duration_days);
+        subscriptionEndDate.value = calculateEndDate(
+            subscriptionStartDate.value,
+            selectedPlan.value.duration_days,
+        );
     }
 };
 
 const addSubscriptionToCart = () => {
     if (!selectedPlan.value) return;
-    
+
     const plan = selectedPlan.value;
-    
+
     addToCart({
         id: plan.product_product_id,
         name: plan.product_name,
@@ -485,10 +490,10 @@ const addSubscriptionToCart = () => {
         subscription_start_date: subscriptionStartDate.value,
         subscription_end_date: subscriptionEndDate.value,
     });
-    
+
     showSubscriptionsModal.value = false;
     selectedPlan.value = null;
-    
+
     // Si no hay cliente seleccionado, abrir modal de clientes
     if (!selectedClient.value) {
         setTimeout(() => {
@@ -744,9 +749,9 @@ watch(
                     <WifiOff v-else class="h-5 w-5 text-red-600" />
                 </div>
 
-                <Button 
-                    variant="outline" 
-                    size="sm" 
+                <Button
+                    variant="outline"
+                    size="sm"
                     type="button"
                     @click="openSubscriptionsModal"
                 >
@@ -1305,13 +1310,17 @@ watch(
 
         <!-- Subscriptions Modal -->
         <Dialog v-model:open="showSubscriptionsModal">
-            <DialogContent 
+            <DialogContent
                 class="inset-4 h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] max-w-none translate-x-0 translate-y-0 overflow-hidden p-0 sm:max-w-none"
             >
                 <div class="flex h-full flex-col">
-                    <div class="flex items-start justify-between gap-4 border-b p-6">
+                    <div
+                        class="flex items-start justify-between gap-4 border-b p-6"
+                    >
                         <div class="space-y-1">
-                            <h2 class="text-2xl font-bold">Planes de Membresía</h2>
+                            <h2 class="text-2xl font-bold">
+                                Planes de Membresía
+                            </h2>
                             <p class="text-sm text-muted-foreground">
                                 Selecciona un plan para agregar al carrito
                             </p>
@@ -1321,64 +1330,99 @@ watch(
                     <div class="grid min-h-0 flex-1 gap-6 overflow-y-auto p-6">
                         <!-- Step 1: No plan selected - show grid of plans -->
                         <div v-if="!selectedPlan">
-                            <div 
-                                v-if="isLoadingPlans" 
+                            <div
+                                v-if="isLoadingPlans"
                                 class="flex items-center justify-center py-16"
                             >
                                 Cargando planes...
                             </div>
-                            
-                            <div 
+
+                            <div
                                 v-else-if="membershipPlans.length === 0"
                                 class="flex items-center justify-center py-16 text-muted-foreground"
                             >
                                 No hay planes disponibles
                             </div>
 
-                            <div 
-                                v-else 
+                            <div
+                                v-else
                                 class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3"
                             >
                                 <Card
                                     v-for="plan in membershipPlans"
                                     :key="plan.id"
-                                    class="flex cursor-pointer flex-col p-6 transition-all hover:shadow-lg hover:border-primary"
+                                    class="flex cursor-pointer flex-col p-6 transition-all hover:border-primary hover:shadow-lg"
                                     @click="selectSubscriptionPlan(plan)"
                                 >
-                                    <div class="mb-3 flex items-start justify-between">
-                                        <h3 class="text-lg font-bold">{{ plan.name }}</h3>
+                                    <div
+                                        class="mb-3 flex items-start justify-between"
+                                    >
+                                        <h3 class="text-lg font-bold">
+                                            {{ plan.name }}
+                                        </h3>
                                         <Badge variant="secondary">
                                             {{ plan.duration_days }} días
                                         </Badge>
                                     </div>
-                                    
-                                    <p class="mb-4 flex-1 text-sm text-muted-foreground line-clamp-2">
+
+                                    <p
+                                        class="mb-4 line-clamp-2 flex-1 text-sm text-muted-foreground"
+                                    >
                                         {{ plan.description }}
                                     </p>
-                                    
-                                    <div class="space-y-2 text-xs text-muted-foreground">
-                                        <div v-if="plan.max_entries_per_month" class="flex items-center gap-2">
-                                            <Badge variant="outline" class="text-xs">
-                                                {{ plan.max_entries_per_month }} entradas/mes
+
+                                    <div
+                                        class="space-y-2 text-xs text-muted-foreground"
+                                    >
+                                        <div
+                                            v-if="plan.max_entries_per_month"
+                                            class="flex items-center gap-2"
+                                        >
+                                            <Badge
+                                                variant="outline"
+                                                class="text-xs"
+                                            >
+                                                {{
+                                                    plan.max_entries_per_month
+                                                }}
+                                                entradas/mes
                                             </Badge>
                                         </div>
-                                        <div v-else class="flex items-center gap-2">
-                                            <Badge variant="outline" class="text-xs">
+                                        <div
+                                            v-else
+                                            class="flex items-center gap-2"
+                                        >
+                                            <Badge
+                                                variant="outline"
+                                                class="text-xs"
+                                            >
                                                 ✨ Entradas ilimitadas
                                             </Badge>
                                         </div>
-                                        
-                                        <div v-if="plan.time_restricted" class="flex items-center gap-2">
-                                            <Badge variant="outline" class="text-xs">
-                                                🕐 {{ plan.allowed_time_start }} - {{ plan.allowed_time_end }}
+
+                                        <div
+                                            v-if="plan.time_restricted"
+                                            class="flex items-center gap-2"
+                                        >
+                                            <Badge
+                                                variant="outline"
+                                                class="text-xs"
+                                            >
+                                                🕐
+                                                {{ plan.allowed_time_start }} -
+                                                {{ plan.allowed_time_end }}
                                             </Badge>
                                         </div>
                                     </div>
-                                    
+
                                     <Separator class="my-4" />
-                                    
-                                    <div class="flex items-center justify-between">
-                                        <span class="text-2xl font-bold text-primary">
+
+                                    <div
+                                        class="flex items-center justify-between"
+                                    >
+                                        <span
+                                            class="text-2xl font-bold text-primary"
+                                        >
                                             S/ {{ plan.price.toFixed(2) }}
                                         </span>
                                         <Button size="sm" variant="default">
@@ -1393,50 +1437,90 @@ watch(
                         <div v-else class="mx-auto w-full max-w-2xl space-y-6">
                             <!-- Selected Plan Summary -->
                             <Card class="p-6">
-                                <div class="mb-4 flex items-start justify-between">
+                                <div
+                                    class="mb-4 flex items-start justify-between"
+                                >
                                     <div>
-                                        <h3 class="text-2xl font-bold">{{ selectedPlan.name }}</h3>
-                                        <p class="text-sm text-muted-foreground">{{ selectedPlan.description }}</p>
+                                        <h3 class="text-2xl font-bold">
+                                            {{ selectedPlan.name }}
+                                        </h3>
+                                        <p
+                                            class="text-sm text-muted-foreground"
+                                        >
+                                            {{ selectedPlan.description }}
+                                        </p>
                                     </div>
-                                    <Button variant="ghost" size="sm" @click="selectedPlan = null">
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        @click="selectedPlan = null"
+                                    >
                                         Cambiar plan
                                     </Button>
                                 </div>
                                 <div class="flex items-center justify-between">
-                                    <Badge variant="secondary">{{ selectedPlan.duration_days }} días</Badge>
-                                    <span class="text-2xl font-bold text-primary">S/ {{ selectedPlan.price.toFixed(2) }}</span>
+                                    <Badge variant="secondary"
+                                        >{{
+                                            selectedPlan.duration_days
+                                        }}
+                                        días</Badge
+                                    >
+                                    <span
+                                        class="text-2xl font-bold text-primary"
+                                        >S/
+                                        {{
+                                            selectedPlan.price.toFixed(2)
+                                        }}</span
+                                    >
                                 </div>
                             </Card>
 
                             <!-- Date Configuration -->
                             <Card class="p-6">
-                                <h4 class="mb-4 text-lg font-semibold">Configuración de Fechas</h4>
-                                
+                                <h4 class="mb-4 text-lg font-semibold">
+                                    Configuración de Fechas
+                                </h4>
+
                                 <div class="space-y-4">
                                     <!-- Start Date -->
                                     <div class="space-y-2">
-                                        <label class="text-sm font-medium">Fecha de Inicio</label>
+                                        <label class="text-sm font-medium"
+                                            >Fecha de Inicio</label
+                                        >
                                         <input
                                             type="date"
                                             v-model="subscriptionStartDate"
                                             @change="onStartDateChange"
-                                            :min="new Date().toISOString().split('T')[0]"
-                                            class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                            :min="
+                                                new Date()
+                                                    .toISOString()
+                                                    .split('T')[0]
+                                            "
+                                            class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                                         />
                                     </div>
 
                                     <!-- End Date (Read-only, auto-calculated) -->
                                     <div class="space-y-2">
-                                        <label class="text-sm font-medium">Fecha de Fin (calculada automáticamente)</label>
+                                        <label class="text-sm font-medium"
+                                            >Fecha de Fin (calculada
+                                            automáticamente)</label
+                                        >
                                         <input
                                             type="date"
                                             v-model="subscriptionEndDate"
                                             readonly
                                             disabled
-                                            class="flex h-10 w-full rounded-md border border-input bg-muted px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                            class="flex h-10 w-full rounded-md border border-input bg-muted px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                                         />
-                                        <p class="text-xs text-muted-foreground">
-                                            La suscripción durará {{ selectedPlan.duration_days }} días desde la fecha de inicio
+                                        <p
+                                            class="text-xs text-muted-foreground"
+                                        >
+                                            La suscripción durará
+                                            {{
+                                                selectedPlan.duration_days
+                                            }}
+                                            días desde la fecha de inicio
                                         </p>
                                     </div>
                                 </div>
@@ -1444,10 +1528,17 @@ watch(
 
                             <!-- Add to Cart Button -->
                             <div class="flex gap-3">
-                                <Button variant="outline" class="flex-1" @click="selectedPlan = null">
+                                <Button
+                                    variant="outline"
+                                    class="flex-1"
+                                    @click="selectedPlan = null"
+                                >
                                     Cancelar
                                 </Button>
-                                <Button class="flex-1" @click="addSubscriptionToCart">
+                                <Button
+                                    class="flex-1"
+                                    @click="addSubscriptionToCart"
+                                >
                                     Agregar al Carrito
                                 </Button>
                             </div>

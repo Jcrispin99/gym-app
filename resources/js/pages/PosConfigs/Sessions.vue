@@ -157,7 +157,16 @@ const calculateDuration = (openedAt: string, closedAt: string | null): string =>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            <TableRow v-for="session in sessions.data" :key="session.id">
+                            <TableRow
+                                v-for="session in sessions.data"
+                                :key="session.id"
+                                class="cursor-pointer hover:bg-accent/50"
+                                @click="
+                                    router.visit(
+                                        `/pos-configs/${props.posConfig.id}/sessions/${session.id}/orders`,
+                                    )
+                                "
+                            >
                                 <TableCell class="font-medium">
                                     {{ session.user.name }}
                                     <div class="text-xs text-muted-foreground">

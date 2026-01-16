@@ -179,6 +179,8 @@ Route::middleware(['auth'])->group(function () {
         ->name('pos-configs.toggle-status');
     Route::get('pos-configs/{posConfig}/sessions', [\App\Http\Controllers\PosConfigController::class, 'sessions'])
         ->name('pos-configs.sessions');
+    Route::get('pos-configs/{posConfig}/sessions/{session}/orders', [\App\Http\Controllers\PosConfigController::class, 'sessionOrders'])
+        ->name('pos-configs.sessions.orders');
 });
 
 // POS Sessions routes
@@ -191,6 +193,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('pos/open', [\App\Http\Controllers\Pos\PosController::class, 'open'])->name('pos.open');
     Route::post('pos/open', [\App\Http\Controllers\Pos\PosController::class, 'storeOpen'])->name('pos.storeOpen');
     Route::get('pos/{session}', [\App\Http\Controllers\Pos\PosController::class, 'dashboard'])->name('pos.dashboard');
+    Route::get('pos/{session}/orders', [\App\Http\Controllers\Pos\PosController::class, 'orders'])->name('pos.orders');
     Route::post('pos/{session}/payment', [\App\Http\Controllers\Pos\PosController::class, 'payment'])->name('pos.payment');
     Route::get('pos/{session}/payment', function ($session) {
         return redirect()->route('pos.dashboard', ['session' => $session])
