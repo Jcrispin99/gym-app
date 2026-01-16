@@ -15,7 +15,7 @@ import {
     Receipt,
     User,
 } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 // Types
 interface CartItem {
@@ -25,13 +25,15 @@ interface CartItem {
     price: number;
     subtotal: number;
     subscription_start_date?: string; // For subscription products
-    subscription_end_date?: string;   // For subscription products
+    subscription_end_date?: string; // For subscription products
 }
 
 interface Client {
     id: number;
     name: string;
     dni?: string;
+    document_type?: 'DNI' | 'RUC' | 'CE' | 'Passport';
+    document_number?: string;
     email?: string;
     phone?: string;
 }
@@ -41,6 +43,8 @@ interface Journal {
     name: string;
     code: string;
     type: string;
+    document_type?: 'invoice' | 'receipt' | 'credit_note' | 'debit_note' | null;
+    is_default?: boolean;
 }
 
 interface PaymentMethod {
@@ -172,6 +176,47 @@ const selectedJournal = computed(() => {
         ) || undefined
     );
 });
+
+const invoiceJournalId = computed(() => {
+    return props.journals
+        .find((j) => j.document_type === 'invoice')
+        ?.id.toString();
+});
+
+const receiptJournalId = computed(() => {
+    return props.journals
+        .find((j) => j.document_type === 'receipt')
+        ?.id.toString();
+});
+
+const isJournalAllowedForClient = (journal: Journal) => {
+    if (!currentClient.value?.document_type) return true;
+    if (currentClient.value.document_type === 'RUC') {
+        return journal.document_type === 'invoice';
+    }
+    return journal.document_type === 'receipt';
+};
+
+const isSelectedJournalAllowed = computed(() => {
+    if (!selectedJournal.value) return true;
+    return isJournalAllowedForClient(selectedJournal.value);
+});
+
+watch(
+    () => currentClient.value?.document_type,
+    (documentType) => {
+        if (!documentType) return;
+        const nextJournalId =
+            documentType === 'RUC'
+                ? invoiceJournalId.value || receiptJournalId.value
+                : receiptJournalId.value || invoiceJournalId.value;
+
+        if (nextJournalId) {
+            selectedJournalId.value = nextJournalId;
+        }
+    },
+    { immediate: true },
+);
 
 // Methods
 const formatCurrency = (value: number): string => {
@@ -306,13 +351,18 @@ const handleProcessPayment = () => {
     const payloadData = {
         journal_id: parseInt(selectedJournalId.value),
         cart: JSON.stringify(props.cart),
-        client_id: props.client?.id || null,
+        client_id: currentClient.value?.id || null,
         total: props.total,
         payments: JSON.stringify(payments),
     };
 
     router.post(`/pos/${props.session.id}/process`, payloadData, {
-        onSuccess: () => {
+        onSuccess: (page) => {
+            const errors = (page as any)?.props?.errors;
+            if (errors && Object.keys(errors).length > 0) {
+                return;
+            }
+
             // Clear sessionStorage on successful payment
             sessionStorage.removeItem(`pos_cart_${props.session.id}`);
             sessionStorage.removeItem(`pos_client_${props.session.id}`);
@@ -395,7 +445,11 @@ const clearClient = () => {
                         size="lg"
                         class="h-14 bg-white px-8 font-bold text-purple-700 hover:bg-purple-50"
                         @click="handleProcessPayment"
-                        :disabled="!isPaymentComplete || isProcessing"
+                        :disabled="
+                            !isPaymentComplete ||
+                            isProcessing ||
+                            !isSelectedJournalAllowed
+                        "
                     >
                         {{
                             isProcessing
@@ -424,6 +478,10 @@ const clearClient = () => {
                                         @click="
                                             selectedJournalId =
                                                 journal.id.toString()
+                                        "
+                                        :disabled="
+                                            !!currentClient &&
+                                            !isJournalAllowedForClient(journal)
                                         "
                                         :variant="
                                             selectedJournalId ===

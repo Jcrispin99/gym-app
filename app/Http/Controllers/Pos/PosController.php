@@ -15,6 +15,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 class PosController extends Controller
@@ -127,12 +128,14 @@ class PosController extends Controller
         // Get active customers for client selector
         $customers = Partner::customers()
             ->active()
-            ->select(['id', 'first_name', 'last_name', 'business_name', 'document_number', 'email', 'phone'])
+            ->select(['id', 'document_type', 'document_number', 'first_name', 'last_name', 'business_name', 'email', 'phone'])
             ->get()
             ->map(function ($partner) {
                 return [
                     'id' => $partner->id,
                     'name' => $partner->display_name,
+                    'document_type' => $partner->document_type,
+                    'document_number' => $partner->document_number,
                     'dni' => $partner->document_number,
                     'email' => $partner->email,
                     'phone' => $partner->phone,
@@ -376,7 +379,19 @@ class PosController extends Controller
         }
 
         // Get journals associated with THIS POS config (not all journals!)
-        $journals = $session->posConfig->journals()->get();
+        $journals = $session->posConfig->journals()
+            ->get()
+            ->map(function ($journal) {
+                return [
+                    'id' => $journal->id,
+                    'name' => $journal->name,
+                    'code' => $journal->code,
+                    'type' => $journal->type,
+                    'document_type' => $journal->pivot?->document_type,
+                    'is_default' => (bool) ($journal->pivot?->is_default ?? false),
+                ];
+            })
+            ->values();
 
         // Get active payment methods
         $paymentMethods = \App\Models\PaymentMethod::active()->get();
@@ -389,12 +404,14 @@ class PosController extends Controller
         // Get active customers for client selector
         $customers = Partner::customers()
             ->active()
-            ->select(['id', 'first_name', 'last_name', 'business_name', 'document_number', 'email', 'phone'])
+            ->select(['id', 'document_type', 'document_number', 'first_name', 'last_name', 'business_name', 'email', 'phone'])
             ->get()
             ->map(function ($partner) {
                 return [
                     'id' => $partner->id,
                     'name' => $partner->display_name,
+                    'document_type' => $partner->document_type,
+                    'document_number' => $partner->document_number,
                     'dni' => $partner->document_number,
                     'email' => $partner->email,
                     'phone' => $partner->phone,
@@ -491,6 +508,38 @@ class PosController extends Controller
             ]);
         }
 
+        $posJournal = $session->posConfig
+            ->journals()
+            ->where('journals.id', $validated['journal_id'])
+            ->first();
+
+        if (! $posJournal) {
+            throw ValidationException::withMessages([
+                'journal_id' => 'El documento seleccionado no pertenece a este POS.',
+            ]);
+        }
+
+        if (! empty($validated['client_id'])) {
+            $client = Partner::find($validated['client_id']);
+
+            if (! $client) {
+                throw ValidationException::withMessages([
+                    'client_id' => 'Cliente inválido.',
+                ]);
+            }
+
+            $requiredDocumentType = $client->document_type === 'RUC' ? 'invoice' : 'receipt';
+            $selectedDocumentType = $posJournal->pivot?->document_type;
+
+            if ($selectedDocumentType && $selectedDocumentType !== $requiredDocumentType) {
+                $documentLabel = $requiredDocumentType === 'invoice' ? 'Factura' : 'Boleta';
+
+                throw ValidationException::withMessages([
+                    'journal_id' => "El cliente seleccionado requiere {$documentLabel}.",
+                ]);
+            }
+        }
+
         $paymentsTotal = (float) collect($payments)->sum('amount');
 
         Log::info('💰 [POS DEBUG] Iniciando transacción', [
@@ -498,11 +547,11 @@ class PosController extends Controller
         ]);
 
         try {
-            DB::transaction(function () use ($validated, $cart, $payments, $session, $hasSubscription, $membershipPlans) {
+            DB::transaction(function () use ($validated, $cart, $payments, $session, $hasSubscription, $membershipPlans, $posJournal) {
                 Log::info('🔄 [POS DEBUG] Dentro de transacción DB');
 
                 // 1. Get journal
-                $journal = \App\Models\Journal::findOrFail($validated['journal_id']);
+                $journal = \App\Models\Journal::findOrFail($posJournal->id);
                 Log::info('✅ [POS DEBUG] Journal encontrado', ['journal_id' => $journal->id]);
 
                 // 2. Generate document number
@@ -655,12 +704,12 @@ class PosController extends Controller
 
                             try {
                                 $firstPayment = $payments[0] ?? null;
-                                
+
                                 // Use custom dates from cart if provided, otherwise auto-calculate
                                 if (!empty($item['subscription_start_date']) && !empty($item['subscription_end_date'])) {
                                     $startDate = Carbon::parse($item['subscription_start_date']);
                                     $endDate = Carbon::parse($item['subscription_end_date']);
-                                    
+
                                     Log::info('📅 [POS DEBUG] Usando fechas personalizadas del carrito', [
                                         'start_date' => $startDate->toDateString(),
                                         'end_date' => $endDate->toDateString(),
@@ -668,7 +717,7 @@ class PosController extends Controller
                                 } else {
                                     $startDate = Carbon::now();
                                     $endDate = Carbon::now()->addDays($plan->duration_days);
-                                    
+
                                     Log::info('📅 [POS DEBUG] Generando fechas automáticamente', [
                                         'start_date' => $startDate->toDateString(),
                                         'end_date' => $endDate->toDateString(),
@@ -724,7 +773,7 @@ class PosController extends Controller
 
             $lastSale = DB::table('sales')->latest('id')->first();
             Log::info('[POS] Venta creada exitosamente', [
-                'document' => $lastSale->serie.'-'.$lastSale->correlative,
+                'document' => $lastSale->serie . '-' . $lastSale->correlative,
                 'total' => $lastSale->total,
             ]);
 
@@ -732,7 +781,7 @@ class PosController extends Controller
                 ->with('success', 'Venta procesada exitosamente');
         } catch (\Exception $e) {
             return back()->withErrors([
-                'error' => 'Error al procesar la venta: '.$e->getMessage(),
+                'error' => 'Error al procesar la venta: ' . $e->getMessage(),
             ]);
         }
     }
@@ -846,6 +895,8 @@ class PosController extends Controller
         return response()->json([
             'id' => $partner->id,
             'name' => $partner->display_name,
+            'document_type' => $partner->document_type,
+            'document_number' => $partner->document_number,
             'dni' => $partner->document_number,
             'email' => $partner->email,
             'phone' => $partner->phone,

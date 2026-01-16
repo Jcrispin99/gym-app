@@ -14,6 +14,8 @@ interface Client {
     id: number;
     name: string;
     dni?: string;
+    document_type?: 'DNI' | 'RUC' | 'CE' | 'Passport';
+    document_number?: string;
     email?: string;
     phone?: string;
 }
