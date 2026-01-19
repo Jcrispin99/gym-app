@@ -76,8 +76,9 @@ const submit = () => {
 <template>
     <Head title="Nueva Categoría" />
 
-    <AppLayout>
-        <div class="flex flex-col gap-4 p-4">
+    <AppLayout :breadcrumbs="breadcrumbs">
+        <div class="w-full p-4">
+            <div class="flex flex-col gap-4">
             <!-- Header -->
             <div class="flex items-center gap-4">
                 <Button variant="ghost" size="icon" @click="$inertia.visit('/categories')">
@@ -90,7 +91,7 @@ const submit = () => {
             </div>
 
             <!-- Form -->
-            <Card class="max-w-2xl">
+            <Card class="w-full">
                 <CardHeader>
                     <CardTitle>Información de la Categoría</CardTitle>
                 </CardHeader>
@@ -211,6 +212,7 @@ const submit = () => {
                     </form>
                 </CardContent>
             </Card>
+            </div>
         </div>
     </AppLayout>
 </template>

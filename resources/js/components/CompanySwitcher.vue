@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { Building2, Check, ChevronsUpDown } from 'lucide-vue-next';
-import { computed, onMounted, ref } from 'vue';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
     DropdownMenu,
@@ -15,6 +13,8 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { router } from '@inertiajs/vue3';
+import { Building2, Check, ChevronsUpDown } from 'lucide-vue-next';
+import { computed, onMounted, ref } from 'vue';
 
 interface Company {
     id: number;
@@ -22,6 +22,7 @@ interface Company {
     branch_code: string | null;
     district: string;
     is_branch?: boolean;
+    logo_url?: string | null;
 }
 
 interface CompaniesData {
@@ -41,26 +42,28 @@ const dropdownOpen = ref(false);
 // Lista jerárquica: matriz primero, luego sucursales
 const hierarchicalCompanies = computed(() => {
     const list: Company[] = [];
-    
+
     if (companies.value.main_office) {
         list.push({
             ...companies.value.main_office,
             is_branch: false,
         });
     }
-    
-    companies.value.branches.forEach(branch => {
+
+    companies.value.branches.forEach((branch) => {
         list.push({
             ...branch,
             is_branch: true,
         });
     });
-    
+
     return list;
 });
 
 const selectedCompanies = computed(() => {
-    return hierarchicalCompanies.value.filter(c => selectedCompanyIds.value.includes(c.id));
+    return hierarchicalCompanies.value.filter((c) =>
+        selectedCompanyIds.value.includes(c.id),
+    );
 });
 
 const displayText = computed(() => {
@@ -78,9 +81,20 @@ const displaySubtext = computed(() => {
     if (count === 0) return 'Ninguna seleccionada';
     if (count === 1) {
         const company = selectedCompanies.value[0];
-        return company?.branch_code ? `Sucursal ${company.branch_code}` : 'Casa Matriz';
+        return company?.branch_code
+            ? `Sucursal ${company.branch_code}`
+            : 'Casa Matriz';
     }
-    return selectedCompanies.value.map(c => c.branch_code || 'Matriz').join(', ');
+    return selectedCompanies.value
+        .map((c) => c.branch_code || 'Matriz')
+        .join(', ');
+});
+
+const displayLogoUrl = computed(() => {
+    if (selectedCompanyIds.value.length === 1) {
+        return selectedCompanies.value[0]?.logo_url ?? null;
+    }
+    return null;
 });
 
 const loadCompanies = async () => {
@@ -88,7 +102,7 @@ const loadCompanies = async () => {
         const response = await fetch('/api/companies');
         const data = await response.json();
         companies.value = data;
-        
+
         // Set default selected companies from session
         const sessionIds = sessionStorage.getItem('selected_company_ids');
         if (sessionIds) {
@@ -97,7 +111,7 @@ const loadCompanies = async () => {
             // Default: select main office only
             selectedCompanyIds.value = [data.main_office.id];
         }
-        
+
         // Initialize temp selection
         tempSelectedIds.value = [...selectedCompanyIds.value];
     } catch (error) {
@@ -107,7 +121,7 @@ const loadCompanies = async () => {
 
 const toggleCompany = (companyId: number) => {
     const index = tempSelectedIds.value.indexOf(companyId);
-    
+
     if (index > -1) {
         // Prevent deselecting if it's the last one
         if (tempSelectedIds.value.length === 1) {
@@ -121,7 +135,7 @@ const toggleCompany = (companyId: number) => {
 
 const onOpenChange = (open: boolean) => {
     dropdownOpen.value = open;
-    
+
     if (open) {
         // Reset temp selection to current when opening
         tempSelectedIds.value = [...selectedCompanyIds.value];
@@ -133,23 +147,30 @@ const onOpenChange = (open: boolean) => {
 
 const applySelectionIfChanged = () => {
     // Check if selection changed
-    if (tempSelectedIds.value.length !== selectedCompanyIds.value.length ||
-        !tempSelectedIds.value.every(id => selectedCompanyIds.value.includes(id))) {
-        
+    if (
+        tempSelectedIds.value.length !== selectedCompanyIds.value.length ||
+        !tempSelectedIds.value.every((id) =>
+            selectedCompanyIds.value.includes(id),
+        )
+    ) {
         if (tempSelectedIds.value.length === 0) {
             return; // Should never happen
         }
-        
+
         selectedCompanyIds.value = [...tempSelectedIds.value];
-        sessionStorage.setItem('selected_company_ids', JSON.stringify(selectedCompanyIds.value));
-        
+        sessionStorage.setItem(
+            'selected_company_ids',
+            JSON.stringify(selectedCompanyIds.value),
+        );
+
         // Use Inertia router - handles CSRF automatically
-        router.post('/api/companies/switch', 
+        router.post(
+            '/api/companies/switch',
             { company_ids: selectedCompanyIds.value },
-            { 
+            {
                 preserveState: true,
-                onSuccess: () => router.reload()
-            }
+                onSuccess: () => router.reload(),
+            },
         );
     }
 };
@@ -162,7 +183,10 @@ onMounted(() => {
 <template>
     <SidebarMenu>
         <SidebarMenuItem>
-            <DropdownMenu v-model:open="dropdownOpen" @update:open="onOpenChange">
+            <DropdownMenu
+                v-model:open="dropdownOpen"
+                @update:open="onOpenChange"
+            >
                 <DropdownMenuTrigger as-child>
                     <SidebarMenuButton
                         size="lg"
@@ -171,13 +195,23 @@ onMounted(() => {
                         <div
                             class="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-sidebar-primary-foreground"
                         >
-                            <Building2 class="size-4" />
+                            <img
+                                v-if="displayLogoUrl"
+                                :src="displayLogoUrl"
+                                alt="Logo"
+                                class="h-full w-full object-contain"
+                            />
+                            <Building2 v-else class="size-4" />
                         </div>
-                        <div class="grid flex-1 text-left text-sm leading-tight">
+                        <div
+                            class="grid flex-1 text-left text-sm leading-tight"
+                        >
                             <span class="truncate font-semibold">
                                 {{ displayText }}
                             </span>
-                            <span class="truncate text-xs text-muted-foreground">
+                            <span
+                                class="truncate text-xs text-muted-foreground"
+                            >
                                 {{ displaySubtext }}
                             </span>
                         </div>
@@ -193,7 +227,7 @@ onMounted(() => {
                     <DropdownMenuLabel class="text-xs text-muted-foreground">
                         Compañías y Sucursales
                     </DropdownMenuLabel>
-                    
+
                     <!-- Lista jerárquica -->
                     <DropdownMenuItem
                         v-for="company in hierarchicalCompanies"
@@ -201,8 +235,8 @@ onMounted(() => {
                         @click.prevent="toggleCompany(company.id)"
                         @select.prevent
                         :class="[
-                            'gap-2 p-2 cursor-pointer',
-                            company.is_branch ? 'pl-8' : ''
+                            'cursor-pointer gap-2 p-2',
+                            company.is_branch ? 'pl-8' : '',
                         ]"
                     >
                         <Checkbox
@@ -210,13 +244,27 @@ onMounted(() => {
                             :model-value="tempSelectedIds.includes(company.id)"
                             class="pointer-events-none"
                         />
-                        <div class="flex size-6 items-center justify-center rounded-sm border bg-background">
-                            <Building2 class="size-4 shrink-0" />
+                        <div
+                            class="flex size-6 items-center justify-center rounded-sm border bg-background"
+                        >
+                            <img
+                                v-if="company.logo_url"
+                                :src="company.logo_url"
+                                alt="Logo"
+                                class="h-full w-full object-contain"
+                            />
+                            <Building2 v-else class="size-4 shrink-0" />
                         </div>
                         <div class="flex-1">
-                            <div class="font-medium">{{ company.trade_name }}</div>
+                            <div class="font-medium">
+                                {{ company.trade_name }}
+                            </div>
                             <div class="text-xs text-muted-foreground">
-                                {{ company.branch_code ? `${company.branch_code} · ${company.district}` : 'Casa Matriz' }}
+                                {{
+                                    company.branch_code
+                                        ? `${company.branch_code} · ${company.district}`
+                                        : 'Casa Matriz'
+                                }}
                             </div>
                         </div>
                         <Check

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Company;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
 class CompanyController extends Controller
@@ -15,13 +16,13 @@ class CompanyController extends Controller
     {
         $mainOffice = Company::mainOffices()->first();
         $branches = [];
-        
+
         if ($mainOffice) {
             $branches = $mainOffice->branches()
                 ->orderBy('branch_code')
                 ->get();
         }
-        
+
         return Inertia::render('Companies/Index', [
             'main_office' => $mainOffice,
             'branches' => $branches,
@@ -34,7 +35,7 @@ class CompanyController extends Controller
     public function create()
     {
         $mainOffice = Company::mainOffices()->first();
-        
+
         return Inertia::render('Companies/Create', [
             'main_office' => $mainOffice,
         ]);
@@ -46,7 +47,7 @@ class CompanyController extends Controller
     public function edit(Company $company)
     {
         $company->load('parent');
-        
+
         // Get activity log
         $activities = $company->activities()
             ->with('causer')
@@ -81,7 +82,7 @@ class CompanyController extends Controller
     public function index()
     {
         $mainOffice = Company::mainOffices()->first();
-        
+
         if (!$mainOffice) {
             return response()->json([
                 'main_office' => null,
@@ -92,7 +93,7 @@ class CompanyController extends Controller
         $branches = $mainOffice->branches()
             ->active()
             ->orderBy('branch_code')
-            ->get(['id', 'trade_name', 'branch_code', 'district']);
+            ->get(['id', 'trade_name', 'branch_code', 'district', 'logo_url']);
 
         return response()->json([
             'main_office' => [
@@ -100,6 +101,7 @@ class CompanyController extends Controller
                 'trade_name' => $mainOffice->trade_name,
                 'branch_code' => null,
                 'district' => $mainOffice->district,
+                'logo_url' => $mainOffice->logo_url,
             ],
             'branches' => $branches,
         ]);
@@ -119,7 +121,7 @@ class CompanyController extends Controller
 
         // Validate companies exist
         $companies = Company::whereIn('id', $companyIds)->get();
-        
+
         if ($companies->isEmpty()) {
             return back()->withErrors(['error' => 'No se encontraron compañías válidas']);
         }
@@ -143,6 +145,8 @@ class CompanyController extends Controller
             'address' => 'nullable|string',
             'phone' => 'nullable|string|max:20',
             'email' => 'nullable|email|max:100',
+            'logo' => 'nullable|image|max:5120',
+            'logo_url' => 'nullable|string|max:2048',
             'ubigeo' => 'nullable|string|size:6',
             'urbanization' => 'nullable|string|max:100',
             'department' => 'nullable|string|max:50',
@@ -152,6 +156,11 @@ class CompanyController extends Controller
             'branch_code' => 'nullable|string|max:10|unique:companies,branch_code',
             'is_main_office' => 'boolean',
         ]);
+
+        if ($request->hasFile('logo')) {
+            $path = $request->file('logo')->store('images/companies', 'public');
+            $validated['logo_url'] = '/storage/' . ltrim($path, '/');
+        }
 
         $company = Company::create($validated);
 
@@ -170,6 +179,8 @@ class CompanyController extends Controller
             'address' => 'nullable|string',
             'phone' => 'nullable|string|max:20',
             'email' => 'nullable|email|max:100',
+            'logo' => 'nullable|image|max:5120',
+            'logo_url' => 'nullable|string|max:2048',
             'ubigeo' => 'nullable|string|size:6',
             'urbanization' => 'nullable|string|max:100',
             'department' => 'nullable|string|max:50',
@@ -179,6 +190,16 @@ class CompanyController extends Controller
             'branch_code' => 'nullable|string|max:10|unique:companies,branch_code,' . $company->id,
             'is_main_office' => 'boolean',
         ]);
+
+        if ($request->hasFile('logo')) {
+            if (is_string($company->logo_url) && str_starts_with($company->logo_url, '/storage/')) {
+                $oldPath = ltrim(str_replace('/storage/', '', $company->logo_url), '/');
+                Storage::disk('public')->delete($oldPath);
+            }
+
+            $path = $request->file('logo')->store('images/companies', 'public');
+            $validated['logo_url'] = '/storage/' . ltrim($path, '/');
+        }
 
         $company->update($validated);
 

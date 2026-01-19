@@ -52,7 +52,7 @@ const taxTypes = [
     <AppLayout :breadcrumbs="breadcrumbs">
         <Head title="Crear Impuesto" />
 
-        <div class="container mx-auto p-4 max-w-4xl">
+        <div class="w-full p-4">
             <!-- Header -->
             <div class="mb-6 flex items-center justify-between">
                 <div class="flex items-center gap-4">

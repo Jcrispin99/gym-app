@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\Sidebar\SidebarBuilder;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -51,6 +52,7 @@ class HandleInertiaRequests extends Middleware
                 'info' => $request->session()->get('info'),
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
+            'sidebar' => fn () => app(SidebarBuilder::class)->build($request),
         ];
     }
 }

@@ -1,0 +1,226 @@
+<?php
+
+return [
+    [
+        'type' => 'header',
+        'title' => 'Principal',
+    ],
+    [
+        'type' => 'link',
+        'title' => 'Dashboard',
+        'icon' => 'LayoutDashboard',
+        'route' => 'dashboard',
+        'active' => 'dashboard',
+    ],
+    [
+        'type' => 'group',
+        'title' => 'Gimnasio',
+        'icon' => 'Dumbbell',
+        'active' => [
+            'members.*',
+            'membership-plans.*',
+            'subscriptions.*',
+            'attendances.*',
+        ],
+        'items' => [
+            [
+                'type' => 'link',
+                'title' => 'Miembros',
+                'icon' => 'Users',
+                'route' => 'members.index',
+                'active' => 'members.*',
+                'can' => ['staff'],
+            ],
+            [
+                'type' => 'link',
+                'title' => 'Planes',
+                'icon' => 'CreditCard',
+                'route' => 'membership-plans.index',
+                'active' => 'membership-plans.*',
+                'can' => ['staff'],
+            ],
+            [
+                'type' => 'link',
+                'title' => 'Suscripciones',
+                'icon' => 'Snowflake',
+                'route' => 'subscriptions.index',
+                'active' => 'subscriptions.*',
+                'can' => ['staff'],
+            ],
+            [
+                'type' => 'link',
+                'title' => 'Asistencias',
+                'icon' => 'ClipboardCheck',
+                'route' => 'attendances.index',
+                'active' => 'attendances.*',
+                'can' => ['staff'],
+            ],
+        ],
+    ],
+    [
+        'type' => 'group',
+        'title' => 'Inventario',
+        'icon' => 'PackageOpen',
+        'active' => [
+            'categories.*',
+            'products.*',
+            'attributes.*',
+            'warehouses.*',
+        ],
+        'items' => [
+            [
+                'type' => 'link',
+                'title' => 'Categorías',
+                'icon' => 'Folder',
+                'route' => 'categories.index',
+                'active' => 'categories.*',
+                'can' => ['staff'],
+            ],
+            [
+                'type' => 'link',
+                'title' => 'Productos',
+                'icon' => 'Package',
+                'route' => 'products.index',
+                'active' => 'products.*',
+                'can' => ['staff'],
+            ],
+            [
+                'type' => 'link',
+                'title' => 'Atributos',
+                'icon' => 'Tags',
+                'route' => 'attributes.index',
+                'active' => 'attributes.*',
+                'can' => ['staff'],
+            ],
+            [
+                'type' => 'link',
+                'title' => 'Almacén',
+                'icon' => 'Warehouse',
+                'route' => 'warehouses.index',
+                'active' => 'warehouses.*',
+            ],
+        ],
+    ],
+    [
+        'type' => 'group',
+        'title' => 'Compras',
+        'icon' => 'ShoppingCart',
+        'active' => [
+            'purchases.*',
+            'suppliers.*',
+        ],
+        'items' => [
+            [
+                'type' => 'link',
+                'title' => 'Compras',
+                'icon' => 'ShoppingCart',
+                'route' => 'purchases.index',
+                'active' => 'purchases.*',
+            ],
+            [
+                'type' => 'link',
+                'title' => 'Proveedores',
+                'icon' => 'Users',
+                'route' => 'suppliers.index',
+                'active' => 'suppliers.*',
+            ],
+        ],
+    ],
+    [
+        'type' => 'group',
+        'title' => 'Ventas',
+        'icon' => 'Store',
+        'active' => [
+            'pos-configs.*',
+            'sales.*',
+            'customers.*',
+        ],
+        'items' => [
+            [
+                'type' => 'link',
+                'title' => 'POS',
+                'icon' => 'Store',
+                'route' => 'pos-configs.index',
+                'active' => 'pos-configs.*',
+            ],
+            [
+                'type' => 'link',
+                'title' => 'Ventas',
+                'icon' => 'ShoppingCart',
+                'route' => 'sales.index',
+                'active' => 'sales.*',
+            ],
+            [
+                'type' => 'link',
+                'title' => 'Clientes',
+                'icon' => 'Users',
+                'route' => 'customers.index',
+                'active' => 'customers.*',
+                'can' => ['staff'],
+            ],
+        ],
+    ],
+    [
+        'type' => 'group',
+        'title' => 'Reportes',
+        'icon' => 'TrendingUp',
+        'active' => [
+            'reports.*',
+        ],
+        'items' => [
+            [
+                'type' => 'link',
+                'title' => 'Ventas: Top productos',
+                'icon' => 'TrendingUp',
+                'route' => 'reports.best-sellers',
+                'active' => 'reports.best-sellers',
+            ],
+        ],
+    ],
+    [
+        'type' => 'header',
+        'title' => 'Sistema',
+    ],
+    [
+        'type' => 'group',
+        'title' => 'Sistema',
+        'icon' => 'Settings',
+        'active' => [
+            'companies.*',
+            'users.*',
+            'journals.*',
+            'taxes.*',
+        ],
+        'items' => [
+            [
+                'type' => 'link',
+                'title' => 'Compañías',
+                'icon' => 'Building2',
+                'route' => 'companies.page',
+                'active' => 'companies.*',
+            ],
+            [
+                'type' => 'link',
+                'title' => 'Usuarios',
+                'icon' => 'UserRound',
+                'route' => 'users.index',
+                'active' => 'users.*',
+            ],
+            [
+                'type' => 'link',
+                'title' => 'Diarios',
+                'icon' => 'BookOpen',
+                'route' => 'journals.index',
+                'active' => 'journals.*',
+            ],
+            [
+                'type' => 'link',
+                'title' => 'Impuestos',
+                'icon' => 'Percent',
+                'route' => 'taxes.index',
+                'active' => 'taxes.*',
+            ],
+        ],
+    ],
+];
+

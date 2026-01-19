@@ -37,6 +37,7 @@ interface Company {
     business_name: string;
     trade_name: string;
     ruc: string;
+    logo_url: string | null;
     address: string | null;
     phone: string | null;
     email: string | null;
@@ -206,11 +207,22 @@ const deleteCompany = () => {
 
                                 <!-- Nombre -->
                                 <TableCell>
-                                    <div class="flex flex-col">
-                                        <span class="font-medium">{{ company.trade_name }}</span>
-                                        <span class="text-xs text-muted-foreground">
-                                            {{ company.business_name }}
-                                        </span>
+                                    <div class="flex items-center gap-3">
+                                        <div class="flex h-9 w-9 items-center justify-center overflow-hidden rounded border bg-muted">
+                                            <img
+                                                v-if="company.logo_url"
+                                                :src="company.logo_url"
+                                                alt="Logo"
+                                                class="h-full w-full object-contain"
+                                            />
+                                            <Building2 v-else class="h-4 w-4 text-muted-foreground" />
+                                        </div>
+                                        <div class="flex flex-col">
+                                            <span class="font-medium">{{ company.trade_name }}</span>
+                                            <span class="text-xs text-muted-foreground">
+                                                {{ company.business_name }}
+                                            </span>
+                                        </div>
                                     </div>
                                 </TableCell>
 

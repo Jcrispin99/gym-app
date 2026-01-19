@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/select';
 import { Head, router } from '@inertiajs/vue3';
 import { ArrowLeft } from 'lucide-vue-next';
+import type { BreadcrumbItem } from '@/types';
 
 interface Company {
     id: number;
@@ -29,6 +30,12 @@ interface Props {
 }
 
 const props = defineProps<Props>();
+
+const breadcrumbs: BreadcrumbItem[] = [
+    { title: 'Dashboard', href: '/dashboard' },
+    { title: 'Planes', href: '/membership-plans' },
+    { title: 'Crear', href: '/membership-plans/create' },
+];
 
 const days = [
     { value: 'monday', label: 'Lunes' },
@@ -101,29 +108,30 @@ const toggleDay = (day: string) => {
 </script>
 
 <template>
-    <AppLayout>
+    <AppLayout :breadcrumbs="breadcrumbs">
         <Head title="Crear Plan de Membresía" />
 
-        <div class="flex flex-col gap-4 p-4 max-w-4xl mx-auto">
-            <!-- Header -->
-            <div class="flex items-center gap-4">
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    @click="router.visit('/membership-plans')"
-                >
-                    <ArrowLeft class="h-4 w-4" />
-                </Button>
-                <div>
-                    <h1 class="text-3xl font-bold tracking-tight">Nuevo Plan de Membresía</h1>
-                    <p class="text-muted-foreground">
-                        Crea un nuevo plan con sus características y restricciones
-                    </p>
+        <div class="w-full p-4">
+            <div class="flex flex-col gap-4">
+                <!-- Header -->
+                <div class="flex items-center gap-4">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        @click="router.visit('/membership-plans')"
+                    >
+                        <ArrowLeft class="h-4 w-4" />
+                    </Button>
+                    <div>
+                        <h1 class="text-3xl font-bold tracking-tight">Nuevo Plan de Membresía</h1>
+                        <p class="text-muted-foreground">
+                            Crea un nuevo plan con sus características y restricciones
+                        </p>
+                    </div>
                 </div>
-            </div>
 
-            <!-- Form -->
-            <form @submit.prevent="submit">
+                <!-- Form -->
+                <form @submit.prevent="submit">
                 <div class="grid gap-6 md:grid-cols-2">
                     <!-- Información Básica -->
                     <Card class="md:col-span-2">
@@ -341,6 +349,7 @@ const toggleDay = (day: string) => {
                     </Button>
                 </div>
             </form>
+            </div>
         </div>
     </AppLayout>
 </template>

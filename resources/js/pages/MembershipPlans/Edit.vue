@@ -14,6 +14,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/AppLayout.vue';
+import type { BreadcrumbItem } from '@/types';
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { ArrowLeft } from 'lucide-vue-next';
 
@@ -47,6 +48,12 @@ interface Props {
 }
 
 const props = defineProps<Props>();
+
+const breadcrumbs: BreadcrumbItem[] = [
+    { title: 'Dashboard', href: '/dashboard' },
+    { title: 'Planes', href: '/membership-plans' },
+    { title: 'Editar', href: `/membership-plans/${props.plan.id}/edit` },
+];
 
 const days = [
     { value: 'monday', label: 'Lunes' },
@@ -118,31 +125,32 @@ const toggleDay = (day: string) => {
 </script>
 
 <template>
-    <AppLayout>
+    <AppLayout :breadcrumbs="breadcrumbs">
         <Head :title="`Editar ${plan.name}`" />
 
-        <div class="flex flex-col gap-4 p-4 max-w-4xl mx-auto">
-            <!-- Header -->
-            <div class="flex items-center gap-4">
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    @click="router.visit('/membership-plans')"
-                >
-                    <ArrowLeft class="h-4 w-4" />
-                </Button>
-                <div>
-                    <h1 class="text-3xl font-bold tracking-tight">
-                        Editar Plan de Membresía
-                    </h1>
-                    <p class="text-muted-foreground">
-                        {{ plan.name }}
-                    </p>
+        <div class="w-full p-4">
+            <div class="flex flex-col gap-4">
+                <!-- Header -->
+                <div class="flex items-center gap-4">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        @click="router.visit('/membership-plans')"
+                    >
+                        <ArrowLeft class="h-4 w-4" />
+                    </Button>
+                    <div>
+                        <h1 class="text-3xl font-bold tracking-tight">
+                            Editar Plan de Membresía
+                        </h1>
+                        <p class="text-muted-foreground">
+                            {{ plan.name }}
+                        </p>
+                    </div>
                 </div>
-            </div>
 
-            <!-- Form -->
-            <form @submit.prevent="submit">
+                <!-- Form -->
+                <form @submit.prevent="submit">
                 <div class="grid gap-6 md:grid-cols-2">
                     <!-- Información Básica -->
                     <Card class="md:col-span-2">
@@ -416,6 +424,7 @@ const toggleDay = (day: string) => {
                     </Button>
                 </div>
             </form>
+            </div>
         </div>
     </AppLayout>
 </template>

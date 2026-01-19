@@ -1,10 +1,15 @@
 <script setup lang="ts">
-import AppLayout from '@/layouts/AppLayout.vue';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
     Select,
     SelectContent,
@@ -12,9 +17,10 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import AppLayout from '@/layouts/AppLayout.vue';
+import type { BreadcrumbItem } from '@/types';
 import { Head, useForm } from '@inertiajs/vue3';
 import { ArrowLeft } from 'lucide-vue-next';
-import type { BreadcrumbItem } from '@/types';
 
 interface Company {
     id: number;
@@ -24,8 +30,6 @@ interface Company {
 interface Props {
     companies: Company[];
 }
-
-
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -62,7 +66,7 @@ const journalTypes = [
     <AppLayout :breadcrumbs="breadcrumbs">
         <Head title="Crear Diario" />
 
-        <div class="container mx-auto p-4 max-w-4xl">
+        <div class="w-full p-4">
             <!-- Header -->
             <div class="mb-6 flex items-center justify-between">
                 <div class="flex items-center gap-4">
@@ -99,10 +103,16 @@ const journalTypes = [
                                         id="name"
                                         v-model="form.name"
                                         placeholder="Ej: Compras Locales"
-                                        :class="{ 'border-destructive': form.errors.name }"
+                                        :class="{
+                                            'border-destructive':
+                                                form.errors.name,
+                                        }"
                                         required
                                     />
-                                    <p v-if="form.errors.name" class="text-sm text-destructive">
+                                    <p
+                                        v-if="form.errors.name"
+                                        class="text-sm text-destructive"
+                                    >
                                         {{ form.errors.name }}
                                     </p>
                                 </div>
@@ -114,14 +124,21 @@ const journalTypes = [
                                         id="code"
                                         v-model="form.code"
                                         placeholder="Ej: COMP"
-                                        :class="{ 'border-destructive': form.errors.code }"
+                                        :class="{
+                                            'border-destructive':
+                                                form.errors.code,
+                                        }"
                                         required
                                         maxlength="10"
                                     />
                                     <p class="text-xs text-muted-foreground">
-                                        Será usado como serie en los documentos (ej: COMP-00000001)
+                                        Será usado como serie en los documentos
+                                        (ej: COMP-00000001)
                                     </p>
-                                    <p v-if="form.errors.code" class="text-sm text-destructive">
+                                    <p
+                                        v-if="form.errors.code"
+                                        class="text-sm text-destructive"
+                                    >
                                         {{ form.errors.code }}
                                     </p>
                                 </div>
@@ -131,7 +148,9 @@ const journalTypes = [
                                     <Label for="type">Tipo de Diario *</Label>
                                     <Select v-model="form.type">
                                         <SelectTrigger id="type">
-                                            <SelectValue placeholder="Seleccionar tipo" />
+                                            <SelectValue
+                                                placeholder="Seleccionar tipo"
+                                            />
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem
@@ -151,14 +170,20 @@ const journalTypes = [
                                         id="is_fiscal"
                                         v-model:checked="form.is_fiscal"
                                     />
-                                    <Label for="is_fiscal" class="cursor-pointer">
+                                    <Label
+                                        for="is_fiscal"
+                                        class="cursor-pointer"
+                                    >
                                         Es documento fiscal (Factura/Boleta)
                                     </Label>
                                 </div>
 
                                 <!-- Document Type Code (SUNAT) -->
                                 <div v-if="form.is_fiscal" class="space-y-2">
-                                    <Label for="document_type_code">Código de Tipo de Documento (SUNAT)</Label>
+                                    <Label for="document_type_code"
+                                        >Código de Tipo de Documento
+                                        (SUNAT)</Label
+                                    >
                                     <Input
                                         id="document_type_code"
                                         v-model="form.document_type_code"
@@ -166,7 +191,8 @@ const journalTypes = [
                                         maxlength="2"
                                     />
                                     <p class="text-xs text-muted-foreground">
-                                        01: Factura, 03: Boleta, 07: Nota Crédito, 08: Nota Débito
+                                        01: Factura, 03: Boleta, 07: Nota
+                                        Crédito, 08: Nota Débito
                                     </p>
                                 </div>
 
@@ -175,7 +201,9 @@ const journalTypes = [
                                     <Label for="company_id">Empresa</Label>
                                     <Select v-model="form.company_id">
                                         <SelectTrigger id="company_id">
-                                            <SelectValue placeholder="Seleccionar empresa" />
+                                            <SelectValue
+                                                placeholder="Seleccionar empresa"
+                                            />
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem
@@ -194,15 +222,20 @@ const journalTypes = [
                         <!-- Sequence Configuration -->
                         <Card>
                             <CardHeader>
-                                <CardTitle>Configuración de Numeración</CardTitle>
+                                <CardTitle
+                                    >Configuración de Numeración</CardTitle
+                                >
                                 <CardDescription>
-                                    Define cómo se generarán los números correlativos
+                                    Define cómo se generarán los números
+                                    correlativos
                                 </CardDescription>
                             </CardHeader>
                             <CardContent class="space-y-4">
                                 <!-- Sequence Size -->
                                 <div class="space-y-2">
-                                    <Label for="sequence_size">Tamaño de Secuencia</Label>
+                                    <Label for="sequence_size"
+                                        >Tamaño de Secuencia</Label
+                                    >
                                     <Input
                                         id="sequence_size"
                                         v-model.number="form.sequence_size"
@@ -217,7 +250,9 @@ const journalTypes = [
 
                                 <!-- Next Number -->
                                 <div class="space-y-2">
-                                    <Label for="next_number">Próximo Número</Label>
+                                    <Label for="next_number"
+                                        >Próximo Número</Label
+                                    >
                                     <Input
                                         id="next_number"
                                         v-model.number="form.next_number"
@@ -239,15 +274,23 @@ const journalTypes = [
                                         min="1"
                                     />
                                     <p class="text-xs text-muted-foreground">
-                                        De cuánto en cuánto incrementar (normalmente 1)
+                                        De cuánto en cuánto incrementar
+                                        (normalmente 1)
                                     </p>
                                 </div>
 
                                 <!-- Preview -->
                                 <div class="rounded-md bg-muted p-4">
-                                    <p class="text-sm font-medium mb-2">Vista previa:</p>
+                                    <p class="mb-2 text-sm font-medium">
+                                        Vista previa:
+                                    </p>
                                     <p class="font-mono text-lg">
-                                        {{ form.code || 'XXXX' }}-{{ String(form.next_number).padStart(form.sequence_size, '0') }}
+                                        {{ form.code || 'XXXX' }}-{{
+                                            String(form.next_number).padStart(
+                                                form.sequence_size,
+                                                '0',
+                                            )
+                                        }}
                                     </p>
                                 </div>
                             </CardContent>
@@ -261,12 +304,14 @@ const journalTypes = [
                         <CardHeader>
                             <CardTitle>Información</CardTitle>
                         </CardHeader>
-                        <CardContent class="text-sm space-y-2">
+                        <CardContent class="space-y-2 text-sm">
                             <p class="text-muted-foreground">
-                                Los diarios se usan para generar numeración automática de documentos.
+                                Los diarios se usan para generar numeración
+                                automática de documentos.
                             </p>
                             <p class="text-muted-foreground">
-                                Cada diario tiene su propia secuencia independiente.
+                                Cada diario tiene su propia secuencia
+                                independiente.
                             </p>
                         </CardContent>
                     </Card>
@@ -275,9 +320,11 @@ const journalTypes = [
                         <CardHeader>
                             <CardTitle>Ayuda</CardTitle>
                         </CardHeader>
-                        <CardContent class="text-sm space-y-2">
+                        <CardContent class="space-y-2 text-sm">
                             <p class="font-medium">Tipos comunes:</p>
-                            <ul class="list-disc list-inside text-muted-foreground space-y-1">
+                            <ul
+                                class="list-inside list-disc space-y-1 text-muted-foreground"
+                            >
                                 <li>Venta: Para facturas y boletas</li>
                                 <li>Compra: Para registrar compras</li>
                                 <li>Orden de Compra: Para OC</li>
