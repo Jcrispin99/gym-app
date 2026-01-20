@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Pos;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\SendSunatInvoice;
 use App\Models\Category;
 use App\Models\MembershipPlan;
 use App\Models\MembershipSubscription;
@@ -769,6 +770,8 @@ class PosController extends Controller
                         'partner_id' => $validated['client_id'],
                     ]);
                 }
+
+                SendSunatInvoice::dispatch($sale->id)->afterCommit();
             });
 
             $lastSale = DB::table('sales')->latest('id')->first();

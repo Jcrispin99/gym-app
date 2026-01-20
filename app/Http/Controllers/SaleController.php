@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\SendSunatInvoice;
 use App\Models\Journal;
 use App\Models\Partner;
 use App\Models\ProductProduct;
@@ -11,6 +12,7 @@ use App\Models\Warehouse;
 use App\Services\KardexService;
 use App\Services\SequenceService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
@@ -42,8 +44,8 @@ class SaleController extends Controller
                     ->orWhere('correlative', 'like', "%{$search}%")
                     ->orWhereHas('partner', function ($pq) use ($search) {
                         $pq->where('first_name', 'like', "%{$search}%")
-                           ->orWhere('last_name', 'like', "%{$search}%")
-                           ->orWhere('business_name', 'like', "%{$search}%");
+                            ->orWhere('last_name', 'like', "%{$search}%")
+                            ->orWhere('business_name', 'like', "%{$search}%");
                     });
             });
         }
@@ -91,7 +93,7 @@ class SaleController extends Controller
 
         DB::transaction(function () use ($validated) {
             // Obtener company_id del usuario o de la sesión
-            $companyId = $validated['company_id'] ?? auth()->user()->company_id;
+            $companyId = $validated['company_id'] ?? Auth::user()?->company_id;
 
             // Obtener el journal por defecto para ventas de esta compañía
             $defaultJournal = Journal::where('type', 'sale')
@@ -111,7 +113,7 @@ class SaleController extends Controller
                 'warehouse_id' => $validated['warehouse_id'],
                 'journal_id' => $defaultJournal->id,
                 'company_id' => $companyId,
-                'user_id' => auth()->id(),
+                'user_id' => Auth::id(),
                 'notes' => $validated['notes'] ?? null,
                 'status' => 'draft',
                 'payment_status' => 'unpaid',
@@ -327,6 +329,8 @@ class SaleController extends Controller
             }
         });
 
+        SendSunatInvoice::dispatch($sale->id)->afterCommit();
+
         return redirect()->route('sales.index')
             ->with('success', 'Venta publicada exitosamente.');
     }
@@ -370,5 +374,23 @@ class SaleController extends Controller
 
         return redirect()->route('sales.index')
             ->with('success', 'Venta cancelada y stock devuelto exitosamente.');
+    }
+
+    public function retrySunat(Sale $sale)
+    {
+        $alreadyAccepted = (bool) (data_get($sale->sunat_response, 'accepted') === true || $sale->sunat_status === 'accepted');
+
+        if ($alreadyAccepted) {
+            return back()->with('info', 'La venta ya está aceptada por SUNAT. No se reenviará.');
+        }
+
+        $sale->sunat_status = 'pending';
+        $sale->sunat_response = null;
+        $sale->sunat_sent_at = null;
+        $sale->save();
+
+        SendSunatInvoice::dispatch($sale->id)->afterCommit();
+
+        return back()->with('success', 'Envío a SUNAT encolado.');
     }
 }

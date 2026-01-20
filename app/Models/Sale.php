@@ -28,6 +28,9 @@ class Sale extends Model
         'total',
         'status',
         'payment_status',
+        'sunat_status',
+        'sunat_response',
+        'sunat_sent_at',
         'notes',
     ];
 
@@ -36,6 +39,8 @@ class Sale extends Model
         'subtotal' => 'decimal:2',
         'tax_amount' => 'decimal:2',
         'total' => 'decimal:2',
+        'sunat_response' => 'array',
+        'sunat_sent_at' => 'datetime',
     ];
 
     // ========================================

@@ -1,72 +1,53 @@
-## Qué Entiendo del Documento
-- Es una propuesta para integrar facturación electrónica vía una **API externa (Greenter API)**, no Greenter “embebido” en Laravel.
-- Se basa en:
-  - `GREENTER_API_URL` en `.env`.
-  - Resolver un **token por compañía** (por un modelo tipo `SunatConnection`).
-  - Construir un **payload SUNAT** desde una `Sale` (company, client, details, totales).
-  - Enviar por HTTP a endpoints tipo `invoices/send` o `notes/send`.
-  - Guardar en la venta estado/respuesta: `sunat_status` + `sunat_response` (JSON), y evitar reenvíos.
-  - Ejecutar el envío **asíncrono** con un Job (`SendSunatInvoice`) para no bloquear el POS.
+## Qué Entiendo del Documento (en tu contexto)
+- Vamos a integrar facturación electrónica vía una **API externa (Greenter API)**.
+- Este proyecto tendrá **un solo token global** (no por compañía).
+- Es requisito guardar en `Sale` el estado/respuesta (`sunat_status` + `sunat_response` JSON) y **evitar reenvíos** cuando ya está aceptado.
 
-## Qué Sí Calza con el Proyecto Actual
-- `Company` ya tiene data útil para SUNAT (RUC, ubigeo/dirección) y un campo `logo_url`.
-- `Journal` ya tiene campos alineados a SUNAT: `document_type_code` e `is_fiscal`.
-- `Tax` ya tiene `affectation_type_code` (Catálogo 07) y `rate_percent`.
-- `Sale` ya tiene serie/correlativo, journal, company, partner, warehouse, user y totales.
-- Las líneas de venta existen en `productables` con `quantity/price/subtotal/tax_rate/tax_amount/total`.
+## Ajustes Clave vs la guía
+- Se elimina el concepto `SunatConnection` por compañía.
+- El token se resuelve desde `.env` (por ejemplo `GREENTER_API_URL` y `GREENTER_API_TOKEN`).
 
-## Qué NO Calza / Gaps Reales (hoy)
-- La guía asume piezas que **no existen** en el repo:
-  - No existe `app/Services/GreenterInvoiceService.php`.
-  - No existe `app/Jobs/SendSunatInvoice.php`.
-  - No existe `SunatConnection` ni migraciones relacionadas.
-  - `sales` no tiene `sunat_status` ni `sunat_response`.
-- Diferencias de modelo:
-  - La guía habla de `PosOrder` / `pos_order_id`; en este proyecto no existe `PosOrder` y `Sale` tiene `pos_session_id`.
-  - La guía usa `customer.identity`; aquí el cliente es `Partner` con `document_type` y `document_number`.
-- El flujo actual de publicar venta (`SaleController@post`) solo mueve stock y cambia estado; no dispara envío SUNAT.
-
-## Cómo Lo Haría en Laravel + Inertia (adaptado a tu sistema)
-### 1) Persistencia y modelos
-- Crear `sunat_connections`:
-  - `id`, `company_id`, `token_ikoodev` (u otro nombre), opcional `client_id`, `client_secret`, `active`, timestamps.
-  - Relación `Company->sunatConnection()`.
-- Extender `sales`:
-  - `sunat_status` (enum/string: draft|processing|sent|accepted|error|skipped).
-  - `sunat_response` (json) para guardar `http_status`, `accepted`, `cdr_code`, `error`, etc.
-  - (Opcional) campos para notas: `original_sale_id` o `original_serie/original_correlative` si vas a emitir NC/ND.
+## Implementación propuesta
+### 1) Persistencia en ventas
+- Crear migración para `sales` agregando:
+  - `sunat_status` (string/enum: `pending|processing|sent|accepted|error|skipped`)
+  - `sunat_response` (json nullable)
+  - (opcional) `sunat_sent_at` (timestamp) si quieres trazabilidad.
+- Actualizar `Sale` model con `casts` para `sunat_response`.
 
 ### 2) Servicio GreenterInvoiceService (real)
-- Implementar `GreenterInvoiceService` usando `Http`:
-  - `resolveTokenForSale(Sale $sale)` usando `sale->company->sunatConnection`.
-  - `buildCompanyPayload()` mapeando `Company` a estructura Greenter.
-  - `buildClientPayload()` mapeando `Partner` (document_type/document_number, nombres).
-  - `buildDetailsAndTotalsPerLine()` usando `Sale->products` (productables) + `Tax` (`affectation_type_code`, `rate_percent`).
+- Implementar `app/Services/GreenterInvoiceService.php`:
+  - `__construct`: lee `GREENTER_API_URL`.
+  - `resolveToken()`: lee `GREENTER_API_TOKEN`.
+  - `buildPayloadFromSale(Sale $sale)`: arma payload usando:
+    - `Sale->journal` (`document_type_code`, `is_fiscal`)
+    - `Sale->company` (RUC/dirección)
+    - `Sale->partner` (document_type/document_number, nombres)
+    - `Sale->products` (productables) + `Tax` (rate_percent, affectation_type_code)
   - `sendInvoiceFromSale(Sale $sale)`:
-    - validar `journal.is_fiscal` y `document_type_code` (01/03/07/08)
-    - setear `sunat_status` y guardar `sunat_response`
-    - evitar reenvío si ya está `accepted`
-- Asegurar buenas prácticas:
+    - Si `!journal.is_fiscal` o docType no soportado: marcar `skipped`.
+    - Si `sunat_status = accepted` o `sunat_response.accepted = true`: no reenviar.
+    - Si envía: set `processing`, POST a `invoices/send` (y luego persistir `accepted/sent/error` con `http_status` y detalles).
   - No loguear token.
-  - Capturar errores de red/validación y persistirlos.
 
 ### 3) Job asíncrono
-- Crear `SendSunatInvoice` que reciba `sale_id` y llame al servicio.
-- Despachar con `afterCommit()` donde corresponda.
+- Crear `app/Jobs/SendSunatInvoice.php`:
+  - recibe `sale_id`
+  - carga `Sale` con relaciones necesarias
+  - llama a `GreenterInvoiceService->sendInvoiceFromSale($sale)`
 
-### 4) Hook en el flujo de negocio
-- En el punto donde una venta queda final (ej: `SaleController@post` o flujo POS cuando se procesa pago), disparar el Job:
-  - Solo para `journal.is_fiscal = true` y tipos soportados.
+### 4) Disparo desde el flujo de negocio
+- En el punto donde una venta queda final (mínimo: `SaleController@post`), despachar el Job con `afterCommit()`.
+- (Si el POS crea/postea ventas por otro flujo, también se engancha ahí.)
 
-### 5) UI/observabilidad mínima
-- Mostrar en la vista de venta:
-  - `sunat_status` + último mensaje.
-  - Botón “Reintentar envío” si `error`.
-- (Opcional) guardar y exponer enlaces de XML/CDR/PDF si la API lo devuelve.
+### 5) UI mínima (opcional pero recomendable)
+- Mostrar `sunat_status` y un resumen de `sunat_response` en la vista de venta.
+- Botón “Reintentar” que vuelva a despachar el Job solo si no está `accepted`.
 
-## Puntos que Quiero que Me Corrijas (por si el sistema ya tiene reglas)
-- ¿El token de Greenter realmente es por compañía (company_id) o global?
-- ¿Van a emitir solo boleta/factura (03/01) o también notas (07/08) en esta etapa?
-- ¿El evento de envío debe ocurrir al “postear” venta o al “cobrar” en POS?
+## Verificación
+- Tests + build.
+- Caso de prueba manual:
+  - Postear venta fiscal (01/03) → cambia `sunat_status` y guarda `sunat_response`.
+  - Reintentar una aceptada → no dispara envío.
 
-Si confirmas, paso a implementarlo en el código (migraciones + modelos + servicio + job + disparo desde el flujo de ventas).
+Si estás de acuerdo con estos puntos, paso a implementarlo tal cual (migración sales + service + job + dispatch y guardado de estado/respuesta).
