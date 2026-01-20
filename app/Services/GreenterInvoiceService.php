@@ -26,13 +26,15 @@ class GreenterInvoiceService
             'products.tax',
             'products.productProduct.product',
             'products.productProduct.attributeValues.attribute',
+            'originalSale.journal',
+            'originalSale.products',
         ]);
 
         $journal = $sale->journal;
         $docType = (string) ($journal->document_type_code ?? '');
         $isFiscal = (bool) ($journal->is_fiscal ?? false);
 
-        if (! $isFiscal || ! in_array($docType, ['01', '03'], true)) {
+        if (! $isFiscal || ! in_array($docType, ['01', '03', '07'], true)) {
             $sale->sunat_status = 'skipped';
             $sale->sunat_response = [
                 'accepted' => false,
@@ -46,6 +48,23 @@ class GreenterInvoiceService
         $alreadyAccepted = (bool) (data_get($sale->sunat_response, 'accepted') === true || $sale->sunat_status === 'accepted');
         if ($alreadyAccepted) {
             return true;
+        }
+
+        if ($docType === '07') {
+            $original = $sale->originalSale;
+            $hasNumber = ! empty($original?->serie) && ! empty($original?->correlative);
+            $affectedType = (string) ($original?->journal?->document_type_code ?? '');
+
+            if (! $original || ! $hasNumber || ! in_array($affectedType, ['01', '03'], true)) {
+                $sale->sunat_status = 'error';
+                $sale->sunat_response = [
+                    'accepted' => false,
+                    'error' => 'Falta venta original válida para Nota de Crédito (01/03 con numeración).',
+                    'updated_at' => now()->toIso8601String(),
+                ];
+                $sale->save();
+                return false;
+            }
         }
 
         if ($this->baseUrl === '' || $this->token === '') {
@@ -62,13 +81,15 @@ class GreenterInvoiceService
         $sale->sunat_status = 'processing';
         $sale->save();
 
-        $payload = $this->buildPayloadFromSale($sale);
+        $payload = $docType === '07'
+            ? $this->buildCreditNotePayloadFromSale($sale)
+            : $this->buildPayloadFromSale($sale);
 
         try {
             /** @var Response $response */
             $response = Http::withToken($this->token)
                 ->acceptJson()
-                ->post($this->baseUrl . 'invoices/send', $payload);
+                ->post($this->baseUrl . ($docType === '07' ? 'notes/send' : 'invoices/send'), $payload);
 
             $json = $response->json();
             $accepted = false;
@@ -200,6 +221,65 @@ class GreenterInvoiceService
         ];
 
         return $payload;
+    }
+
+    public function buildCreditNotePayloadFromSale(Sale $sale): array
+    {
+        $sale->loadMissing([
+            'journal',
+            'company',
+            'partner',
+            'products.tax',
+            'products.productProduct.product',
+            'products.productProduct.attributeValues.attribute',
+            'originalSale.journal',
+            'originalSale.products',
+        ]);
+
+        $original = $sale->originalSale;
+        if (! $original) {
+            return $this->buildPayloadFromSale($sale);
+        }
+
+        $tipDocAfectado = (string) ($original->journal?->document_type_code ?? '');
+        $numDocAfectado = (string) ($original->serie && $original->correlative ? ($original->serie . '-' . $original->correlative) : '');
+
+        [$codMotivo, $desMotivo] = $this->resolveCreditNoteReason($sale, $original);
+
+        $payload = $this->buildPayloadFromSale($sale);
+        $payload['tipoDoc'] = '07';
+        $payload['tipDocAfectado'] = $tipDocAfectado;
+        $payload['numDocAfectado'] = $numDocAfectado;
+        $payload['codMotivo'] = $codMotivo;
+        $payload['desMotivo'] = $desMotivo;
+
+        return $payload;
+    }
+
+    private function resolveCreditNoteReason(Sale $note, Sale $original): array
+    {
+        $originalMap = [];
+        foreach ($original->products as $line) {
+            $key = (string) $line->product_product_id;
+            $qty = number_format((float) $line->quantity, 2, '.', '');
+            $originalMap[$key] = number_format(((float) ($originalMap[$key] ?? 0)) + (float) $qty, 2, '.', '');
+        }
+
+        $noteMap = [];
+        foreach ($note->products as $line) {
+            $key = (string) $line->product_product_id;
+            $qty = number_format((float) $line->quantity, 2, '.', '');
+            $noteMap[$key] = number_format(((float) ($noteMap[$key] ?? 0)) + (float) $qty, 2, '.', '');
+        }
+
+        ksort($originalMap);
+        ksort($noteMap);
+
+        if ($originalMap === $noteMap) {
+            return ['06', 'DEVOLUCION TOTAL'];
+        }
+
+        return ['07', 'DEVOLUCION POR ITEM'];
     }
 
     private function mapPartnerDocType(?string $name): string

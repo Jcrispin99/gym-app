@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Jobs\SendSunatInvoice;
 use App\Models\Journal;
 use App\Models\Partner;
+use App\Models\Productable;
 use App\Models\ProductProduct;
 use App\Models\Sale;
 use App\Models\Tax;
@@ -185,13 +186,7 @@ class SaleController extends Controller
      */
     public function edit(Sale $sale)
     {
-        // Solo se pueden editar ventas en borrador
-        if ($sale->status !== 'draft') {
-            return redirect()->route('sales.index')
-                ->with('error', 'Solo se pueden editar ventas en borrador.');
-        }
-
-        $sale->load(['products.productProduct']);
+        $sale->load(['journal', 'products.productProduct']);
         $customers = Partner::customers()->active()->get();
         $warehouses = Warehouse::all();
         $taxes = Tax::active()->get();
@@ -209,10 +204,17 @@ class SaleController extends Controller
      */
     public function update(Request $request, Sale $sale)
     {
-        // Solo se pueden editar ventas en borrador
         if ($sale->status !== 'draft') {
-            return redirect()->route('sales.index')
-                ->with('error', 'Solo se pueden editar ventas en borrador.');
+            $validated = $request->validate([
+                'notes' => 'nullable|string',
+            ]);
+
+            $sale->update([
+                'notes' => $validated['notes'] ?? null,
+            ]);
+
+            return redirect()->route('sales.edit', $sale->id)
+                ->with('success', 'Notas actualizadas exitosamente.');
         }
 
         $validated = $request->validate([
@@ -308,24 +310,116 @@ class SaleController extends Controller
                 ->with('error', 'Solo se pueden publicar ventas en borrador.');
         }
 
+        $sale->loadMissing(['journal', 'products.productProduct.template', 'originalSale.products', 'originalSale.journal']);
+        $docType = (string) ($sale->journal?->document_type_code ?? '');
+
+        if ($docType === '07') {
+            $original = $sale->originalSale;
+            if (! $original) {
+                return redirect()->route('sales.index')
+                    ->with('error', 'La Nota de Crédito no tiene venta original asociada.');
+            }
+
+            if ($original->status !== 'posted') {
+                return redirect()->route('sales.index')
+                    ->with('error', 'La venta original debe estar publicada.');
+            }
+
+            if (empty($original->serie) || empty($original->correlative)) {
+                return redirect()->route('sales.index')
+                    ->with('error', 'La venta original no tiene numeración.');
+            }
+
+            $originalDocType = (string) ($original->journal?->document_type_code ?? '');
+            if (! in_array($originalDocType, ['01', '03'], true)) {
+                return redirect()->route('sales.index')
+                    ->with('error', 'La venta original no es un documento 01/03.');
+            }
+
+            $originalQtyByProduct = [];
+            foreach ($original->products as $line) {
+                $pid = (int) $line->product_product_id;
+                $originalQtyByProduct[$pid] = ($originalQtyByProduct[$pid] ?? 0) + (float) $line->quantity;
+            }
+
+            $creditedQtyByProduct = DB::table('productables')
+                ->join('sales', 'sales.id', '=', 'productables.productable_id')
+                ->where('productables.productable_type', Sale::class)
+                ->where('sales.original_sale_id', $original->id)
+                ->where('sales.status', 'posted')
+                ->selectRaw('productables.product_product_id, SUM(productables.quantity) as qty')
+                ->groupBy('productables.product_product_id')
+                ->pluck('qty', 'productables.product_product_id')
+                ->all();
+
+            foreach ($sale->products as $line) {
+                $pid = (int) $line->product_product_id;
+                $qty = (float) $line->quantity;
+
+                $origQty = (float) ($originalQtyByProduct[$pid] ?? 0);
+                if ($origQty <= 0) {
+                    return redirect()->route('sales.index')
+                        ->with('error', 'La Nota de Crédito contiene productos que no están en la venta original.');
+                }
+
+                $creditedQty = (float) ($creditedQtyByProduct[$pid] ?? 0);
+                $availableQty = $origQty - $creditedQty;
+
+                if ($qty <= 0 || $qty > $availableQty + 0.00001) {
+                    return redirect()->route('sales.index')
+                        ->with('error', 'La cantidad a devolver excede lo disponible para devolución.');
+                }
+            }
+        } elseif (! in_array($docType, ['01', '03', ''], true)) {
+            return redirect()->route('sales.index')
+                ->with('error', 'Tipo de documento no soportado para publicar.');
+        }
+
         DB::transaction(function () use ($sale) {
             // Cambiar estado a posted
             $sale->update(['status' => 'posted']);
 
-            // Reducir inventario
             $kardexService = new KardexService();
-            foreach ($sale->products as $line) {
-                // Para ventas, usamos registerExit. El costo será calculado automáticamente
-                // por el servicio usando el Costo Promedio actual.
-                $kardexService->registerExit(
-                    $sale,
-                    [
-                        'id' => $line->product_product_id,
-                        'quantity' => $line->quantity
-                    ],
-                    $sale->warehouse_id,
-                    "Venta Publicada {$sale->serie}-{$sale->correlative}"
-                );
+            $docType = (string) ($sale->journal?->document_type_code ?? '');
+
+            if ($docType === '07') {
+                $original = $sale->originalSale;
+                $ref = $original ? "{$original->serie}-{$original->correlative}" : '';
+
+                foreach ($sale->products as $line) {
+                    $tracksInventory = $line->productProduct?->template?->tracks_inventory ?? true;
+                    if (! $tracksInventory) {
+                        continue;
+                    }
+
+                    $last = $kardexService->getLastRecord($line->product_product_id, $sale->warehouse_id);
+                    $unitCost = (float) ($last['cost'] ?? 0);
+                    $qty = (float) $line->quantity;
+
+                    $kardexService->registerEntry(
+                        $sale,
+                        [
+                            'id' => $line->product_product_id,
+                            'quantity' => $qty,
+                            'price' => $unitCost,
+                            'subtotal' => $qty * $unitCost,
+                        ],
+                        $sale->warehouse_id,
+                        "Nota de Crédito {$sale->serie}-{$sale->correlative} {$ref}"
+                    );
+                }
+            } else {
+                foreach ($sale->products as $line) {
+                    $kardexService->registerExit(
+                        $sale,
+                        [
+                            'id' => $line->product_product_id,
+                            'quantity' => $line->quantity,
+                        ],
+                        $sale->warehouse_id,
+                        "Venta Publicada {$sale->serie}-{$sale->correlative}"
+                    );
+                }
             }
         });
 
@@ -333,6 +427,102 @@ class SaleController extends Controller
 
         return redirect()->route('sales.index')
             ->with('success', 'Venta publicada exitosamente.');
+    }
+
+    public function createCreditNote(Sale $sale)
+    {
+        $sale->loadMissing(['products', 'journal']);
+
+        if ($sale->status !== 'posted') {
+            return redirect()->route('sales.index')
+                ->with('error', 'Solo se pueden crear notas desde ventas publicadas.');
+        }
+
+        if (empty($sale->serie) || empty($sale->correlative)) {
+            return redirect()->route('sales.index')
+                ->with('error', 'La venta no tiene numeración. No se puede crear nota.');
+        }
+
+        $docType = (string) ($sale->journal?->document_type_code ?? '');
+        if (! in_array($docType, ['01', '03'], true)) {
+            return redirect()->route('sales.index')
+                ->with('error', 'Solo se pueden crear notas desde documentos 01/03.');
+        }
+
+        $companyId = $sale->company_id;
+        $creditJournal = Journal::query()
+            ->where('company_id', $companyId)
+            ->where('type', 'sale')
+            ->where('document_type_code', '07')
+            ->first();
+
+        if (! $creditJournal) {
+            return redirect()->route('sales.index')
+                ->with('error', 'No se encontró un diario de Nota de Crédito (07) para esta compañía.');
+        }
+
+        $creditSale = null;
+
+        DB::transaction(function () use ($sale, $creditJournal, &$creditSale) {
+            $numberParts = SequenceService::getNextParts($creditJournal->id);
+
+            $creditSale = Sale::create([
+                'partner_id' => $sale->partner_id,
+                'warehouse_id' => $sale->warehouse_id,
+                'journal_id' => $creditJournal->id,
+                'company_id' => $sale->company_id,
+                'original_sale_id' => $sale->id,
+                'user_id' => Auth::id(),
+                'notes' => null,
+                'status' => 'draft',
+                'payment_status' => 'paid',
+                'serie' => $numberParts['serie'],
+                'correlative' => $numberParts['correlative'],
+                'subtotal' => 0,
+                'tax_amount' => 0,
+                'total' => 0,
+            ]);
+
+            $subtotal = 0;
+            $totalTax = 0;
+
+            foreach ($sale->products as $line) {
+                $quantity = (float) $line->quantity;
+                $price = (float) $line->price;
+                $lineSubtotal = $quantity * $price;
+                $taxRate = (float) ($line->tax_rate ?? 0);
+                $taxAmount = $lineSubtotal * ($taxRate / 100);
+                $lineTotal = $lineSubtotal + $taxAmount;
+
+                $creditSale->products()->create([
+                    'product_product_id' => $line->product_product_id,
+                    'quantity' => $quantity,
+                    'price' => $price,
+                    'subtotal' => $lineSubtotal,
+                    'tax_id' => $line->tax_id,
+                    'tax_rate' => $taxRate,
+                    'tax_amount' => $taxAmount,
+                    'total' => $lineTotal,
+                ]);
+
+                $subtotal += $lineSubtotal;
+                $totalTax += $taxAmount;
+            }
+
+            $creditSale->update([
+                'subtotal' => $subtotal,
+                'tax_amount' => $totalTax,
+                'total' => $subtotal + $totalTax,
+            ]);
+        });
+
+        if (! $creditSale) {
+            return redirect()->route('sales.index')
+                ->with('error', 'No se pudo crear el borrador de Nota de Crédito.');
+        }
+
+        return redirect()->route('sales.edit', $creditSale->id)
+            ->with('success', 'Borrador de Nota de Crédito creado. Ajusta ítems/cantidades si es parcial.');
     }
 
     /**

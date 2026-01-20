@@ -21,6 +21,7 @@ class Sale extends Model
         'partner_id',
         'warehouse_id',
         'company_id',
+        'original_sale_id',
         'pos_session_id',
         'user_id',
         'subtotal',
@@ -84,6 +85,16 @@ class Sale extends Model
     public function products(): MorphMany
     {
         return $this->morphMany(Productable::class, 'productable');
+    }
+
+    public function originalSale()
+    {
+        return $this->belongsTo(self::class, 'original_sale_id');
+    }
+
+    public function creditNotes()
+    {
+        return $this->hasMany(self::class, 'original_sale_id');
     }
 
     /**

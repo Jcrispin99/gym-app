@@ -28,10 +28,9 @@ import {
     CheckCircle,
     Edit,
     Plus,
-    Send,
+    Search,
     ShoppingCart,
     Trash2,
-    XCircle,
 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
@@ -110,22 +109,6 @@ const postSale = (sale: Sale) => {
     }
 };
 
-const cancelSale = (sale: Sale) => {
-    if (
-        confirm(
-            `¿Estás seguro de cancelar esta venta? Se devolverá el stock al inventario.`,
-        )
-    ) {
-        router.post(
-            `/sales/${sale.id}/cancel`,
-            {},
-            {
-                preserveScroll: true,
-            },
-        );
-    }
-};
-
 const performSearch = () => {
     router.get(
         '/sales',
@@ -161,6 +144,10 @@ const getDisplayNumber = (sale: Sale) => {
     return `Borrador #${sale.id}`;
 };
 
+const openSale = (sale: Sale) => {
+    router.visit(`/sales/${sale.id}/edit`, { preserveScroll: true });
+};
+
 const getPartnerName = (sale: Sale) => {
     const p = sale.partner;
     if (!p) return 'Cliente General';
@@ -182,16 +169,6 @@ const getSunatBadge = (sale: Sale) => {
 
     if (accepted) return map.accepted;
     return map[status] || { label: status, variant: 'outline' };
-};
-
-const retrySunat = (sale: Sale) => {
-    router.post(`/sales/${sale.id}/sunat/retry`, {}, { preserveScroll: true });
-};
-
-const canSendSunat = (sale: Sale) => {
-    if (sale.status !== 'posted') return false;
-    if (sale.sunat_response?.accepted === true) return false;
-    return sale.sunat_status !== 'accepted';
 };
 </script>
 
@@ -289,9 +266,20 @@ const canSendSunat = (sale: Sale) => {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            <TableRow v-for="sale in sales.data" :key="sale.id">
+                            <TableRow
+                                v-for="sale in sales.data"
+                                :key="sale.id"
+                                class="cursor-pointer"
+                                @click="openSale(sale)"
+                            >
                                 <TableCell class="font-medium">
-                                    {{ getDisplayNumber(sale) }}
+                                    <a
+                                        :href="`/sales/${sale.id}/edit`"
+                                        class="hover:underline"
+                                        @click.stop
+                                    >
+                                        {{ getDisplayNumber(sale) }}
+                                    </a>
                                 </TableCell>
                                 <TableCell>{{
                                     getPartnerName(sale)
@@ -327,21 +315,10 @@ const canSendSunat = (sale: Sale) => {
                                     }}
                                 </TableCell>
                                 <TableCell class="text-right">
-                                    <div class="flex justify-end gap-2">
-                                        <!-- Editar (solo borradores) -->
-                                        <Button
-                                            v-if="sale.status === 'draft'"
-                                            variant="ghost"
-                                            size="icon"
-                                            as-child
-                                            title="Editar"
-                                        >
-                                            <a :href="`/sales/${sale.id}/edit`">
-                                                <Edit class="h-4 w-4" />
-                                            </a>
-                                        </Button>
-
-                                        <!-- Publicar (solo borradores) -->
+                                    <div
+                                        class="flex justify-end gap-2"
+                                        @click.stop
+                                    >
                                         <Button
                                             v-if="sale.status === 'draft'"
                                             variant="ghost"
@@ -352,28 +329,6 @@ const canSendSunat = (sale: Sale) => {
                                             <CheckCircle class="h-4 w-4" />
                                         </Button>
 
-                                        <!-- Cancelar (solo publicadas) -->
-                                        <Button
-                                            v-if="sale.status === 'posted'"
-                                            variant="ghost"
-                                            size="icon"
-                                            @click="cancelSale(sale)"
-                                            title="Cancelar"
-                                        >
-                                            <XCircle class="h-4 w-4" />
-                                        </Button>
-
-                                        <Button
-                                            v-if="canSendSunat(sale)"
-                                            variant="ghost"
-                                            size="icon"
-                                            @click="retrySunat(sale)"
-                                            title="Enviar a SUNAT"
-                                        >
-                                            <Send class="h-4 w-4" />
-                                        </Button>
-
-                                        <!-- Eliminar (solo borradores) -->
                                         <Button
                                             v-if="sale.status === 'draft'"
                                             variant="ghost"

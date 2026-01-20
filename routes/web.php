@@ -170,6 +170,8 @@ Route::middleware(['auth'])->group(function () {
         ->name('sales.post');
     Route::post('sales/{sale}/cancel', [\App\Http\Controllers\SaleController::class, 'cancel'])
         ->name('sales.cancel');
+    Route::post('sales/{sale}/credit-note', [\App\Http\Controllers\SaleController::class, 'createCreditNote'])
+        ->name('sales.credit-note');
     Route::post('sales/{sale}/sunat/retry', [\App\Http\Controllers\SaleController::class, 'retrySunat'])
         ->name('sales.sunat.retry');
 });
