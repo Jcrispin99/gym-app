@@ -1,15 +1,5 @@
 <script setup lang="ts">
-import AppLayout from '@/layouts/AppLayout.vue';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
+import FormPageHeader from '@/components/FormPageHeader.vue';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -20,11 +10,23 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
+import AppLayout from '@/layouts/AppLayout.vue';
+import type { BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/vue3';
-import { Plus, Edit, Trash2, Tag, Search, Power } from 'lucide-vue-next';
-import { ref, computed } from 'vue';
+import { Edit, Plus, Power, Search, Tag, Trash2 } from 'lucide-vue-next';
+import { computed, ref } from 'vue';
 
 interface AttributeValue {
     id: number;
@@ -44,6 +46,11 @@ interface Props {
 }
 
 const props = defineProps<Props>();
+
+const breadcrumbs: BreadcrumbItem[] = [
+    { title: 'Dashboard', href: '/dashboard' },
+    { title: 'Atributos', href: '/attributes' },
+];
 
 const deleteDialogOpen = ref(false);
 const attributeToDelete = ref<Attribute | null>(null);
@@ -71,7 +78,7 @@ const toggleStatus = (attribute: Attribute) => {
         {},
         {
             preserveScroll: true,
-        }
+        },
     );
 };
 
@@ -82,7 +89,7 @@ const filteredAttributes = computed(() => {
 
     const query = searchQuery.value.toLowerCase();
     return props.attributes.filter((attribute) =>
-        attribute.name.toLowerCase().includes(query)
+        attribute.name.toLowerCase().includes(query),
     );
 });
 
@@ -91,54 +98,72 @@ const activeAttributes = computed(() => {
 });
 
 const totalValues = computed(() => {
-    return props.attributes.reduce((sum, attr) => sum + attr.attribute_values.length, 0);
+    return props.attributes.reduce(
+        (sum, attr) => sum + attr.attribute_values.length,
+        0,
+    );
 });
 </script>
 
 <template>
     <Head title="Atributos" />
 
-    <AppLayout>
+    <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex flex-col gap-4 p-4">
-            <!-- Header -->
-            <div class="flex items-center justify-between">
-                <div>
-                    <h1 class="text-3xl font-bold tracking-tight">Atributos</h1>
-                    <p class="text-muted-foreground">
-                        Gestiona los atributos y valores de productos
-                    </p>
-                </div>
-                <Button @click="router.visit('/attributes/create')">
-                    <Plus class="mr-2 h-4 w-4" />
-                    Nuevo Atributo
-                </Button>
-            </div>
+            <FormPageHeader
+                title="Atributos"
+                description="Gestiona los atributos y valores de productos"
+                :show-back="false"
+            >
+                <template #actions>
+                    <Button @click="router.visit('/attributes/create')">
+                        <Plus class="mr-2 h-4 w-4" />
+                        Nuevo Atributo
+                    </Button>
+                </template>
+            </FormPageHeader>
 
             <!-- Stats Cards -->
             <div class="grid gap-4 md:grid-cols-3">
                 <Card>
-                    <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle class="text-sm font-medium">Total Atributos</CardTitle>
+                    <CardHeader
+                        class="flex flex-row items-center justify-between space-y-0 pb-2"
+                    >
+                        <CardTitle class="text-sm font-medium"
+                            >Total Atributos</CardTitle
+                        >
                         <Tag class="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div class="text-2xl font-bold">{{ attributes.length }}</div>
+                        <div class="text-2xl font-bold">
+                            {{ attributes.length }}
+                        </div>
                     </CardContent>
                 </Card>
 
                 <Card>
-                    <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle class="text-sm font-medium">Activos</CardTitle>
+                    <CardHeader
+                        class="flex flex-row items-center justify-between space-y-0 pb-2"
+                    >
+                        <CardTitle class="text-sm font-medium"
+                            >Activos</CardTitle
+                        >
                         <Tag class="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div class="text-2xl font-bold">{{ activeAttributes.length }}</div>
+                        <div class="text-2xl font-bold">
+                            {{ activeAttributes.length }}
+                        </div>
                     </CardContent>
                 </Card>
 
                 <Card>
-                    <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle class="text-sm font-medium">Total Valores</CardTitle>
+                    <CardHeader
+                        class="flex flex-row items-center justify-between space-y-0 pb-2"
+                    >
+                        <CardTitle class="text-sm font-medium"
+                            >Total Valores</CardTitle
+                        >
                         <Tag class="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
@@ -150,8 +175,14 @@ const totalValues = computed(() => {
             <!-- Search -->
             <div class="flex items-center gap-2">
                 <div class="relative flex-1">
-                    <Search class="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input v-model="searchQuery" placeholder="Buscar atributos..." class="pl-8" />
+                    <Search
+                        class="absolute top-2.5 left-2 h-4 w-4 text-muted-foreground"
+                    />
+                    <Input
+                        v-model="searchQuery"
+                        placeholder="Buscar atributos..."
+                        class="pl-8"
+                    />
                 </div>
             </div>
 
@@ -168,7 +199,9 @@ const totalValues = computed(() => {
                                 <TableHead>Valores</TableHead>
                                 <TableHead>Cantidad</TableHead>
                                 <TableHead>Estado</TableHead>
-                                <TableHead class="text-right">Acciones</TableHead>
+                                <TableHead class="text-right"
+                                    >Acciones</TableHead
+                                >
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -177,14 +210,21 @@ const totalValues = computed(() => {
                                     No se encontraron atributos
                                 </TableCell>
                             </TableRow>
-                            <TableRow v-for="attribute in filteredAttributes" :key="attribute.id">
-                                <TableCell class="font-medium">{{ attribute.name }}</TableCell>
+                            <TableRow
+                                v-for="attribute in filteredAttributes"
+                                :key="attribute.id"
+                            >
+                                <TableCell class="font-medium">{{
+                                    attribute.name
+                                }}</TableCell>
                                 <TableCell>
                                     <div class="flex flex-wrap gap-1">
                                         <Badge
-                                            v-for="(value, index) in attribute.attribute_values.slice(
+                                            v-for="(
+                                                value, index
+                                            ) in attribute.attribute_values.slice(
                                                 0,
-                                                5
+                                                5,
                                             )"
                                             :key="value.id"
                                             variant="secondary"
@@ -193,17 +233,27 @@ const totalValues = computed(() => {
                                             {{ value.value }}
                                         </Badge>
                                         <Badge
-                                            v-if="attribute.attribute_values.length > 5"
+                                            v-if="
+                                                attribute.attribute_values
+                                                    .length > 5
+                                            "
                                             variant="outline"
                                             class="text-xs"
                                         >
-                                            +{{ attribute.attribute_values.length - 5 }} más
+                                            +{{
+                                                attribute.attribute_values
+                                                    .length - 5
+                                            }}
+                                            más
                                         </Badge>
                                     </div>
                                 </TableCell>
                                 <TableCell>
                                     <span class="text-sm text-muted-foreground">
-                                        {{ attribute.attribute_values.length }} valores
+                                        {{
+                                            attribute.attribute_values.length
+                                        }}
+                                        valores
                                     </span>
                                 </TableCell>
                                 <TableCell>
@@ -214,7 +264,11 @@ const totalValues = computed(() => {
                                                 : 'bg-gray-100 text-gray-800'
                                         "
                                     >
-                                        {{ attribute.is_active ? 'Activo' : 'Inactivo' }}
+                                        {{
+                                            attribute.is_active
+                                                ? 'Activo'
+                                                : 'Inactivo'
+                                        }}
                                     </Badge>
                                 </TableCell>
                                 <TableCell class="text-right">
@@ -224,7 +278,9 @@ const totalValues = computed(() => {
                                             size="sm"
                                             @click="toggleStatus(attribute)"
                                             :title="
-                                                attribute.is_active ? 'Desactivar' : 'Activar'
+                                                attribute.is_active
+                                                    ? 'Desactivar'
+                                                    : 'Activar'
                                             "
                                         >
                                             <Power
@@ -240,7 +296,9 @@ const totalValues = computed(() => {
                                             variant="ghost"
                                             size="sm"
                                             @click="
-                                                router.visit(`/attributes/${attribute.id}/edit`)
+                                                router.visit(
+                                                    `/attributes/${attribute.id}/edit`,
+                                                )
                                             "
                                         >
                                             <Edit class="h-4 w-4" />
@@ -250,7 +308,9 @@ const totalValues = computed(() => {
                                             size="sm"
                                             @click="openDeleteDialog(attribute)"
                                         >
-                                            <Trash2 class="h-4 w-4 text-destructive" />
+                                            <Trash2
+                                                class="h-4 w-4 text-destructive"
+                                            />
                                         </Button>
                                     </div>
                                 </TableCell>
@@ -267,13 +327,17 @@ const totalValues = computed(() => {
                 <AlertDialogHeader>
                     <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
                     <AlertDialogDescription>
-                        Esta acción no se puede deshacer. Se eliminará el atributo
-                        <strong>{{ attributeToDelete?.name }}</strong> y todos sus valores.
+                        Esta acción no se puede deshacer. Se eliminará el
+                        atributo
+                        <strong>{{ attributeToDelete?.name }}</strong> y todos
+                        sus valores.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction @click="deleteAttribute">Eliminar</AlertDialogAction>
+                    <AlertDialogAction @click="deleteAttribute"
+                        >Eliminar</AlertDialogAction
+                    >
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>

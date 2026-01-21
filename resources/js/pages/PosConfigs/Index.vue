@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import AppLayout from '@/layouts/AppLayout.vue';
+import FormPageHeader from '@/components/FormPageHeader.vue';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import {
     Table,
     TableBody,
@@ -12,8 +12,18 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import AppLayout from '@/layouts/AppLayout.vue';
+import type { BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/vue3';
-import { Plus, Search, Pencil, Trash2, Power, History, DoorOpen } from 'lucide-vue-next';
+import {
+    DoorOpen,
+    History,
+    Pencil,
+    Plus,
+    Power,
+    Search,
+    Trash2,
+} from 'lucide-vue-next';
 import { ref } from 'vue';
 
 interface Tax {
@@ -58,14 +68,27 @@ interface Props {
 defineProps<Props>();
 const searchQuery = ref('');
 
+const breadcrumbs: BreadcrumbItem[] = [
+    { title: 'Dashboard', href: '/dashboard' },
+    { title: 'POS', href: '/pos-configs' },
+];
+
 const handleSearch = () => {
-    router.get('/pos-configs', { search: searchQuery.value }, { preserveState: true });
+    router.get(
+        '/pos-configs',
+        { search: searchQuery.value },
+        { preserveState: true },
+    );
 };
 
 const toggleStatus = (posConfig: PosConfig) => {
-    router.post(`/pos-configs/${posConfig.id}/toggle-status`, {}, {
-        preserveScroll: true,
-    });
+    router.post(
+        `/pos-configs/${posConfig.id}/toggle-status`,
+        {},
+        {
+            preserveScroll: true,
+        },
+    );
 };
 
 const deletePosConfig = (posConfig: PosConfig) => {
@@ -78,26 +101,29 @@ const deletePosConfig = (posConfig: PosConfig) => {
 <template>
     <Head title="Configuración POS" />
 
-    <AppLayout>
+    <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex flex-col gap-4 p-4">
-            <!-- Header -->
-            <div class="flex items-center justify-between">
-                <div>
-                    <h1 class="text-3xl font-bold tracking-tight">Configuración POS</h1>
-                    <p class="text-muted-foreground">Gestiona los puntos de venta</p>
-                </div>
-                <Button @click="$inertia.visit('/pos-configs/create')">
-                    <Plus class="h-4 w-4 mr-2" />
-                    Nuevo POS
-                </Button>
-            </div>
+            <FormPageHeader
+                title="Configuración POS"
+                description="Gestiona los puntos de venta"
+                :show-back="false"
+            >
+                <template #actions>
+                    <Button @click="router.visit('/pos-configs/create')">
+                        <Plus class="mr-2 h-4 w-4" />
+                        Nuevo POS
+                    </Button>
+                </template>
+            </FormPageHeader>
 
             <!-- Search -->
             <Card>
                 <CardContent class="pt-6">
                     <div class="flex gap-2">
                         <div class="relative flex-1">
-                            <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Search
+                                class="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                            />
                             <Input
                                 v-model="searchQuery"
                                 placeholder="Buscar por nombre..."
@@ -113,7 +139,9 @@ const deletePosConfig = (posConfig: PosConfig) => {
             <!-- Table -->
             <Card>
                 <CardHeader>
-                    <CardTitle>POS Registrados ({{ posConfigs.total }})</CardTitle>
+                    <CardTitle
+                        >POS Registrados ({{ posConfigs.total }})</CardTitle
+                    >
                 </CardHeader>
                 <CardContent>
                     <Table>
@@ -124,11 +152,16 @@ const deletePosConfig = (posConfig: PosConfig) => {
                                 <TableHead>Impuesto</TableHead>
                                 <TableHead>Journals</TableHead>
                                 <TableHead>Estado</TableHead>
-                                <TableHead class="text-right">Acciones</TableHead>
+                                <TableHead class="text-right"
+                                    >Acciones</TableHead
+                                >
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            <TableRow v-for="posConfig in posConfigs.data" :key="posConfig.id">
+                            <TableRow
+                                v-for="posConfig in posConfigs.data"
+                                :key="posConfig.id"
+                            >
                                 <TableCell class="font-medium">
                                     {{ posConfig.name }}
                                 </TableCell>
@@ -138,11 +171,15 @@ const deletePosConfig = (posConfig: PosConfig) => {
                                 <TableCell>
                                     <div v-if="posConfig.tax">
                                         {{ posConfig.tax.name }}
-                                        <span class="text-muted-foreground text-sm">
+                                        <span
+                                            class="text-sm text-muted-foreground"
+                                        >
                                             ({{ posConfig.tax.rate_percent }}%)
                                         </span>
                                     </div>
-                                    <span v-else class="text-muted-foreground">-</span>
+                                    <span v-else class="text-muted-foreground"
+                                        >-</span
+                                    >
                                 </TableCell>
                                 <TableCell>
                                     <Badge variant="outline">
@@ -150,8 +187,18 @@ const deletePosConfig = (posConfig: PosConfig) => {
                                     </Badge>
                                 </TableCell>
                                 <TableCell>
-                                    <Badge :variant="posConfig.is_active ? 'default' : 'secondary'">
-                                        {{ posConfig.is_active ? 'Activo' : 'Inactivo' }}
+                                    <Badge
+                                        :variant="
+                                            posConfig.is_active
+                                                ? 'default'
+                                                : 'secondary'
+                                        "
+                                    >
+                                        {{
+                                            posConfig.is_active
+                                                ? 'Activo'
+                                                : 'Inactivo'
+                                        }}
                                     </Badge>
                                 </TableCell>
                                 <TableCell class="text-right">
@@ -159,7 +206,11 @@ const deletePosConfig = (posConfig: PosConfig) => {
                                         <Button
                                             v-if="posConfig.is_active"
                                             size="icon"
-                                            @click="$inertia.visit(`/pos/open?config=${posConfig.id}`)"
+                                            @click="
+                                                $inertia.visit(
+                                                    `/pos/open?config=${posConfig.id}`,
+                                                )
+                                            "
                                             title="Abrir Caja"
                                         >
                                             <DoorOpen class="h-4 w-4" />
@@ -167,7 +218,11 @@ const deletePosConfig = (posConfig: PosConfig) => {
                                         <Button
                                             variant="ghost"
                                             size="icon"
-                                            @click="$inertia.visit(`/pos-configs/${posConfig.id}/sessions`)"
+                                            @click="
+                                                $inertia.visit(
+                                                    `/pos-configs/${posConfig.id}/sessions`,
+                                                )
+                                            "
                                             title="Ver historial de sesiones"
                                         >
                                             <History class="h-4 w-4" />
@@ -175,14 +230,22 @@ const deletePosConfig = (posConfig: PosConfig) => {
                                         <Button
                                             variant="ghost"
                                             size="icon"
-                                            @click="$inertia.visit(`/pos-configs/${posConfig.id}/edit`)"
+                                            @click="
+                                                $inertia.visit(
+                                                    `/pos-configs/${posConfig.id}/edit`,
+                                                )
+                                            "
                                         >
                                             <Pencil class="h-4 w-4" />
                                         </Button>
                                         <Button
                                             variant="ghost"
                                             size="icon"
-                                            :class="posConfig.is_active ? 'text-green-600' : 'text-gray-400'"
+                                            :class="
+                                                posConfig.is_active
+                                                    ? 'text-green-600'
+                                                    : 'text-gray-400'
+                                            "
                                             @click="toggleStatus(posConfig)"
                                         >
                                             <Power class="h-4 w-4" />
@@ -200,7 +263,10 @@ const deletePosConfig = (posConfig: PosConfig) => {
                             </TableRow>
 
                             <TableRow v-if="posConfigs.data.length === 0">
-                                <TableCell colspan="6" class="text-center text-muted-foreground py-8">
+                                <TableCell
+                                    colspan="6"
+                                    class="py-8 text-center text-muted-foreground"
+                                >
                                     No hay configuraciones POS registradas
                                 </TableCell>
                             </TableRow>

@@ -1,7 +1,13 @@
 <script setup lang="ts">
-import AppLayout from '@/layouts/AppLayout.vue';
+import FormPageHeader from '@/components/FormPageHeader.vue';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -11,10 +17,9 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
+import AppLayout from '@/layouts/AppLayout.vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
-import { ArrowLeft, Save } from 'lucide-vue-next';
-import type { BreadcrumbItem } from '@/types';
+import { Save } from 'lucide-vue-next';
 
 interface Company {
     id: number;
@@ -68,22 +73,21 @@ const submit = () => {
 
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="p-4">
-            <!-- Header -->
-            <div class="mb-6 flex items-center justify-between">
-                <div>
-                    <h1 class="text-3xl font-bold tracking-tight">Nuevo Miembro</h1>
-                    <p class="text-muted-foreground">
-                        Registra un nuevo miembro del gimnasio
-                    </p>
-                </div>
-                <Button variant="outline" @click="router.visit('/members')">
-                    <ArrowLeft class="mr-2 h-4 w-4" />
-                    Volver
-                </Button>
-            </div>
+            <FormPageHeader
+                title="Nuevo Miembro"
+                description="Registra un nuevo miembro del gimnasio"
+                back-href="/members"
+            >
+                <template #actions>
+                    <Button @click="submit" :disabled="form.processing">
+                        <Save class="mr-2 h-4 w-4" />
+                        {{ form.processing ? 'Guardando...' : 'Guardar' }}
+                    </Button>
+                </template>
+            </FormPageHeader>
 
             <!-- Odoo-style Layout: Left form + Right info-->
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
                 <!-- Main Form (Left - 2 columns) -->
                 <div class="lg:col-span-2">
                     <form @submit.prevent="submit" class="space-y-6">
@@ -91,33 +95,54 @@ const submit = () => {
                         <Card>
                             <CardHeader>
                                 <CardTitle>Información Personal</CardTitle>
-                                <CardDescription>Datos del miembro</CardDescription>
+                                <CardDescription
+                                    >Datos del miembro</CardDescription
+                                >
                             </CardHeader>
                             <CardContent class="space-y-4">
                                 <div class="grid grid-cols-2 gap-4">
                                     <div>
-                                        <Label for="document_type">Tipo Documento *</Label>
+                                        <Label for="document_type"
+                                            >Tipo Documento *</Label
+                                        >
                                         <Select v-model="form.document_type">
                                             <SelectTrigger>
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="DNI">DNI</SelectItem>
-                                                <SelectItem value="RUC">RUC</SelectItem>
-                                                <SelectItem value="CE">Carnet Extranjería</SelectItem>
-                                                <SelectItem value="Passport">Pasaporte</SelectItem>
+                                                <SelectItem value="DNI"
+                                                    >DNI</SelectItem
+                                                >
+                                                <SelectItem value="RUC"
+                                                    >RUC</SelectItem
+                                                >
+                                                <SelectItem value="CE"
+                                                    >Carnet
+                                                    Extranjería</SelectItem
+                                                >
+                                                <SelectItem value="Passport"
+                                                    >Pasaporte</SelectItem
+                                                >
                                             </SelectContent>
                                         </Select>
                                     </div>
-                                    
+
                                     <div>
-                                        <Label for="document_number">Número Documento *</Label>
+                                        <Label for="document_number"
+                                            >Número Documento *</Label
+                                        >
                                         <Input
                                             id="document_number"
                                             v-model="form.document_number"
-                                            :class="{ 'border-red-500': form.errors.document_number }"
+                                            :class="{
+                                                'border-red-500':
+                                                    form.errors.document_number,
+                                            }"
                                         />
-                                        <p v-if="form.errors.document_number" class="text-sm text-red-500 mt-1">
+                                        <p
+                                            v-if="form.errors.document_number"
+                                            class="mt-1 text-sm text-red-500"
+                                        >
                                             {{ form.errors.document_number }}
                                         </p>
                                     </div>
@@ -125,25 +150,41 @@ const submit = () => {
 
                                 <div class="grid grid-cols-2 gap-4">
                                     <div>
-                                        <Label for="first_name">Nombres *</Label>
+                                        <Label for="first_name"
+                                            >Nombres *</Label
+                                        >
                                         <Input
                                             id="first_name"
                                             v-model="form.first_name"
-                                            :class="{ 'border-red-500': form.errors.first_name }"
+                                            :class="{
+                                                'border-red-500':
+                                                    form.errors.first_name,
+                                            }"
                                         />
-                                        <p v-if="form.errors.first_name" class="text-sm text-red-500 mt-1">
+                                        <p
+                                            v-if="form.errors.first_name"
+                                            class="mt-1 text-sm text-red-500"
+                                        >
                                             {{ form.errors.first_name }}
                                         </p>
                                     </div>
 
                                     <div>
-                                        <Label for="last_name">Apellidos *</Label>
+                                        <Label for="last_name"
+                                            >Apellidos *</Label
+                                        >
                                         <Input
                                             id="last_name"
                                             v-model="form.last_name"
-                                            :class="{ 'border-red-500': form.errors.last_name }"
+                                            :class="{
+                                                'border-red-500':
+                                                    form.errors.last_name,
+                                            }"
                                         />
-                                        <p v-if="form.errors.last_name" class="text-sm text-red-500 mt-1">
+                                        <p
+                                            v-if="form.errors.last_name"
+                                            class="mt-1 text-sm text-red-500"
+                                        >
                                             {{ form.errors.last_name }}
                                         </p>
                                     </div>
@@ -151,7 +192,9 @@ const submit = () => {
 
                                 <div class="grid grid-cols-3 gap-4">
                                     <div>
-                                        <Label for="birth_date">Fecha Nacimiento</Label>
+                                        <Label for="birth_date"
+                                            >Fecha Nacimiento</Label
+                                        >
                                         <Input
                                             id="birth_date"
                                             type="date"
@@ -163,18 +206,28 @@ const submit = () => {
                                         <Label for="gender">Género</Label>
                                         <Select v-model="form.gender">
                                             <SelectTrigger>
-                                                <SelectValue placeholder="Seleccionar..." />
+                                                <SelectValue
+                                                    placeholder="Seleccionar..."
+                                                />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="M">Masculino</SelectItem>
-                                                <SelectItem value="F">Femenino</SelectItem>
-                                                <SelectItem value="Other">Otro</SelectItem>
+                                                <SelectItem value="M"
+                                                    >Masculino</SelectItem
+                                                >
+                                                <SelectItem value="F"
+                                                    >Femenino</SelectItem
+                                                >
+                                                <SelectItem value="Other"
+                                                    >Otro</SelectItem
+                                                >
                                             </SelectContent>
                                         </Select>
                                     </div>
 
                                     <div>
-                                        <Label for="blood_type">Tipo Sangre</Label>
+                                        <Label for="blood_type"
+                                            >Tipo Sangre</Label
+                                        >
                                         <Input
                                             id="blood_type"
                                             v-model="form.blood_type"
@@ -184,14 +237,23 @@ const submit = () => {
                                 </div>
 
                                 <div>
-                                    <Label for="company_id">Compañía/Sucursal *</Label>
+                                    <Label for="company_id"
+                                        >Compañía/Sucursal *</Label
+                                    >
                                     <Select v-model="form.company_id">
-                                        <SelectTrigger :class="{ 'border-red-500': form.errors.company_id }">
-                                            <SelectValue placeholder="Seleccionar compañía..." />
+                                        <SelectTrigger
+                                            :class="{
+                                                'border-red-500':
+                                                    form.errors.company_id,
+                                            }"
+                                        >
+                                            <SelectValue
+                                                placeholder="Seleccionar compañía..."
+                                            />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem 
-                                                v-for="company in companies" 
+                                            <SelectItem
+                                                v-for="company in companies"
                                                 :key="company.id"
                                                 :value="company.id"
                                             >
@@ -199,7 +261,10 @@ const submit = () => {
                                             </SelectItem>
                                         </SelectContent>
                                     </Select>
-                                    <p v-if="form.errors.company_id" class="text-sm text-red-500 mt-1">
+                                    <p
+                                        v-if="form.errors.company_id"
+                                        class="mt-1 text-sm text-red-500"
+                                    >
                                         {{ form.errors.company_id }}
                                     </p>
                                 </div>
@@ -223,31 +288,51 @@ const submit = () => {
                                     </div>
                                     <div>
                                         <Label for="phone">Teléfono</Label>
-                                        <Input id="phone" v-model="form.phone" />
+                                        <Input
+                                            id="phone"
+                                            v-model="form.phone"
+                                        />
                                     </div>
                                     <div>
                                         <Label for="mobile">Celular</Label>
-                                        <Input id="mobile" v-model="form.mobile" />
+                                        <Input
+                                            id="mobile"
+                                            v-model="form.mobile"
+                                        />
                                     </div>
                                 </div>
 
                                 <div>
                                     <Label for="address">Dirección</Label>
-                                    <Input id="address" v-model="form.address" />
+                                    <Input
+                                        id="address"
+                                        v-model="form.address"
+                                    />
                                 </div>
 
                                 <div class="grid grid-cols-3 gap-4">
                                     <div>
                                         <Label for="district">Distrito</Label>
-                                        <Input id="district" v-model="form.district" />
+                                        <Input
+                                            id="district"
+                                            v-model="form.district"
+                                        />
                                     </div>
                                     <div>
                                         <Label for="province">Provincia</Label>
-                                        <Input id="province" v-model="form.province" />
+                                        <Input
+                                            id="province"
+                                            v-model="form.province"
+                                        />
                                     </div>
                                     <div>
-                                        <Label for="department">Departamento</Label>
-                                        <Input id="department" v-model="form.department" />
+                                        <Label for="department"
+                                            >Departamento</Label
+                                        >
+                                        <Input
+                                            id="department"
+                                            v-model="form.department"
+                                        />
                                     </div>
                                 </div>
                             </CardContent>
@@ -261,17 +346,25 @@ const submit = () => {
                             <CardContent class="space-y-4">
                                 <div class="grid grid-cols-2 gap-4">
                                     <div>
-                                        <Label for="emergency_contact_name">Nombre</Label>
+                                        <Label for="emergency_contact_name"
+                                            >Nombre</Label
+                                        >
                                         <Input
                                             id="emergency_contact_name"
-                                            v-model="form.emergency_contact_name"
+                                            v-model="
+                                                form.emergency_contact_name
+                                            "
                                         />
                                     </div>
                                     <div>
-                                        <Label for="emergency_contact_phone">Teléfono</Label>
+                                        <Label for="emergency_contact_phone"
+                                            >Teléfono</Label
+                                        >
                                         <Input
                                             id="emergency_contact_phone"
-                                            v-model="form.emergency_contact_phone"
+                                            v-model="
+                                                form.emergency_contact_phone
+                                            "
                                         />
                                     </div>
                                 </div>
@@ -285,7 +378,9 @@ const submit = () => {
                             </CardHeader>
                             <CardContent class="space-y-4">
                                 <div>
-                                    <Label for="medical_notes">Notas Médicas</Label>
+                                    <Label for="medical_notes"
+                                        >Notas Médicas</Label
+                                    >
                                     <Textarea
                                         id="medical_notes"
                                         v-model="form.medical_notes"
@@ -303,17 +398,6 @@ const submit = () => {
                                 </div>
                             </CardContent>
                         </Card>
-
-                        <!-- Actions -->
-                        <div class="flex justify-end gap-2">
-                            <Button type="button" variant="outline" @click="router.visit('/members')">
-                                Cancelar
-                            </Button>
-                            <Button type="submit" :disabled="form.processing">
-                                <Save class="mr-2 h-4 w-4" />
-                                Guardar
-                            </Button>
-                        </div>
                     </form>
                 </div>
 
@@ -326,17 +410,20 @@ const submit = () => {
                         <CardContent class="space-y-4 text-sm">
                             <div>
                                 <p class="font-medium">Campos Requeridos</p>
-                                <ul class="mt-2 space-y-1 text-muted-foreground">
+                                <ul
+                                    class="mt-2 space-y-1 text-muted-foreground"
+                                >
                                     <li>• Documento</li>
                                     <li>• Nombres y Apellidos</li>
                                     <li>• Compañía</li>
                                 </ul>
                             </div>
-                            
+
                             <div>
                                 <p class="font-medium">Información Médica</p>
                                 <p class="mt-2 text-muted-foreground">
-                                    Es importante registrar el tipo de sangre y alergias para casos de emergencia.
+                                    Es importante registrar el tipo de sangre y
+                                    alergias para casos de emergencia.
                                 </p>
                             </div>
                         </CardContent>

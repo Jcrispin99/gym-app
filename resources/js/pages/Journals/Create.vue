@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import FormPageHeader from '@/components/FormPageHeader.vue';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -20,7 +21,7 @@ import {
 import AppLayout from '@/layouts/AppLayout.vue';
 import type { BreadcrumbItem } from '@/types';
 import { Head, useForm } from '@inertiajs/vue3';
-import { ArrowLeft } from 'lucide-vue-next';
+import { Save } from 'lucide-vue-next';
 
 interface Company {
     id: number;
@@ -30,6 +31,8 @@ interface Company {
 interface Props {
     companies: Company[];
 }
+
+defineProps<Props>();
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -42,7 +45,7 @@ const form = useForm({
     code: '',
     type: 'purchase',
     is_fiscal: false,
-    document_type_code: '' as string | null,
+    document_type_code: '',
     company_id: null as number | null,
     sequence_size: 8,
     step: 1,
@@ -67,25 +70,18 @@ const journalTypes = [
         <Head title="Crear Diario" />
 
         <div class="w-full p-4">
-            <!-- Header -->
-            <div class="mb-6 flex items-center justify-between">
-                <div class="flex items-center gap-4">
-                    <Button variant="ghost" size="icon" as-child>
-                        <a href="/journals">
-                            <ArrowLeft class="h-5 w-5" />
-                        </a>
+            <FormPageHeader
+                title="Crear Diario"
+                description="Configura un nuevo diario contable con su numeración"
+                back-href="/journals"
+            >
+                <template #actions>
+                    <Button @click="submit" :disabled="form.processing">
+                        <Save class="mr-2 h-4 w-4" />
+                        {{ form.processing ? 'Guardando...' : 'Guardar' }}
                     </Button>
-                    <div>
-                        <h1 class="text-2xl font-bold">Crear Diario</h1>
-                        <p class="text-sm text-muted-foreground">
-                            Configura un nuevo diario contable con su numeración
-                        </p>
-                    </div>
-                </div>
-                <Button @click="submit" :disabled="form.processing">
-                    Guardar
-                </Button>
-            </div>
+                </template>
+            </FormPageHeader>
 
             <div class="grid gap-6 lg:grid-cols-3">
                 <!-- Main Form -->

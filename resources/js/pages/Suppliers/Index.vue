@@ -1,15 +1,5 @@
 <script setup lang="ts">
-import AppLayout from '@/layouts/AppLayout.vue';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
+import FormPageHeader from '@/components/FormPageHeader.vue';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -20,18 +10,31 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import {
-    Select,
-    SelectContent,
-    SelectTrigger,
-} from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { Head, router } from '@inertiajs/vue3';
-import { UserPlus, Edit, Trash2, Users, Search, Filter } from 'lucide-vue-next';
-import { ref, computed } from 'vue';
+import { Button } from '@/components/ui/button';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectTrigger } from '@/components/ui/select';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
+import AppLayout from '@/layouts/AppLayout.vue';
 import type { BreadcrumbItem } from '@/types';
+import { Head, router } from '@inertiajs/vue3';
+import { Edit, Filter, Search, Trash2, UserPlus, Users } from 'lucide-vue-next';
+import { computed, ref } from 'vue';
 
 interface Company {
     id: number;
@@ -116,7 +119,7 @@ const filteredSuppliers = computed(() => {
     // Search filter
     if (searchQuery.value) {
         const query = searchQuery.value.toLowerCase();
-        filtered = filtered.filter(supplier => {
+        filtered = filtered.filter((supplier) => {
             const name = getSupplierName(supplier).toLowerCase();
             return (
                 name.includes(query) ||
@@ -128,7 +131,9 @@ const filteredSuppliers = computed(() => {
 
     // Status filter
     if (selectedStatuses.value.length > 0) {
-        filtered = filtered.filter(p => selectedStatuses.value.includes(p.status));
+        filtered = filtered.filter((p) =>
+            selectedStatuses.value.includes(p.status),
+        );
     }
 
     return filtered;
@@ -144,39 +149,42 @@ const activeFiltersCount = computed(() => {
 
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex flex-col gap-4 p-4">
-            <!-- Header -->
-            <div class="flex items-center justify-between">
-                <div>
-                    <h1 class="text-3xl font-bold tracking-tight">Proveedores</h1>
-                    <p class="text-muted-foreground">
-                        Gestiona los proveedores de la empresa
-                    </p>
-                </div>
-                <Button @click="router.visit('/suppliers/create')">
-                    <UserPlus class="mr-2 h-4 w-4" />
-                    Nuevo Proveedor
-                </Button>
-            </div>
+            <FormPageHeader
+                title="Proveedores"
+                description="Gestiona los proveedores de la empresa"
+                :show-back="false"
+            >
+                <template #actions>
+                    <Button @click="router.visit('/suppliers/create')">
+                        <UserPlus class="mr-2 h-4 w-4" />
+                        Nuevo Proveedor
+                    </Button>
+                </template>
+            </FormPageHeader>
 
             <!-- Stats Cards -->
             <div class="grid gap-4 md:grid-cols-3">
                 <Card>
-                    <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardHeader
+                        class="flex flex-row items-center justify-between space-y-0 pb-2"
+                    >
                         <CardTitle class="text-sm font-medium">
                             Total Proveedores
                         </CardTitle>
                         <Users class="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div class="text-2xl font-bold">{{ filteredSuppliers.length }}</div>
-                        <p class="text-xs text-muted-foreground">
-                            Registrados
-                        </p>
+                        <div class="text-2xl font-bold">
+                            {{ filteredSuppliers.length }}
+                        </div>
+                        <p class="text-xs text-muted-foreground">Registrados</p>
                     </CardContent>
                 </Card>
-                
+
                 <Card>
-                    <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardHeader
+                        class="flex flex-row items-center justify-between space-y-0 pb-2"
+                    >
                         <CardTitle class="text-sm font-medium">
                             Activos
                         </CardTitle>
@@ -184,7 +192,11 @@ const activeFiltersCount = computed(() => {
                     </CardHeader>
                     <CardContent>
                         <div class="text-2xl font-bold">
-                            {{ filteredSuppliers.filter(p => p.status === 'active').length }}
+                            {{
+                                filteredSuppliers.filter(
+                                    (p) => p.status === 'active',
+                                ).length
+                            }}
                         </div>
                         <p class="text-xs text-muted-foreground">
                             Proveedores activos
@@ -193,7 +205,9 @@ const activeFiltersCount = computed(() => {
                 </Card>
 
                 <Card>
-                    <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardHeader
+                        class="flex flex-row items-center justify-between space-y-0 pb-2"
+                    >
                         <CardTitle class="text-sm font-medium">
                             Suspendidos
                         </CardTitle>
@@ -201,11 +215,13 @@ const activeFiltersCount = computed(() => {
                     </CardHeader>
                     <CardContent>
                         <div class="text-2xl font-bold">
-                            {{ filteredSuppliers.filter(p => p.status === 'suspended').length }}
+                            {{
+                                filteredSuppliers.filter(
+                                    (p) => p.status === 'suspended',
+                                ).length
+                            }}
                         </div>
-                        <p class="text-xs text-muted-foreground">
-                            Suspendidos
-                        </p>
+                        <p class="text-xs text-muted-foreground">Suspendidos</p>
                     </CardContent>
                 </Card>
             </div>
@@ -218,7 +234,8 @@ const activeFiltersCount = computed(() => {
                         <div>
                             <CardTitle>Listado de Proveedores</CardTitle>
                             <CardDescription>
-                                Mostrando {{ filteredSuppliers.length }} de {{ suppliers.length }} proveedores
+                                Mostrando {{ filteredSuppliers.length }} de
+                                {{ suppliers.length }} proveedores
                             </CardDescription>
                         </div>
 
@@ -226,7 +243,9 @@ const activeFiltersCount = computed(() => {
                         <div class="flex gap-2">
                             <!-- Search Bar -->
                             <div class="relative w-[300px]">
-                                <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                <Search
+                                    class="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                                />
                                 <Input
                                     v-model="searchQuery"
                                     placeholder="Buscar por nombre, documento..."
@@ -240,7 +259,11 @@ const activeFiltersCount = computed(() => {
                                     <div class="flex items-center gap-2">
                                         <Filter class="h-4 w-4" />
                                         <span>Filtros</span>
-                                        <Badge v-if="activeFiltersCount > 0" variant="secondary" class="ml-auto h-5 px-1.5">
+                                        <Badge
+                                            v-if="activeFiltersCount > 0"
+                                            variant="secondary"
+                                            class="ml-auto h-5 px-1.5"
+                                        >
                                             {{ activeFiltersCount }}
                                         </Badge>
                                     </div>
@@ -248,40 +271,98 @@ const activeFiltersCount = computed(() => {
                                 <SelectContent class="w-[220px]">
                                     <!-- Status Filters -->
                                     <div class="px-2 py-1.5">
-                                        <p class="text-xs font-semibold text-muted-foreground mb-2">Estado</p>
+                                        <p
+                                            class="mb-2 text-xs font-semibold text-muted-foreground"
+                                        >
+                                            Estado
+                                        </p>
                                         <div class="space-y-2">
-                                            <label class="flex items-center gap-2 cursor-pointer">
+                                            <label
+                                                class="flex cursor-pointer items-center gap-2"
+                                            >
                                                 <Checkbox
-                                                    :checked="selectedStatuses.includes('active')"
-                                                    @update:checked="(checked: boolean) => {
-                                                        selectedStatuses = checked 
-                                                            ? [...selectedStatuses, 'active']
-                                                            : selectedStatuses.filter(s => s !== 'active');
-                                                    }"
+                                                    :checked="
+                                                        selectedStatuses.includes(
+                                                            'active',
+                                                        )
+                                                    "
+                                                    @update:checked="
+                                                        (checked: boolean) => {
+                                                            selectedStatuses =
+                                                                checked
+                                                                    ? [
+                                                                          ...selectedStatuses,
+                                                                          'active',
+                                                                      ]
+                                                                    : selectedStatuses.filter(
+                                                                          (s) =>
+                                                                              s !==
+                                                                              'active',
+                                                                      );
+                                                        }
+                                                    "
                                                 />
-                                                <span class="text-sm">Activos</span>
+                                                <span class="text-sm"
+                                                    >Activos</span
+                                                >
                                             </label>
-                                            <label class="flex items-center gap-2 cursor-pointer">
+                                            <label
+                                                class="flex cursor-pointer items-center gap-2"
+                                            >
                                                 <Checkbox
-                                                    :checked="selectedStatuses.includes('inactive')"
-                                                    @update:checked="(checked: boolean) => {
-                                                        selectedStatuses = checked 
-                                                            ? [...selectedStatuses, 'inactive']
-                                                            : selectedStatuses.filter(s => s !== 'inactive');
-                                                    }"
+                                                    :checked="
+                                                        selectedStatuses.includes(
+                                                            'inactive',
+                                                        )
+                                                    "
+                                                    @update:checked="
+                                                        (checked: boolean) => {
+                                                            selectedStatuses =
+                                                                checked
+                                                                    ? [
+                                                                          ...selectedStatuses,
+                                                                          'inactive',
+                                                                      ]
+                                                                    : selectedStatuses.filter(
+                                                                          (s) =>
+                                                                              s !==
+                                                                              'inactive',
+                                                                      );
+                                                        }
+                                                    "
                                                 />
-                                                <span class="text-sm">Inactivos</span>
+                                                <span class="text-sm"
+                                                    >Inactivos</span
+                                                >
                                             </label>
-                                            <label class="flex items-center gap-2 cursor-pointer">
+                                            <label
+                                                class="flex cursor-pointer items-center gap-2"
+                                            >
                                                 <Checkbox
-                                                    :checked="selectedStatuses.includes('suspended')"
-                                                    @update:checked="(checked: boolean) => {
-                                                        selectedStatuses = checked 
-                                                            ? [...selectedStatuses, 'suspended']
-                                                            : selectedStatuses.filter(s => s !== 'suspended');
-                                                    }"
+                                                    :checked="
+                                                        selectedStatuses.includes(
+                                                            'suspended',
+                                                        )
+                                                    "
+                                                    @update:checked="
+                                                        (checked: boolean) => {
+                                                            selectedStatuses =
+                                                                checked
+                                                                    ? [
+                                                                          ...selectedStatuses,
+                                                                          'suspended',
+                                                                      ]
+                                                                    : selectedStatuses.filter(
+                                                                          (s) =>
+                                                                              s !==
+                                                                              'suspended',
+                                                                      );
+                                                        }
+                                                    "
                                                 />
-                                                <span class="text-sm">Suspendidos</span>
+                                                <span class="text-sm"
+                                                    >Suspendidos</span
+                                                >
                                             </label>
                                         </div>
                                     </div>
@@ -301,11 +382,16 @@ const activeFiltersCount = computed(() => {
                                 <TableHead>Compañía</TableHead>
                                 <TableHead>Estado</TableHead>
                                 <TableHead>Registro</TableHead>
-                                <TableHead class="text-right">Acciones</TableHead>
+                                <TableHead class="text-right"
+                                    >Acciones</TableHead
+                                >
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            <TableRow v-for="supplier in filteredSuppliers" :key="supplier.id">
+                            <TableRow
+                                v-for="supplier in filteredSuppliers"
+                                :key="supplier.id"
+                            >
                                 <TableCell class="font-medium">
                                     {{ supplier.document_number }}
                                 </TableCell>
@@ -322,7 +408,7 @@ const activeFiltersCount = computed(() => {
                                     {{ supplier.company?.trade_name || '-' }}
                                 </TableCell>
                                 <TableCell>
-                                    <span 
+                                    <span
                                         class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
                                         :class="getStatusBadge(supplier.status)"
                                     >
@@ -337,7 +423,11 @@ const activeFiltersCount = computed(() => {
                                         <Button
                                             variant="ghost"
                                             size="sm"
-                                            @click="router.visit(`/suppliers/${supplier.id}/edit`)"
+                                            @click="
+                                                router.visit(
+                                                    `/suppliers/${supplier.id}/edit`,
+                                                )
+                                            "
                                         >
                                             <Edit class="h-4 w-4" />
                                         </Button>
@@ -346,7 +436,9 @@ const activeFiltersCount = computed(() => {
                                             size="sm"
                                             @click="openDeleteDialog(supplier)"
                                         >
-                                            <Trash2 class="h-4 w-4 text-red-500" />
+                                            <Trash2
+                                                class="h-4 w-4 text-red-500"
+                                            />
                                         </Button>
                                     </div>
                                 </TableCell>
@@ -367,9 +459,8 @@ const activeFiltersCount = computed(() => {
                         <AlertDialogDescription>
                             Esta acción eliminará permanentemente al proveedor
                             <strong v-if="supplierToDelete">
-                                {{ getSupplierName(supplierToDelete) }}
-                            </strong>.
-                            Esta acción no se puede deshacer.
+                                {{ getSupplierName(supplierToDelete) }} </strong
+                            >. Esta acción no se puede deshacer.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>

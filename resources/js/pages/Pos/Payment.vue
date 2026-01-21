@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import ClientSelectorModal from '@/components/pos/ClientSelectorModal.vue';
+import CreditNoteSelectorModal from '@/components/pos/CreditNoteSelectorModal.vue';
 import ReceiptPreview from '@/components/pos/ReceiptPreview.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -13,6 +14,7 @@ import {
     CreditCard,
     DollarSign,
     Receipt,
+    Search,
     User,
 } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
@@ -128,11 +130,14 @@ const selectedJournalId = ref<string | undefined>(
 const paymentAmounts = ref<Record<number, string>>({});
 const isProcessing = ref(false);
 const showClientModal = ref(false);
+const showCreditNoteModal = ref(false);
+const selectedCreditNoteMethodId = ref<number | null>(null);
+const selectedCreditNoteInfo = ref<any>(null);
 
 // Map props.client to Client format if it exists, otherwise find in customers by id
 const currentClient = ref<Client | null>(
     props.client
-        ? clients.value.find((c) => c.id === props.client?.id) || null
+        ? clients.value.find((c) => c.id === props.client?.id) || props.client
         : null,
 );
 
@@ -165,6 +170,15 @@ const change = computed(() => {
 
 const isPaymentComplete = computed(() => {
     return Math.abs(totalEntered.value - props.total) < 0.01;
+});
+
+const filteredJournals = computed(() => {
+    return props.journals.filter(
+        (j) =>
+            j.document_type !== 'credit_note' &&
+            !j.code.startsWith('FC') &&
+            !j.code.startsWith('BC'),
+    );
 });
 
 //Computed Properties
@@ -217,6 +231,41 @@ watch(
     },
     { immediate: true },
 );
+
+const openCreditNoteModal = (methodId: number) => {
+    if (!currentClient.value) {
+        alert('Debe seleccionar un cliente para usar Notas de Crédito');
+        return;
+    }
+    console.log('Opening credit note modal for method:', methodId);
+    selectedCreditNoteMethodId.value = methodId;
+    showCreditNoteModal.value = true;
+};
+
+const selectCreditNote = (note: any) => {
+    if (selectedCreditNoteMethodId.value) {
+        // Calculate amount to use (min of note balance or remaining to pay)
+        const amountToUse = Math.min(note.balance, remaining.value);
+        paymentAmounts.value[selectedCreditNoteMethodId.value] =
+            amountToUse.toFixed(2);
+
+        // Save credit note info for later
+        selectedCreditNoteInfo.value = {
+            id: note.id,
+            document: note.document,
+            amount_used: amountToUse,
+        };
+    }
+    showCreditNoteModal.value = false;
+};
+
+const isCreditNoteMethod = (methodName: string) => {
+    return (
+        methodName.toLowerCase().includes('nota de crédito') ||
+        methodName.toLowerCase().includes('credit note') ||
+        methodName.toLowerCase().includes('credito')
+    );
+};
 
 // Methods
 const formatCurrency = (value: number): string => {
@@ -354,6 +403,9 @@ const handleProcessPayment = () => {
         client_id: currentClient.value?.id || null,
         total: props.total,
         payments: JSON.stringify(payments),
+        credit_note_info: selectedCreditNoteInfo.value
+            ? JSON.stringify(selectedCreditNoteInfo.value)
+            : null,
     };
 
     router.post(`/pos/${props.session.id}/process`, payloadData, {
@@ -473,7 +525,7 @@ const clearClient = () => {
                             <div class="space-y-3">
                                 <div class="flex flex-wrap gap-2">
                                     <Button
-                                        v-for="journal in journals"
+                                        v-for="journal in filteredJournals"
                                         :key="journal.id"
                                         @click="
                                             selectedJournalId =
@@ -571,6 +623,17 @@ const clearClient = () => {
                                         />
                                     </div>
                                     <Button
+                                        v-if="isCreditNoteMethod(method.name)"
+                                        variant="outline"
+                                        size="sm"
+                                        class="h-10 px-3"
+                                        :disabled="!currentClient"
+                                        @click="openCreditNoteModal(method.id)"
+                                        title="Buscar Nota de Crédito"
+                                    >
+                                        <Search class="h-4 w-4" />
+                                    </Button>
+                                    <Button
                                         variant="outline"
                                         size="sm"
                                         class="h-10 px-4"
@@ -667,14 +730,22 @@ const clearClient = () => {
                 </div>
             </div>
         </div>
-
-        <!-- Client Selector Modal -->
-        <ClientSelectorModal
-            v-model:open="showClientModal"
-            :selected-client="currentClient"
-            :clients="clients"
-            @select="selectClient"
-            @clear="clearClient"
-        />
     </PosLayout>
+
+    <!-- Client Selector Modal -->
+    <ClientSelectorModal
+        v-model:open="showClientModal"
+        :selected-client="currentClient"
+        :clients="clients"
+        @select="selectClient"
+        @clear="clearClient"
+    />
+
+    <!-- Credit Note Selector Modal -->
+    <CreditNoteSelectorModal
+        v-model:open="showCreditNoteModal"
+        :session-id="session.id"
+        :partner-id="currentClient?.id"
+        @select="selectCreditNote"
+    />
 </template>

@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import AppLayout from '@/layouts/AppLayout.vue';
+import FormPageHeader from '@/components/FormPageHeader.vue';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Textarea } from '@/components/ui/textarea';
 import {
     Select,
     SelectContent,
@@ -13,9 +12,11 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { Head, useForm } from '@inertiajs/vue3';
-import { ArrowLeft } from 'lucide-vue-next';
+import { Textarea } from '@/components/ui/textarea';
+import AppLayout from '@/layouts/AppLayout.vue';
 import type { BreadcrumbItem } from '@/types';
+import { Head, useForm } from '@inertiajs/vue3';
+import { Save } from 'lucide-vue-next';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -53,25 +54,18 @@ const taxTypes = [
         <Head title="Crear Impuesto" />
 
         <div class="w-full p-4">
-            <!-- Header -->
-            <div class="mb-6 flex items-center justify-between">
-                <div class="flex items-center gap-4">
-                    <Button variant="ghost" size="icon" as-child>
-                        <a href="/taxes">
-                            <ArrowLeft class="h-5 w-5" />
-                        </a>
+            <FormPageHeader
+                title="Crear Impuesto"
+                description="Configura un nuevo tipo de impuesto"
+                back-href="/taxes"
+            >
+                <template #actions>
+                    <Button @click="submit" :disabled="form.processing">
+                        <Save class="mr-2 h-4 w-4" />
+                        {{ form.processing ? 'Guardando...' : 'Guardar' }}
                     </Button>
-                    <div>
-                        <h1 class="text-2xl font-bold">Crear Impuesto</h1>
-                        <p class="text-sm text-muted-foreground">
-                            Configura un nuevo tipo de impuesto
-                        </p>
-                    </div>
-                </div>
-                <Button @click="submit" :disabled="form.processing">
-                    Guardar
-                </Button>
-            </div>
+                </template>
+            </FormPageHeader>
 
             <div class="grid gap-6 lg:grid-cols-3">
                 <!-- Main Form -->
@@ -89,10 +83,16 @@ const taxTypes = [
                                         id="name"
                                         v-model="form.name"
                                         placeholder="Ej: 18% IGV"
-                                        :class="{ 'border-destructive': form.errors.name }"
+                                        :class="{
+                                            'border-destructive':
+                                                form.errors.name,
+                                        }"
                                         required
                                     />
-                                    <p v-if="form.errors.name" class="text-sm text-destructive">
+                                    <p
+                                        v-if="form.errors.name"
+                                        class="text-sm text-destructive"
+                                    >
                                         {{ form.errors.name }}
                                     </p>
                                 </div>
@@ -110,7 +110,9 @@ const taxTypes = [
 
                                 <!-- Invoice Label -->
                                 <div class="space-y-2">
-                                    <Label for="invoice_label">Etiqueta en Factura</Label>
+                                    <Label for="invoice_label"
+                                        >Etiqueta en Factura</Label
+                                    >
                                     <Input
                                         id="invoice_label"
                                         v-model="form.invoice_label"
@@ -120,10 +122,14 @@ const taxTypes = [
 
                                 <!-- Tax Type -->
                                 <div class="space-y-2">
-                                    <Label for="tax_type">Tipo de Impuesto *</Label>
+                                    <Label for="tax_type"
+                                        >Tipo de Impuesto *</Label
+                                    >
                                     <Select v-model="form.tax_type">
                                         <SelectTrigger id="tax_type">
-                                            <SelectValue placeholder="Seleccionar tipo" />
+                                            <SelectValue
+                                                placeholder="Seleccionar tipo"
+                                            />
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem
@@ -139,7 +145,9 @@ const taxTypes = [
 
                                 <!-- Affectation Type Code (SUNAT) -->
                                 <div class="space-y-2">
-                                    <Label for="affectation_type_code">Código de Afectación (SUNAT)</Label>
+                                    <Label for="affectation_type_code"
+                                        >Código de Afectación (SUNAT)</Label
+                                    >
                                     <Input
                                         id="affectation_type_code"
                                         v-model="form.affectation_type_code"
@@ -147,7 +155,8 @@ const taxTypes = [
                                         maxlength="10"
                                     />
                                     <p class="text-xs text-muted-foreground">
-                                        Catálogo 07 de SUNAT: 10=Gravado, 20=Exonerado, 31=Inafecto
+                                        Catálogo 07 de SUNAT: 10=Gravado,
+                                        20=Exonerado, 31=Inafecto
                                     </p>
                                 </div>
 
@@ -170,9 +179,14 @@ const taxTypes = [
                                     <div class="flex items-center space-x-2">
                                         <Checkbox
                                             id="is_price_inclusive"
-                                            v-model:checked="form.is_price_inclusive"
+                                            v-model:checked="
+                                                form.is_price_inclusive
+                                            "
                                         />
-                                        <Label for="is_price_inclusive" class="cursor-pointer">
+                                        <Label
+                                            for="is_price_inclusive"
+                                            class="cursor-pointer"
+                                        >
                                             Precio incluye impuesto (TTC)
                                         </Label>
                                     </div>
@@ -182,7 +196,10 @@ const taxTypes = [
                                             id="is_active"
                                             v-model:checked="form.is_active"
                                         />
-                                        <Label for="is_active" class="cursor-pointer">
+                                        <Label
+                                            for="is_active"
+                                            class="cursor-pointer"
+                                        >
                                             Activo
                                         </Label>
                                     </div>
@@ -192,7 +209,10 @@ const taxTypes = [
                                             id="is_default"
                                             v-model:checked="form.is_default"
                                         />
-                                        <Label for="is_default" class="cursor-pointer">
+                                        <Label
+                                            for="is_default"
+                                            class="cursor-pointer"
+                                        >
                                             Usar por defecto
                                         </Label>
                                     </div>
@@ -208,9 +228,10 @@ const taxTypes = [
                         <CardHeader>
                             <CardTitle>Información</CardTitle>
                         </CardHeader>
-                        <CardContent class="text-sm space-y-2">
+                        <CardContent class="space-y-2 text-sm">
                             <p class="text-muted-foreground">
-                                Los impuestos se aplicarán automáticamente a los productos y servicios.
+                                Los impuestos se aplicarán automáticamente a los
+                                productos y servicios.
                             </p>
                         </CardContent>
                     </Card>
@@ -219,9 +240,11 @@ const taxTypes = [
                         <CardHeader>
                             <CardTitle>Ayuda</CardTitle>
                         </CardHeader>
-                        <CardContent class="text-sm space-y-2">
+                        <CardContent class="space-y-2 text-sm">
                             <p class="font-medium">Tipos comunes:</p>
-                            <ul class="list-disc list-inside text-muted-foreground space-y-1">
+                            <ul
+                                class="list-inside list-disc space-y-1 text-muted-foreground"
+                            >
                                 <li>IGV 18%: Impuesto general</li>
                                 <li>Exonerado 0%: Sin impuesto</li>
                                 <li>ISC: Para productos específicos</li>

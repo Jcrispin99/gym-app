@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import AppLayout from '@/layouts/AppLayout.vue';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import FormPageHeader from '@/components/FormPageHeader.vue';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
     Table,
     TableBody,
@@ -11,8 +10,9 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import AppLayout from '@/layouts/AppLayout.vue';
+import type { BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/vue3';
-import { ArrowLeft } from 'lucide-vue-next';
 import { computed } from 'vue';
 
 interface User {
@@ -61,7 +61,18 @@ interface Props {
 
 const props = defineProps<Props>();
 
-const getStatusVariant = (status: string): 'default' | 'secondary' | 'outline' | 'destructive' => {
+const breadcrumbs = computed<BreadcrumbItem[]>(() => [
+    { title: 'Dashboard', href: '/dashboard' },
+    { title: 'POS', href: '/pos-configs' },
+    {
+        title: 'Sesiones',
+        href: `/pos-configs/${props.posConfig.id}/sessions`,
+    },
+]);
+
+const getStatusVariant = (
+    status: string,
+): 'default' | 'secondary' | 'outline' | 'destructive' => {
     switch (status) {
         case 'opened':
             return 'default';
@@ -106,16 +117,19 @@ const formatDateTime = (dateTime: string | null): string => {
     });
 };
 
-const calculateDuration = (openedAt: string, closedAt: string | null): string => {
+const calculateDuration = (
+    openedAt: string,
+    closedAt: string | null,
+): string => {
     if (!closedAt) return 'En progreso';
-    
+
     const start = new Date(openedAt);
     const end = new Date(closedAt);
     const diffMs = end.getTime() - start.getTime();
-    
+
     const hours = Math.floor(diffMs / (1000 * 60 * 60));
     const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-    
+
     return `${hours}h ${minutes}m`;
 };
 </script>
@@ -123,25 +137,20 @@ const calculateDuration = (openedAt: string, closedAt: string | null): string =>
 <template>
     <Head :title="`Sesiones - ${posConfig.name}`" />
 
-    <AppLayout>
+    <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex flex-col gap-4 p-4">
-            <!-- Header -->
-            <div class="flex items-center gap-4">
-                <Button variant="ghost" size="icon" @click="$inertia.visit('/pos-configs')">
-                    <ArrowLeft class="h-4 w-4" />
-                </Button>
-                <div class="flex-1">
-                    <h1 class="text-3xl font-bold tracking-tight">Historial de Sesiones</h1>
-                    <p class="text-muted-foreground">
-                        {{ posConfig.name }} - {{ posConfig.warehouse.name }}
-                    </p>
-                </div>
-            </div>
+            <FormPageHeader
+                title="Historial de Sesiones"
+                :description="`${posConfig.name} - ${posConfig.warehouse.name}`"
+                back-href="/pos-configs"
+            />
 
             <!-- Sessions Table -->
             <Card>
                 <CardHeader>
-                    <CardTitle>Sesiones Registradas ({{ sessions.total }})</CardTitle>
+                    <CardTitle
+                        >Sesiones Registradas ({{ sessions.total }})</CardTitle
+                    >
                 </CardHeader>
                 <CardContent>
                     <Table>
@@ -177,26 +186,42 @@ const calculateDuration = (openedAt: string, closedAt: string | null): string =>
                                     {{ formatDateTime(session.opened_at) }}
                                 </TableCell>
                                 <TableCell>
-                                    {{ formatCurrency(session.opening_balance) }}
+                                    {{
+                                        formatCurrency(session.opening_balance)
+                                    }}
                                 </TableCell>
                                 <TableCell>
-                                    {{ formatCurrency(session.closing_balance) }}
+                                    {{
+                                        formatCurrency(session.closing_balance)
+                                    }}
                                 </TableCell>
                                 <TableCell>
                                     {{ formatDateTime(session.closed_at) }}
                                 </TableCell>
                                 <TableCell>
-                                    {{ calculateDuration(session.opened_at, session.closed_at) }}
+                                    {{
+                                        calculateDuration(
+                                            session.opened_at,
+                                            session.closed_at,
+                                        )
+                                    }}
                                 </TableCell>
                                 <TableCell>
-                                    <Badge :variant="getStatusVariant(session.status)">
+                                    <Badge
+                                        :variant="
+                                            getStatusVariant(session.status)
+                                        "
+                                    >
                                         {{ getStatusLabel(session.status) }}
                                     </Badge>
                                 </TableCell>
                             </TableRow>
 
                             <TableRow v-if="sessions.data.length === 0">
-                                <TableCell colspan="7" class="text-center text-muted-foreground py-8">
+                                <TableCell
+                                    colspan="7"
+                                    class="py-8 text-center text-muted-foreground"
+                                >
                                     No hay sesiones registradas para este POS
                                 </TableCell>
                             </TableRow>

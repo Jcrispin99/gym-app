@@ -30,6 +30,7 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/vue3';
 import { Building2, Mail, Pencil, Trash2, UserPlus, Search } from 'lucide-vue-next';
+import FormPageHeader from '@/components/FormPageHeader.vue';
 import { ref, computed } from 'vue';
 
 interface User {
@@ -99,19 +100,18 @@ const filteredUsers = computed(() => {
 
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex flex-col gap-4 p-4">
-            <!-- Header -->
-            <div class="flex items-center justify-between">
-                <div>
-                    <h1 class="text-3xl font-bold tracking-tight">Usuarios</h1>
-                    <p class="text-muted-foreground">
-                        Gestiona los usuarios del sistema
-                    </p>
-                </div>
-                <Button @click="router.visit('/users/create')">
-                    <UserPlus class="mr-2 h-4 w-4" />
-                    Nuevo Usuario
-                </Button>
-            </div>
+            <FormPageHeader
+                title="Usuarios"
+                description="Gestiona los usuarios del sistema"
+                :show-back="false"
+            >
+                <template #actions>
+                    <Button @click="router.visit('/users/create')">
+                        <UserPlus class="mr-2 h-4 w-4" />
+                        Nuevo Usuario
+                    </Button>
+                </template>
+            </FormPageHeader>
 
             <!-- Stats Card -->
             <div class="grid gap-4 md:grid-cols-3">

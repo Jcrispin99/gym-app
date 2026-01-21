@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import FormPageHeader from '@/components/FormPageHeader.vue';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -10,6 +11,7 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/AppLayout.vue';
+import type { BreadcrumbItem } from '@/types';
 import { router } from '@inertiajs/vue3';
 import axios from 'axios';
 import {
@@ -21,6 +23,12 @@ import {
     XCircle,
 } from 'lucide-vue-next';
 import { ref } from 'vue';
+
+const breadcrumbs: BreadcrumbItem[] = [
+    { title: 'Dashboard', href: '/dashboard' },
+    { title: 'Asistencias', href: '/attendances' },
+    { title: 'Check-In', href: '/attendances/check-in' },
+];
 
 interface MembershipPlan {
     id: number;
@@ -143,15 +151,13 @@ const getPartnerDisplayName = (p: Partner): string => {
 </script>
 
 <template>
-    <AppLayout title="Check-In de Miembros">
+    <AppLayout :breadcrumbs="breadcrumbs">
         <div class="mx-auto flex max-w-4xl flex-col gap-4 p-4">
-            <!-- Header -->
-            <div>
-                <h1 class="text-3xl font-bold">Check-In de Miembros</h1>
-                <p class="text-muted-foreground">
-                    Registra la entrada de miembros por DNI
-                </p>
-            </div>
+            <FormPageHeader
+                title="Check-In de Miembros"
+                description="Registra la entrada de miembros por DNI"
+                back-href="/attendances"
+            />
 
             <!-- Search Card -->
             <Card>

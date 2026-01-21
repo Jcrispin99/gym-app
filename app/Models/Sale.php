@@ -98,6 +98,14 @@ class Sale extends Model
     }
 
     /**
+     * Payments made using this sale as a credit note
+     */
+    public function paymentsUsingThisCredit()
+    {
+        return $this->hasMany(PosSessionPayment::class, 'reference_sale_id');
+    }
+
+    /**
      * Movimientos de inventario (kardex)
      * Relación polimórfica con inventories
      */

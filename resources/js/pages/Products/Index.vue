@@ -1,15 +1,5 @@
 <script setup lang="ts">
-import AppLayout from '@/layouts/AppLayout.vue';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
+import FormPageHeader from '@/components/FormPageHeader.vue';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -20,11 +10,23 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
+import AppLayout from '@/layouts/AppLayout.vue';
+import type { BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/vue3';
-import { Plus, Edit, Trash2, Package, Search, Power } from 'lucide-vue-next';
-import { ref, computed } from 'vue';
+import { Edit, Package, Plus, Power, Search, Trash2 } from 'lucide-vue-next';
+import { ref } from 'vue';
 
 interface Category {
     id: number;
@@ -70,6 +72,11 @@ interface Props {
 
 const props = defineProps<Props>();
 
+const breadcrumbs: BreadcrumbItem[] = [
+    { title: 'Dashboard', href: '/dashboard' },
+    { title: 'Productos', href: '/products' },
+];
+
 const deleteDialogOpen = ref(false);
 const productToDelete = ref<Product | null>(null);
 const searchQuery = ref('');
@@ -96,7 +103,7 @@ const toggleStatus = (product: Product) => {
         {},
         {
             preserveScroll: true,
-        }
+        },
     );
 };
 
@@ -107,7 +114,7 @@ const search = () => {
         {
             preserveState: true,
             preserveScroll: true,
-        }
+        },
     );
 };
 
@@ -126,21 +133,20 @@ const formatPrice = (price: number): string => {
 <template>
     <Head title="Productos" />
 
-    <AppLayout>
+    <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex flex-col gap-4 p-4">
-            <!-- Header -->
-            <div class="flex items-center justify-between">
-                <div>
-                    <h1 class="text-3xl font-bold tracking-tight">Productos</h1>
-                    <p class="text-muted-foreground">
-                        Gestiona el catálogo de productos con variantes
-                    </p>
-                </div>
-                <Button @click="router.visit('/products/create')">
-                    <Plus class="mr-2 h-4 w-4" />
-                    Nuevo Producto
-                </Button>
-            </div>
+            <FormPageHeader
+                title="Productos"
+                description="Gestiona el catálogo de productos con variantes"
+                :show-back="false"
+            >
+                <template #actions>
+                    <Button @click="router.visit('/products/create')">
+                        <Plus class="mr-2 h-4 w-4" />
+                        Nuevo Producto
+                    </Button>
+                </template>
+            </FormPageHeader>
 
             <!-- Stats Cards -->
             <div class="grid gap-4 md:grid-cols-3">
@@ -148,36 +154,47 @@ const formatPrice = (price: number): string => {
                     <CardHeader
                         class="flex flex-row items-center justify-between space-y-0 pb-2"
                     >
-                        <CardTitle class="text-sm font-medium">Total Productos</CardTitle>
-                        <Package class="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div class="text-2xl font-bold">{{ products.total }}</div>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader
-                        class="flex flex-row items-center justify-between space-y-0 pb-2"
-                    >
-                        <CardTitle class="text-sm font-medium">En esta página</CardTitle>
-                        <Package class="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div class="text-2xl font-bold">{{ products.data.length }}</div>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader
-                        class="flex flex-row items-center justify-between space-y-0 pb-2"
-                    >
-                        <CardTitle class="text-sm font-medium">Página Actual</CardTitle>
+                        <CardTitle class="text-sm font-medium"
+                            >Total Productos</CardTitle
+                        >
                         <Package class="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
                         <div class="text-2xl font-bold">
-                            {{ products.current_page }} / {{ products.last_page }}
+                            {{ products.total }}
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader
+                        class="flex flex-row items-center justify-between space-y-0 pb-2"
+                    >
+                        <CardTitle class="text-sm font-medium"
+                            >En esta página</CardTitle
+                        >
+                        <Package class="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div class="text-2xl font-bold">
+                            {{ products.data.length }}
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader
+                        class="flex flex-row items-center justify-between space-y-0 pb-2"
+                    >
+                        <CardTitle class="text-sm font-medium"
+                            >Página Actual</CardTitle
+                        >
+                        <Package class="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div class="text-2xl font-bold">
+                            {{ products.current_page }} /
+                            {{ products.last_page }}
                         </div>
                     </CardContent>
                 </Card>
@@ -186,7 +203,9 @@ const formatPrice = (price: number): string => {
             <!-- Search -->
             <div class="flex items-center gap-2">
                 <div class="relative flex-1">
-                    <Search class="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Search
+                        class="absolute top-2.5 left-2 h-4 w-4 text-muted-foreground"
+                    />
                     <Input
                         v-model="searchQuery"
                         placeholder="Buscar por nombre, SKU, código de barras..."
@@ -214,7 +233,9 @@ const formatPrice = (price: number): string => {
                                 <TableHead>Stock</TableHead>
                                 <TableHead>Variantes</TableHead>
                                 <TableHead>Estado</TableHead>
-                                <TableHead class="text-right">Acciones</TableHead>
+                                <TableHead class="text-right"
+                                    >Acciones</TableHead
+                                >
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -223,7 +244,10 @@ const formatPrice = (price: number): string => {
                                     No se encontraron productos
                                 </TableCell>
                             </TableRow>
-                            <TableRow v-for="product in products.data" :key="product.id">
+                            <TableRow
+                                v-for="product in products.data"
+                                :key="product.id"
+                            >
                                 <TableCell>
                                     <img
                                         v-if="product.image"
@@ -235,20 +259,26 @@ const formatPrice = (price: number): string => {
                                         v-else
                                         class="flex h-12 w-12 items-center justify-center rounded bg-muted"
                                     >
-                                        <Package class="h-6 w-6 text-muted-foreground" />
+                                        <Package
+                                            class="h-6 w-6 text-muted-foreground"
+                                        />
                                     </div>
                                 </TableCell>
                                 <TableCell>
-                                    <div class="font-medium">{{ product.name }}</div>
+                                    <div class="font-medium">
+                                        {{ product.name }}
+                                    </div>
                                     <div
                                         v-if="product.description"
-                                        class="text-sm text-muted-foreground line-clamp-1"
+                                        class="line-clamp-1 text-sm text-muted-foreground"
                                     >
                                         {{ product.description }}
                                     </div>
                                 </TableCell>
                                 <TableCell>
-                                    <span class="text-sm">{{ product.category.name }}</span>
+                                    <span class="text-sm">{{
+                                        product.category.name
+                                    }}</span>
                                 </TableCell>
                                 <TableCell>
                                     <code
@@ -257,7 +287,11 @@ const formatPrice = (price: number): string => {
                                     >
                                         {{ product.sku }}
                                     </code>
-                                    <span v-else class="text-sm text-muted-foreground">-</span>
+                                    <span
+                                        v-else
+                                        class="text-sm text-muted-foreground"
+                                        >-</span
+                                    >
                                 </TableCell>
                                 <TableCell>
                                     <span class="font-medium">{{
@@ -277,8 +311,14 @@ const formatPrice = (price: number): string => {
                                 </TableCell>
                                 <TableCell>
                                     <Badge variant="secondary">
-                                        {{ product.product_products.length }} variante{{
-                                            product.product_products.length !== 1 ? 's' : ''
+                                        {{
+                                            product.product_products.length
+                                        }}
+                                        variante{{
+                                            product.product_products.length !==
+                                            1
+                                                ? 's'
+                                                : ''
                                         }}
                                     </Badge>
                                 </TableCell>
@@ -290,7 +330,11 @@ const formatPrice = (price: number): string => {
                                                 : 'bg-gray-100 text-gray-800'
                                         "
                                     >
-                                        {{ product.is_active ? 'Activo' : 'Inactivo' }}
+                                        {{
+                                            product.is_active
+                                                ? 'Activo'
+                                                : 'Inactivo'
+                                        }}
                                     </Badge>
                                 </TableCell>
                                 <TableCell class="text-right">
@@ -300,7 +344,9 @@ const formatPrice = (price: number): string => {
                                             size="sm"
                                             @click="toggleStatus(product)"
                                             :title="
-                                                product.is_active ? 'Desactivar' : 'Activar'
+                                                product.is_active
+                                                    ? 'Desactivar'
+                                                    : 'Activar'
                                             "
                                         >
                                             <Power
@@ -315,7 +361,11 @@ const formatPrice = (price: number): string => {
                                         <Button
                                             variant="ghost"
                                             size="sm"
-                                            @click="router.visit(`/products/${product.id}/edit`)"
+                                            @click="
+                                                router.visit(
+                                                    `/products/${product.id}/edit`,
+                                                )
+                                            "
                                         >
                                             <Edit class="h-4 w-4" />
                                         </Button>
@@ -324,7 +374,9 @@ const formatPrice = (price: number): string => {
                                             size="sm"
                                             @click="openDeleteDialog(product)"
                                         >
-                                            <Trash2 class="h-4 w-4 text-destructive" />
+                                            <Trash2
+                                                class="h-4 w-4 text-destructive"
+                                            />
                                         </Button>
                                     </div>
                                 </TableCell>
@@ -335,7 +387,8 @@ const formatPrice = (price: number): string => {
                     <!-- Pagination -->
                     <div class="mt-4 flex items-center justify-between">
                         <div class="text-sm text-muted-foreground">
-                            Mostrando {{ products.data.length }} de {{ products.total }} productos
+                            Mostrando {{ products.data.length }} de
+                            {{ products.total }} productos
                         </div>
                         <div class="flex gap-1">
                             <Button
@@ -359,13 +412,17 @@ const formatPrice = (price: number): string => {
                 <AlertDialogHeader>
                     <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
                     <AlertDialogDescription>
-                        Esta acción no se puede deshacer. Se eliminará el producto
-                        <strong>{{ productToDelete?.name }}</strong> y todas sus variantes.
+                        Esta acción no se puede deshacer. Se eliminará el
+                        producto
+                        <strong>{{ productToDelete?.name }}</strong> y todas sus
+                        variantes.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction @click="deleteProduct">Eliminar</AlertDialogAction>
+                    <AlertDialogAction @click="deleteProduct"
+                        >Eliminar</AlertDialogAction
+                    >
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>

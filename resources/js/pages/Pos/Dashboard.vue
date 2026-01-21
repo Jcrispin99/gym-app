@@ -1033,8 +1033,9 @@ watch(
                             variant="outline"
                             size="sm"
                             class="flex-1 font-semibold"
+                            @click="router.visit(`/pos/${props.session.id}/refund`)"
                         >
-                            % desc.
+                            Reembolso
                         </Button>
                         <Button
                             variant="outline"

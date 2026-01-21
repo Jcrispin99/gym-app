@@ -31,6 +31,7 @@ import {
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/vue3';
 import { Building2, MapPin, Phone, Mail, Plus, Pencil, Trash2 } from 'lucide-vue-next';
+import FormPageHeader from '@/components/FormPageHeader.vue';
 
 interface Company {
     id: number;
@@ -107,19 +108,18 @@ const deleteCompany = () => {
 
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex flex-col gap-4 p-4">
-            <!-- Header -->
-            <div class="flex items-center justify-between">
-                <div>
-                    <h1 class="text-3xl font-bold tracking-tight">Compañías</h1>
-                    <p class="text-muted-foreground">
-                        Gestiona tu casa matriz y sucursales
-                    </p>
-                </div>
-                <Button @click="router.visit('/companies/create')">
-                    <Plus class="mr-2 h-4 w-4" />
-                    Nueva Sucursal
-                </Button>
-            </div>
+            <FormPageHeader
+                title="Compañías"
+                description="Gestiona tu casa matriz y sucursales"
+                :show-back="false"
+            >
+                <template #actions>
+                    <Button @click="router.visit('/companies/create')">
+                        <Plus class="mr-2 h-4 w-4" />
+                        Nueva Sucursal
+                    </Button>
+                </template>
+            </FormPageHeader>
 
             <!-- Stats Cards -->
             <div class="grid gap-4 md:grid-cols-3">

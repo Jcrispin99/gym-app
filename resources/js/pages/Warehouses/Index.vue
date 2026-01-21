@@ -1,15 +1,5 @@
 <script setup lang="ts">
-import AppLayout from '@/layouts/AppLayout.vue';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
+import FormPageHeader from '@/components/FormPageHeader.vue';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -20,11 +10,30 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
+import AppLayout from '@/layouts/AppLayout.vue';
+import type { BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/vue3';
-import { Plus, Edit, Trash2, Warehouse as WarehouseIcon, Search, MapPin } from 'lucide-vue-next';
-import { ref, computed } from 'vue';
+import {
+    Edit,
+    MapPin,
+    Plus,
+    Search,
+    Trash2,
+    Warehouse as WarehouseIcon,
+} from 'lucide-vue-next';
+import { computed, ref } from 'vue';
 
 interface Company {
     id: number;
@@ -44,6 +53,11 @@ interface Props {
 }
 
 const props = defineProps<Props>();
+
+const breadcrumbs: BreadcrumbItem[] = [
+    { title: 'Dashboard', href: '/dashboard' },
+    { title: 'Almacenes', href: '/warehouses' },
+];
 
 const deleteDialogOpen = ref(false);
 const warehouseToDelete = ref<Warehouse | null>(null);
@@ -71,10 +85,11 @@ const filteredWarehouses = computed(() => {
     }
 
     const query = searchQuery.value.toLowerCase();
-    return props.warehouses.filter((warehouse) =>
-        warehouse.name.toLowerCase().includes(query) ||
-        warehouse.location?.toLowerCase().includes(query) ||
-        warehouse.company.name.toLowerCase().includes(query)
+    return props.warehouses.filter(
+        (warehouse) =>
+            warehouse.name.toLowerCase().includes(query) ||
+            warehouse.location?.toLowerCase().includes(query) ||
+            warehouse.company.name.toLowerCase().includes(query),
     );
 });
 
@@ -91,51 +106,68 @@ const totalLocations = computed(() => {
 <template>
     <Head title="Almacenes" />
 
-    <AppLayout>
+    <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex flex-col gap-4 p-4">
-            <!-- Header -->
-            <div class="flex items-center justify-between">
-                <div>
-                    <h1 class="text-3xl font-bold tracking-tight">Almacenes</h1>
-                    <p class="text-muted-foreground">
-                        Gestiona los almacenes donde se almacenará el inventario
-                    </p>
-                </div>
-                <Button @click="router.visit('/warehouses/create')">
-                    <Plus class="mr-2 h-4 w-4" />
-                    Nuevo Almacén
-                </Button>
-            </div>
+            <FormPageHeader
+                title="Almacenes"
+                description="Gestiona los almacenes donde se almacenará el inventario"
+                :show-back="false"
+            >
+                <template #actions>
+                    <Button @click="router.visit('/warehouses/create')">
+                        <Plus class="mr-2 h-4 w-4" />
+                        Nuevo Almacén
+                    </Button>
+                </template>
+            </FormPageHeader>
 
             <!-- Stats Cards -->
             <div class="grid gap-4 md:grid-cols-3">
                 <Card>
-                    <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle class="text-sm font-medium">Total Almacenes</CardTitle>
+                    <CardHeader
+                        class="flex flex-row items-center justify-between space-y-0 pb-2"
+                    >
+                        <CardTitle class="text-sm font-medium"
+                            >Total Almacenes</CardTitle
+                        >
                         <WarehouseIcon class="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div class="text-2xl font-bold">{{ warehouses.length }}</div>
+                        <div class="text-2xl font-bold">
+                            {{ warehouses.length }}
+                        </div>
                     </CardContent>
                 </Card>
 
                 <Card>
-                    <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle class="text-sm font-medium">Empresas</CardTitle>
+                    <CardHeader
+                        class="flex flex-row items-center justify-between space-y-0 pb-2"
+                    >
+                        <CardTitle class="text-sm font-medium"
+                            >Empresas</CardTitle
+                        >
                         <WarehouseIcon class="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div class="text-2xl font-bold">{{ uniqueCompanies }}</div>
+                        <div class="text-2xl font-bold">
+                            {{ uniqueCompanies }}
+                        </div>
                     </CardContent>
                 </Card>
 
                 <Card>
-                    <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle class="text-sm font-medium">Con Ubicación</CardTitle>
+                    <CardHeader
+                        class="flex flex-row items-center justify-between space-y-0 pb-2"
+                    >
+                        <CardTitle class="text-sm font-medium"
+                            >Con Ubicación</CardTitle
+                        >
                         <MapPin class="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div class="text-2xl font-bold">{{ totalLocations }}</div>
+                        <div class="text-2xl font-bold">
+                            {{ totalLocations }}
+                        </div>
                     </CardContent>
                 </Card>
             </div>
@@ -143,8 +175,14 @@ const totalLocations = computed(() => {
             <!-- Search -->
             <div class="flex items-center gap-2">
                 <div class="relative flex-1">
-                    <Search class="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input v-model="searchQuery" placeholder="Buscar almacenes..." class="pl-8" />
+                    <Search
+                        class="absolute top-2.5 left-2 h-4 w-4 text-muted-foreground"
+                    />
+                    <Input
+                        v-model="searchQuery"
+                        placeholder="Buscar almacenes..."
+                        class="pl-8"
+                    />
                 </div>
             </div>
 
@@ -160,7 +198,9 @@ const totalLocations = computed(() => {
                                 <TableHead>Código</TableHead>
                                 <TableHead>Ubicación</TableHead>
                                 <TableHead>Empresa</TableHead>
-                                <TableHead class="text-right">Acciones</TableHead>
+                                <TableHead class="text-right"
+                                    >Acciones</TableHead
+                                >
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -169,12 +209,24 @@ const totalLocations = computed(() => {
                                     No se encontraron almacenes
                                 </TableCell>
                             </TableRow>
-                            <TableRow v-for="warehouse in filteredWarehouses" :key="warehouse.id">
-                                <TableCell class="font-medium">{{ warehouse.name }}</TableCell>
+                            <TableRow
+                                v-for="warehouse in filteredWarehouses"
+                                :key="warehouse.id"
+                            >
+                                <TableCell class="font-medium">{{
+                                    warehouse.name
+                                }}</TableCell>
                                 <TableCell>
-                                    <div class="flex items-center gap-2 text-sm">
-                                        <MapPin class="h-4 w-4 text-muted-foreground" />
-                                        <span>{{ warehouse.location || 'Sin ubicación' }}</span>
+                                    <div
+                                        class="flex items-center gap-2 text-sm"
+                                    >
+                                        <MapPin
+                                            class="h-4 w-4 text-muted-foreground"
+                                        />
+                                        <span>{{
+                                            warehouse.location ||
+                                            'Sin ubicación'
+                                        }}</span>
                                     </div>
                                 </TableCell>
                                 <TableCell>
@@ -188,7 +240,9 @@ const totalLocations = computed(() => {
                                             variant="ghost"
                                             size="sm"
                                             @click="
-                                                router.visit(`/warehouses/${warehouse.id}/edit`)
+                                                router.visit(
+                                                    `/warehouses/${warehouse.id}/edit`,
+                                                )
                                             "
                                         >
                                             <Edit class="h-4 w-4" />
@@ -198,7 +252,9 @@ const totalLocations = computed(() => {
                                             size="sm"
                                             @click="openDeleteDialog(warehouse)"
                                         >
-                                            <Trash2 class="h-4 w-4 text-destructive" />
+                                            <Trash2
+                                                class="h-4 w-4 text-destructive"
+                                            />
                                         </Button>
                                     </div>
                                 </TableCell>
@@ -215,13 +271,17 @@ const totalLocations = computed(() => {
                 <AlertDialogHeader>
                     <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
                     <AlertDialogDescription>
-                        Esta acción no se puede deshacer. Se eliminará el almacén
-                        <strong>{{ warehouseToDelete?.name }}</strong>.
+                        Esta acción no se puede deshacer. Se eliminará el
+                        almacén
+                        <strong>{{ warehouseToDelete?.name }}</strong
+                        >.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction @click="deleteWarehouse">Eliminar</AlertDialogAction>
+                    <AlertDialogAction @click="deleteWarehouse"
+                        >Eliminar</AlertDialogAction
+                    >
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>

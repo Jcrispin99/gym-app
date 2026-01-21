@@ -1,15 +1,5 @@
 <script setup lang="ts">
-import AppLayout from '@/layouts/AppLayout.vue';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
+import FormPageHeader from '@/components/FormPageHeader.vue';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -20,18 +10,31 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import {
-    Select,
-    SelectContent,
-    SelectTrigger,
-} from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { Head, router } from '@inertiajs/vue3';
-import { UserPlus, Edit, Trash2, Users, Search, Filter } from 'lucide-vue-next';
-import { ref, computed } from 'vue';
+import { Button } from '@/components/ui/button';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectTrigger } from '@/components/ui/select';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
+import AppLayout from '@/layouts/AppLayout.vue';
 import type { BreadcrumbItem } from '@/types';
+import { Head, router } from '@inertiajs/vue3';
+import { Edit, Filter, Search, Trash2, UserPlus, Users } from 'lucide-vue-next';
+import { computed, ref } from 'vue';
 
 interface Company {
     id: number;
@@ -110,31 +113,41 @@ const filteredCustomers = computed(() => {
     // Search filter
     if (searchQuery.value) {
         const query = searchQuery.value.toLowerCase();
-        filtered = filtered.filter(customer =>
-            customer.first_name.toLowerCase().includes(query) ||
-            customer.last_name.toLowerCase().includes(query) ||
-            customer.document_number.toLowerCase().includes(query) ||
-            customer.email?.toLowerCase().includes(query)
+        filtered = filtered.filter(
+            (customer) =>
+                customer.first_name.toLowerCase().includes(query) ||
+                customer.last_name.toLowerCase().includes(query) ||
+                customer.document_number.toLowerCase().includes(query) ||
+                customer.email?.toLowerCase().includes(query),
         );
     }
 
     // Status filter (multiple selection)
     if (selectedStatuses.value.length > 0) {
-        filtered = filtered.filter(m => selectedStatuses.value.includes(m.status));
+        filtered = filtered.filter((m) =>
+            selectedStatuses.value.includes(m.status),
+        );
     }
 
     // Portal access filter (multiple selection)
     if (selectedPortalFilters.value.length > 0) {
         let portalFiltered: Customer[] = [];
         if (selectedPortalFilters.value.includes('with_portal')) {
-            portalFiltered = [...portalFiltered, ...filtered.filter(m => m.user_id !== null)];
+            portalFiltered = [
+                ...portalFiltered,
+                ...filtered.filter((m) => m.user_id !== null),
+            ];
         }
         if (selectedPortalFilters.value.includes('without_portal')) {
-            portalFiltered = [...portalFiltered, ...filtered.filter(m => m.user_id === null)];
+            portalFiltered = [
+                ...portalFiltered,
+                ...filtered.filter((m) => m.user_id === null),
+            ];
         }
         // Remove duplicates
-        filtered = portalFiltered.filter((item, index, self) =>
-            index === self.findIndex((t) => t.id === item.id)
+        filtered = portalFiltered.filter(
+            (item, index, self) =>
+                index === self.findIndex((t) => t.id === item.id),
         );
     }
 
@@ -151,39 +164,42 @@ const activeFiltersCount = computed(() => {
 
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex flex-col gap-4 p-4">
-            <!-- Header -->
-            <div class="flex items-center justify-between">
-                <div>
-                    <h1 class="text-3xl font-bold tracking-tight">Clientes</h1>
-                    <p class="text-muted-foreground">
-                        Gestiona los clientes del gimnasio
-                    </p>
-                </div>
-                <Button @click="router.visit('/customers/create')">
-                    <UserPlus class="mr-2 h-4 w-4" />
-                    Nuevo Cliente
-                </Button>
-            </div>
+            <FormPageHeader
+                title="Clientes"
+                description="Gestiona los clientes del gimnasio"
+                :show-back="false"
+            >
+                <template #actions>
+                    <Button @click="router.visit('/customers/create')">
+                        <UserPlus class="mr-2 h-4 w-4" />
+                        Nuevo Cliente
+                    </Button>
+                </template>
+            </FormPageHeader>
 
             <!-- Stats Cards - Compact (3 cards) -->
             <div class="grid gap-4 md:grid-cols-3">
                 <Card>
-                    <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardHeader
+                        class="flex flex-row items-center justify-between space-y-0 pb-2"
+                    >
                         <CardTitle class="text-sm font-medium">
                             Total Clientes
                         </CardTitle>
                         <Users class="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div class="text-2xl font-bold">{{ filteredCustomers.length }}</div>
-                        <p class="text-xs text-muted-foreground">
-                            Registrados
-                        </p>
+                        <div class="text-2xl font-bold">
+                            {{ filteredCustomers.length }}
+                        </div>
+                        <p class="text-xs text-muted-foreground">Registrados</p>
                     </CardContent>
                 </Card>
-                
+
                 <Card>
-                    <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardHeader
+                        class="flex flex-row items-center justify-between space-y-0 pb-2"
+                    >
                         <CardTitle class="text-sm font-medium">
                             Activos
                         </CardTitle>
@@ -191,7 +207,11 @@ const activeFiltersCount = computed(() => {
                     </CardHeader>
                     <CardContent>
                         <div class="text-2xl font-bold">
-                            {{ filteredCustomers.filter(m => m.status === 'active').length }}
+                            {{
+                                filteredCustomers.filter(
+                                    (m) => m.status === 'active',
+                                ).length
+                            }}
                         </div>
                         <p class="text-xs text-muted-foreground">
                             clientes activos
@@ -200,7 +220,9 @@ const activeFiltersCount = computed(() => {
                 </Card>
 
                 <Card>
-                    <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardHeader
+                        class="flex flex-row items-center justify-between space-y-0 pb-2"
+                    >
                         <CardTitle class="text-sm font-medium">
                             Suspendidos
                         </CardTitle>
@@ -208,11 +230,13 @@ const activeFiltersCount = computed(() => {
                     </CardHeader>
                     <CardContent>
                         <div class="text-2xl font-bold">
-                            {{ filteredCustomers.filter(m => m.status === 'suspended').length }}
+                            {{
+                                filteredCustomers.filter(
+                                    (m) => m.status === 'suspended',
+                                ).length
+                            }}
                         </div>
-                        <p class="text-xs text-muted-foreground">
-                            Suspendidos
-                        </p>
+                        <p class="text-xs text-muted-foreground">Suspendidos</p>
                     </CardContent>
                 </Card>
             </div>
@@ -225,16 +249,18 @@ const activeFiltersCount = computed(() => {
                         <div>
                             <CardTitle>Listado de Clientes</CardTitle>
                             <CardDescription>
-                                Mostrando {{ filteredCustomers.length }} de {{ customers.length }} clientes
+                                Mostrando {{ filteredCustomers.length }} de
+                                {{ customers.length }} clientes
                             </CardDescription>
                         </div>
-
 
                         <!-- Search + Filter (Right) -->
                         <div class="flex gap-2">
                             <!-- Search Bar -->
                             <div class="relative w-[300px]">
-                                <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                <Search
+                                    class="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                                />
                                 <Input
                                     v-model="searchQuery"
                                     placeholder="Buscar..."
@@ -248,7 +274,11 @@ const activeFiltersCount = computed(() => {
                                     <div class="flex items-center gap-2">
                                         <Filter class="h-4 w-4" />
                                         <span>Filtros</span>
-                                        <Badge v-if="activeFiltersCount > 0" variant="secondary" class="ml-auto h-5 px-1.5">
+                                        <Badge
+                                            v-if="activeFiltersCount > 0"
+                                            variant="secondary"
+                                            class="ml-auto h-5 px-1.5"
+                                        >
                                             {{ activeFiltersCount }}
                                         </Badge>
                                     </div>
@@ -256,45 +286,101 @@ const activeFiltersCount = computed(() => {
                                 <SelectContent class="w-[220px]">
                                     <!-- Status Filters -->
                                     <div class="px-2 py-1.5">
-                                        <p class="text-xs font-semibold text-muted-foreground mb-2">Estado</p>
+                                        <p
+                                            class="mb-2 text-xs font-semibold text-muted-foreground"
+                                        >
+                                            Estado
+                                        </p>
                                         <div class="space-y-2">
-                                            <label class="flex items-center gap-2 cursor-pointer">
+                                            <label
+                                                class="flex cursor-pointer items-center gap-2"
+                                            >
                                                 <Checkbox
-                                                    :checked="selectedStatuses.includes('active')"
-                                                    @update:checked="(checked: any) => {
-                                                        selectedStatuses = checked 
-                                                            ? [...selectedStatuses, 'active']
-                                                            : selectedStatuses.filter(s => s !== 'active');
-                                                    }"
+                                                    :checked="
+                                                        selectedStatuses.includes(
+                                                            'active',
+                                                        )
+                                                    "
+                                                    @update:checked="
+                                                        (checked: any) => {
+                                                            selectedStatuses =
+                                                                checked
+                                                                    ? [
+                                                                          ...selectedStatuses,
+                                                                          'active',
+                                                                      ]
+                                                                    : selectedStatuses.filter(
+                                                                          (s) =>
+                                                                              s !==
+                                                                              'active',
+                                                                      );
+                                                        }
+                                                    "
                                                 />
-                                                <span class="text-sm">Activos</span>
+                                                <span class="text-sm"
+                                                    >Activos</span
+                                                >
                                             </label>
-                                            <label class="flex items-center gap-2 cursor-pointer">
+                                            <label
+                                                class="flex cursor-pointer items-center gap-2"
+                                            >
                                                 <Checkbox
-                                                    :checked="selectedStatuses.includes('inactive')"
-                                                    @update:checked="(checked: any) => {
-                                                        selectedStatuses = checked 
-                                                            ? [...selectedStatuses, 'inactive']
-                                                            : selectedStatuses.filter(s => s !== 'inactive');
-                                                    }"
+                                                    :checked="
+                                                        selectedStatuses.includes(
+                                                            'inactive',
+                                                        )
+                                                    "
+                                                    @update:checked="
+                                                        (checked: any) => {
+                                                            selectedStatuses =
+                                                                checked
+                                                                    ? [
+                                                                          ...selectedStatuses,
+                                                                          'inactive',
+                                                                      ]
+                                                                    : selectedStatuses.filter(
+                                                                          (s) =>
+                                                                              s !==
+                                                                              'inactive',
+                                                                      );
+                                                        }
+                                                    "
                                                 />
-                                                <span class="text-sm">Inactivos</span>
+                                                <span class="text-sm"
+                                                    >Inactivos</span
+                                                >
                                             </label>
-                                            <label class="flex items-center gap-2 cursor-pointer">
+                                            <label
+                                                class="flex cursor-pointer items-center gap-2"
+                                            >
                                                 <Checkbox
-                                                    :checked="selectedStatuses.includes('suspended')"
-                                                    @update:checked="(checked: any) => {
-                                                        selectedStatuses = checked 
-                                                            ? [...selectedStatuses, 'suspended']
-                                                            : selectedStatuses.filter(s => s !== 'suspended');
-                                                    }"
+                                                    :checked="
+                                                        selectedStatuses.includes(
+                                                            'suspended',
+                                                        )
+                                                    "
+                                                    @update:checked="
+                                                        (checked: any) => {
+                                                            selectedStatuses =
+                                                                checked
+                                                                    ? [
+                                                                          ...selectedStatuses,
+                                                                          'suspended',
+                                                                      ]
+                                                                    : selectedStatuses.filter(
+                                                                          (s) =>
+                                                                              s !==
+                                                                              'suspended',
+                                                                      );
+                                                        }
+                                                    "
                                                 />
-                                                <span class="text-sm">Suspendidos</span>
+                                                <span class="text-sm"
+                                                    >Suspendidos</span
+                                                >
                                             </label>
                                         </div>
                                     </div>
-
-
                                 </SelectContent>
                             </Select>
                         </div>
@@ -311,16 +397,22 @@ const activeFiltersCount = computed(() => {
                                 <TableHead>Compañía</TableHead>
                                 <TableHead>Estado</TableHead>
                                 <TableHead>Registro</TableHead>
-                                <TableHead class="text-right">Acciones</TableHead>
+                                <TableHead class="text-right"
+                                    >Acciones</TableHead
+                                >
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            <TableRow v-for="customer in filteredCustomers" :key="customer.id">
+                            <TableRow
+                                v-for="customer in filteredCustomers"
+                                :key="customer.id"
+                            >
                                 <TableCell class="font-medium">
                                     {{ customer.document_number }}
                                 </TableCell>
                                 <TableCell>
-                                    {{ customer.first_name }} {{ customer.last_name }}
+                                    {{ customer.first_name }}
+                                    {{ customer.last_name }}
                                 </TableCell>
                                 <TableCell>
                                     {{ customer.email || '-' }}
@@ -332,7 +424,7 @@ const activeFiltersCount = computed(() => {
                                     {{ customer.company?.trade_name || '-' }}
                                 </TableCell>
                                 <TableCell>
-                                    <span 
+                                    <span
                                         class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
                                         :class="getStatusBadge(customer.status)"
                                     >
@@ -347,7 +439,11 @@ const activeFiltersCount = computed(() => {
                                         <Button
                                             variant="ghost"
                                             size="sm"
-                                            @click="router.visit(`/customers/${customer.id}/edit`)"
+                                            @click="
+                                                router.visit(
+                                                    `/customers/${customer.id}/edit`,
+                                                )
+                                            "
                                         >
                                             <Edit class="h-4 w-4" />
                                         </Button>
@@ -356,7 +452,9 @@ const activeFiltersCount = computed(() => {
                                             size="sm"
                                             @click="openDeleteDialog(customer)"
                                         >
-                                            <Trash2 class="h-4 w-4 text-red-500" />
+                                            <Trash2
+                                                class="h-4 w-4 text-red-500"
+                                            />
                                         </Button>
                                     </div>
                                 </TableCell>
@@ -377,9 +475,9 @@ const activeFiltersCount = computed(() => {
                         <AlertDialogDescription>
                             Esta acción eliminará permanentemente al cliente
                             <strong v-if="customerToDelete">
-                                {{ customerToDelete.first_name }} {{ customerToDelete.last_name }}
-                            </strong>.
-                            Esta acción no se puede deshacer.
+                                {{ customerToDelete.first_name }}
+                                {{ customerToDelete.last_name }} </strong
+                            >. Esta acción no se puede deshacer.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>

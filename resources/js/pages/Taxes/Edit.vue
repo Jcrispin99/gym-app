@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import FormPageHeader from '@/components/FormPageHeader.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -15,7 +16,7 @@ import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/AppLayout.vue';
 import type { BreadcrumbItem } from '@/types';
 import { Head, useForm } from '@inertiajs/vue3';
-import { ArrowLeft } from 'lucide-vue-next';
+import { Save } from 'lucide-vue-next';
 
 interface Tax {
     id: number;
@@ -73,25 +74,20 @@ const taxTypes = [
         <Head :title="`Editar ${tax.name}`" />
 
         <div class="w-full p-4">
-            <!-- Header -->
-            <div class="mb-6 flex items-center justify-between">
-                <div class="flex items-center gap-4">
-                    <Button variant="ghost" size="icon" as-child>
-                        <a href="/taxes">
-                            <ArrowLeft class="h-5 w-5" />
-                        </a>
+            <FormPageHeader
+                title="Editar Impuesto"
+                :description="tax.name"
+                back-href="/taxes"
+            >
+                <template #actions>
+                    <Button @click="submit" :disabled="form.processing">
+                        <Save class="mr-2 h-4 w-4" />
+                        {{
+                            form.processing ? 'Guardando...' : 'Guardar Cambios'
+                        }}
                     </Button>
-                    <div>
-                        <h1 class="text-2xl font-bold">Editar Impuesto</h1>
-                        <p class="text-sm text-muted-foreground">
-                            {{ tax.name }}
-                        </p>
-                    </div>
-                </div>
-                <Button @click="submit" :disabled="form.processing">
-                    Guardar Cambios
-                </Button>
-            </div>
+                </template>
+            </FormPageHeader>
 
             <div class="grid gap-6 lg:grid-cols-3">
                 <!-- Main Form -->

@@ -1,15 +1,5 @@
 <script setup lang="ts">
-import AppLayout from '@/layouts/AppLayout.vue';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
+import FormPageHeader from '@/components/FormPageHeader.vue';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -20,12 +10,23 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Head, router } from '@inertiajs/vue3';
-import { Plus, Edit, Trash2, Percent, Search, Power } from 'lucide-vue-next';
-import { ref, computed } from 'vue';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
+import AppLayout from '@/layouts/AppLayout.vue';
 import type { BreadcrumbItem } from '@/types';
+import { Head, router } from '@inertiajs/vue3';
+import { Edit, Percent, Plus, Power, Search, Trash2 } from 'lucide-vue-next';
+import { computed, ref } from 'vue';
 
 interface Tax {
     id: number;
@@ -76,21 +77,33 @@ const deleteTax = () => {
 };
 
 const toggleStatus = (tax: Tax) => {
-    router.post(`/taxes/${tax.id}/toggle-status`, {}, {
-        preserveScroll: true,
-    });
+    router.post(
+        `/taxes/${tax.id}/toggle-status`,
+        {},
+        {
+            preserveScroll: true,
+        },
+    );
 };
 
 const performSearch = () => {
-    router.get('/taxes', { search: searchQuery.value }, {
-        preserveState: true,
-        preserveScroll: true,
-    });
+    router.get(
+        '/taxes',
+        { search: searchQuery.value },
+        {
+            preserveState: true,
+            preserveScroll: true,
+        },
+    );
 };
 
 const totalTaxes = computed(() => props.taxes.length);
-const activeTaxes = computed(() => props.taxes.filter(t => t.is_active).length);
-const igvTaxes = computed(() => props.taxes.filter(t => t.tax_type === 'IGV').length);
+const activeTaxes = computed(
+    () => props.taxes.filter((t) => t.is_active).length,
+);
+const igvTaxes = computed(
+    () => props.taxes.filter((t) => t.tax_type === 'IGV').length,
+);
 </script>
 
 <template>
@@ -98,11 +111,28 @@ const igvTaxes = computed(() => props.taxes.filter(t => t.tax_type === 'IGV').le
         <Head title="Impuestos" />
 
         <div class="flex flex-col gap-4 p-4">
+            <FormPageHeader
+                title="Impuestos"
+                description="Configura impuestos y su disponibilidad"
+                :show-back="false"
+            >
+                <template #actions>
+                    <Button @click="router.visit('/taxes/create')">
+                        <Plus class="mr-2 h-4 w-4" />
+                        Nuevo Impuesto
+                    </Button>
+                </template>
+            </FormPageHeader>
+
             <!-- Stats Cards -->
             <div class="grid gap-4 md:grid-cols-3">
                 <Card>
-                    <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle class="text-sm font-medium">Total Impuestos</CardTitle>
+                    <CardHeader
+                        class="flex flex-row items-center justify-between space-y-0 pb-2"
+                    >
+                        <CardTitle class="text-sm font-medium"
+                            >Total Impuestos</CardTitle
+                        >
                         <Percent class="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
@@ -111,8 +141,12 @@ const igvTaxes = computed(() => props.taxes.filter(t => t.tax_type === 'IGV').le
                 </Card>
 
                 <Card>
-                    <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle class="text-sm font-medium">Impuestos Activos</CardTitle>
+                    <CardHeader
+                        class="flex flex-row items-center justify-between space-y-0 pb-2"
+                    >
+                        <CardTitle class="text-sm font-medium"
+                            >Impuestos Activos</CardTitle
+                        >
                         <Percent class="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
@@ -121,8 +155,12 @@ const igvTaxes = computed(() => props.taxes.filter(t => t.tax_type === 'IGV').le
                 </Card>
 
                 <Card>
-                    <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle class="text-sm font-medium">Impuestos IGV</CardTitle>
+                    <CardHeader
+                        class="flex flex-row items-center justify-between space-y-0 pb-2"
+                    >
+                        <CardTitle class="text-sm font-medium"
+                            >Impuestos IGV</CardTitle
+                        >
                         <Percent class="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
@@ -134,10 +172,12 @@ const igvTaxes = computed(() => props.taxes.filter(t => t.tax_type === 'IGV').le
             <!-- Search Bar -->
             <div class="flex items-center gap-2">
                 <div class="relative flex-1">
-                    <Search class="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input 
+                    <Search
+                        class="absolute top-2.5 left-2 h-4 w-4 text-muted-foreground"
+                    />
+                    <Input
                         v-model="searchQuery"
-                        placeholder="Buscar por nombre o tipo..." 
+                        placeholder="Buscar por nombre o tipo..."
                         class="pl-8"
                         @keyup.enter="performSearch"
                     />
@@ -147,14 +187,8 @@ const igvTaxes = computed(() => props.taxes.filter(t => t.tax_type === 'IGV').le
 
             <!-- Taxes Table -->
             <Card>
-                <CardHeader class="flex flex-row items-center justify-between">
-                    <CardTitle>Impuestos</CardTitle>
-                    <Button as-child>
-                        <a href="/taxes/create">
-                            <Plus class="mr-2 h-4 w-4" />
-                            Nuevo Impuesto
-                        </a>
-                    </Button>
+                <CardHeader>
+                    <CardTitle>Listado de Impuestos</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <Table>
@@ -166,37 +200,67 @@ const igvTaxes = computed(() => props.taxes.filter(t => t.tax_type === 'IGV').le
                                 <TableHead>Cód. SUNAT</TableHead>
                                 <TableHead>Estado</TableHead>
                                 <TableHead>Por Defecto</TableHead>
-                                <TableHead class="text-right">Acciones</TableHead>
+                                <TableHead class="text-right"
+                                    >Acciones</TableHead
+                                >
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             <TableRow v-for="tax in taxes" :key="tax.id">
                                 <TableCell class="font-medium">
                                     {{ tax.name }}
-                                    <br>
-                                    <span v-if="tax.description" class="text-xs text-muted-foreground">
+                                    <br />
+                                    <span
+                                        v-if="tax.description"
+                                        class="text-xs text-muted-foreground"
+                                    >
                                         {{ tax.description }}
                                     </span>
                                 </TableCell>
                                 <TableCell>
-                                    <Badge variant="outline">{{ tax.tax_type }}</Badge>
+                                    <Badge variant="outline">{{
+                                        tax.tax_type
+                                    }}</Badge>
                                 </TableCell>
                                 <TableCell>
-                                    <span class="font-mono">{{ tax.rate_percent }}%</span>
+                                    <span class="font-mono"
+                                        >{{ tax.rate_percent }}%</span
+                                    >
                                 </TableCell>
                                 <TableCell>
-                                    <span v-if="tax.affectation_type_code" class="text-sm">
+                                    <span
+                                        v-if="tax.affectation_type_code"
+                                        class="text-sm"
+                                    >
                                         {{ tax.affectation_type_code }}
                                     </span>
-                                    <span v-else class="text-sm text-muted-foreground">-</span>
+                                    <span
+                                        v-else
+                                        class="text-sm text-muted-foreground"
+                                        >-</span
+                                    >
                                 </TableCell>
                                 <TableCell>
-                                    <Badge v-if="tax.is_active" variant="default">Activo</Badge>
-                                    <Badge v-else variant="secondary">Inactivo</Badge>
+                                    <Badge
+                                        v-if="tax.is_active"
+                                        variant="default"
+                                        >Activo</Badge
+                                    >
+                                    <Badge v-else variant="secondary"
+                                        >Inactivo</Badge
+                                    >
                                 </TableCell>
                                 <TableCell>
-                                    <Badge v-if="tax.is_default" variant="default">Sí</Badge>
-                                    <span v-else class="text-sm text-muted-foreground">-</span>
+                                    <Badge
+                                        v-if="tax.is_default"
+                                        variant="default"
+                                        >Sí</Badge
+                                    >
+                                    <span
+                                        v-else
+                                        class="text-sm text-muted-foreground"
+                                        >-</span
+                                    >
                                 </TableCell>
                                 <TableCell class="text-right">
                                     <div class="flex justify-end gap-2">
@@ -213,7 +277,11 @@ const igvTaxes = computed(() => props.taxes.filter(t => t.tax_type === 'IGV').le
                                             variant="ghost"
                                             size="icon"
                                             @click="toggleStatus(tax)"
-                                            :title="tax.is_active ? 'Desactivar' : 'Activar'"
+                                            :title="
+                                                tax.is_active
+                                                    ? 'Desactivar'
+                                                    : 'Activar'
+                                            "
                                         >
                                             <Power class="h-4 w-4" />
                                         </Button>
@@ -230,7 +298,10 @@ const igvTaxes = computed(() => props.taxes.filter(t => t.tax_type === 'IGV').le
                         </TableBody>
                     </Table>
 
-                    <div v-if="taxes.length === 0" class="text-center py-8 text-muted-foreground">
+                    <div
+                        v-if="taxes.length === 0"
+                        class="py-8 text-center text-muted-foreground"
+                    >
                         No se encontraron impuestos
                     </div>
                 </CardContent>
@@ -243,13 +314,16 @@ const igvTaxes = computed(() => props.taxes.filter(t => t.tax_type === 'IGV').le
                 <AlertDialogHeader>
                     <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
                     <AlertDialogDescription>
-                        Esta acción eliminará el impuesto "{{ taxToDelete?.name }}" permanentemente.
-                        Esta acción no se puede deshacer.
+                        Esta acción eliminará el impuesto "{{
+                            taxToDelete?.name
+                        }}" permanentemente. Esta acción no se puede deshacer.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction @click="deleteTax">Eliminar</AlertDialogAction>
+                    <AlertDialogAction @click="deleteTax"
+                        >Eliminar</AlertDialogAction
+                    >
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>

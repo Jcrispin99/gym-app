@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import FormPageHeader from '@/components/FormPageHeader.vue';
 import InputError from '@/components/InputError.vue';
 import {
     AlertDialog,
@@ -33,8 +34,9 @@ import {
 } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/AppLayout.vue';
+import type { BreadcrumbItem } from '@/types';
 import { router, usePage } from '@inertiajs/vue3';
-import { ArrowLeft, Snowflake } from 'lucide-vue-next';
+import { Snowflake } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 
 interface FreezeActor {
@@ -108,6 +110,15 @@ const subscriptionTitle = computed(() => {
         `Suscripción #${props.subscription.id}`
     );
 });
+
+const breadcrumbs = computed<BreadcrumbItem[]>(() => [
+    { title: 'Dashboard', href: '/dashboard' },
+    { title: 'Suscripciones', href: '/subscriptions' },
+    {
+        title: subscriptionTitle.value,
+        href: `/subscriptions/${props.subscription.id}`,
+    },
+]);
 
 const statusBadge = computed(() => {
     const status = props.subscription.status;
@@ -222,107 +233,96 @@ watch(
 </script>
 
 <template>
-    <AppLayout title="Suscripción">
+    <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex flex-col gap-4 p-4">
             <div class="flex items-center justify-between">
                 <div class="min-w-0">
-                    <div class="flex items-center gap-2">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            @click="goBack"
-                        >
-                            <ArrowLeft class="mr-2 h-4 w-4" />
-                            Volver
-                        </Button>
-                        <Badge :variant="statusBadge.variant">
-                            {{ statusBadge.label }}
-                        </Badge>
-                        <div class="truncate text-sm text-muted-foreground">
-                            #{{ props.subscription.id }}
-                        </div>
-                    </div>
-                    <h1 class="mt-2 truncate text-2xl font-bold tracking-tight">
-                        {{ subscriptionTitle }}
-                    </h1>
-                    <div class="mt-1 text-sm text-muted-foreground">
-                        Vigencia:
-                        {{ formatDate(props.subscription.start_date) }} →
-                        {{ formatDate(props.subscription.end_date) }}
-                        <span class="mx-2">·</span>
-                        Original:
-                        {{ formatDate(props.subscription.original_end_date) }}
-                    </div>
-                </div>
-
-                <div class="flex shrink-0 items-center gap-2">
-                    <Button
-                        v-if="props.subscription.status === 'active'"
-                        type="button"
-                        variant="secondary"
-                        @click="openFreezeDialog"
+                    <FormPageHeader
+                        :title="subscriptionTitle"
+                        :description="`${statusBadge.label} · #${props.subscription.id} · Vigencia: ${formatDate(props.subscription.start_date)} → ${formatDate(props.subscription.end_date)} · Original: ${formatDate(props.subscription.original_end_date)}`"
+                        :back-href="props.returnTo || '/subscriptions'"
                     >
-                        <Snowflake class="mr-2 h-4 w-4" />
-                        Congelar
-                    </Button>
-
-                    <AlertDialog v-if="props.subscription.status === 'frozen'">
-                        <AlertDialogTrigger as-child>
-                            <Button type="button" variant="secondary"
-                                >Descongelar</Button
+                        <template #actions>
+                            <Button
+                                v-if="props.subscription.status === 'active'"
+                                type="button"
+                                variant="secondary"
+                                @click="openFreezeDialog"
                             >
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle
-                                    >¿Descongelar suscripción?</AlertDialogTitle
-                                >
-                                <AlertDialogDescription>
-                                    Esto reactivará la suscripción y cerrará el
-                                    congelamiento activo (si existe).
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                <AlertDialogAction
-                                    @click="unfreezeSubscription"
-                                >
-                                    Confirmar
-                                </AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
+                                <Snowflake class="mr-2 h-4 w-4" />
+                                Congelar
+                            </Button>
 
-                    <AlertDialog
-                        v-if="
-                            ['active', 'frozen'].includes(
-                                props.subscription.status,
-                            )
-                        "
-                    >
-                        <AlertDialogTrigger as-child>
-                            <Button type="button" variant="destructive"
-                                >Cancelar</Button
+                            <AlertDialog
+                                v-if="props.subscription.status === 'frozen'"
                             >
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle
-                                    >¿Cancelar suscripción?</AlertDialogTitle
-                                >
-                                <AlertDialogDescription>
-                                    Se marcará la suscripción como cancelada.
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>Volver</AlertDialogCancel>
-                                <AlertDialogAction @click="cancelSubscription">
-                                    Confirmar
-                                </AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
+                                <AlertDialogTrigger as-child>
+                                    <Button type="button" variant="secondary">
+                                        Descongelar
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle
+                                            >¿Descongelar
+                                            suscripción?</AlertDialogTitle
+                                        >
+                                        <AlertDialogDescription>
+                                            Esto reactivará la suscripción y
+                                            cerrará el congelamiento activo (si
+                                            existe).
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>
+                                            Cancelar
+                                        </AlertDialogCancel>
+                                        <AlertDialogAction
+                                            @click="unfreezeSubscription"
+                                        >
+                                            Confirmar
+                                        </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+
+                            <AlertDialog
+                                v-if="
+                                    ['active', 'frozen'].includes(
+                                        props.subscription.status,
+                                    )
+                                "
+                            >
+                                <AlertDialogTrigger as-child>
+                                    <Button type="button" variant="destructive"
+                                        >Cancelar</Button
+                                    >
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle
+                                            >¿Cancelar
+                                            suscripción?</AlertDialogTitle
+                                        >
+                                        <AlertDialogDescription>
+                                            Se marcará la suscripción como
+                                            cancelada.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>
+                                            Volver
+                                        </AlertDialogCancel>
+                                        <AlertDialogAction
+                                            @click="cancelSubscription"
+                                        >
+                                            Confirmar
+                                        </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        </template>
+                    </FormPageHeader>
                 </div>
             </div>
 

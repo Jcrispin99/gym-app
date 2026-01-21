@@ -1,14 +1,20 @@
 <script setup lang="ts">
-import { useForm } from '@inertiajs/vue3';
-import AppLayout from '@/layouts/AppLayout.vue';
-import { Button } from '@/components/ui/button';
+import FormPageHeader from '@/components/FormPageHeader.vue';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Head, router } from '@inertiajs/vue3';
-import { ArrowLeft, Save, Clock, User as UserIcon } from 'lucide-vue-next';
+import AppLayout from '@/layouts/AppLayout.vue';
 import type { BreadcrumbItem } from '@/types';
+import { Head, useForm } from '@inertiajs/vue3';
+import { Clock, Save, User as UserIcon } from 'lucide-vue-next';
 
 interface Activity {
     description: string;
@@ -100,25 +106,23 @@ const getEventLabel = (event: string) => {
 
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="p-4">
-            <!-- Header -->
-            <div class="flex items-center justify-between mb-6">
-                <div class="flex items-center gap-4">
-                    <Button variant="ghost" size="icon" @click="router.visit('/users')">
-                        <ArrowLeft class="h-5 w-5" />
+            <FormPageHeader
+                :title="user.name"
+                :description="user.email"
+                back-href="/users"
+            >
+                <template #actions>
+                    <Button @click="submit" :disabled="form.processing">
+                        <Save class="mr-2 h-4 w-4" />
+                        {{
+                            form.processing ? 'Guardando...' : 'Guardar Cambios'
+                        }}
                     </Button>
-                    <div>
-                        <h1 class="text-3xl font-bold">{{ user.name }}</h1>
-                        <p class="text-muted-foreground">{{ user.email }}</p>
-                    </div>
-                </div>
-                <Button @click="submit" :disabled="form.processing">
-                    <Save class="mr-2 h-4 w-4" />
-                    {{ form.processing ? 'Guardando...' : 'Guardar Cambios' }}
-                </Button>
-            </div>
+                </template>
+            </FormPageHeader>
 
             <!-- Odoo-style Layout -->
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
                 <!-- Main Form (Left) -->
                 <div class="lg:col-span-2">
                     <form @submit.prevent="submit" class="space-y-6">
@@ -126,7 +130,10 @@ const getEventLabel = (event: string) => {
                         <Card>
                             <CardHeader>
                                 <CardTitle>Información del Usuario</CardTitle>
-                                <CardDescription>Datos principales del usuario</CardDescription>
+                                <CardDescription
+                                    >Datos principales del
+                                    usuario</CardDescription
+                                >
                             </CardHeader>
                             <CardContent class="space-y-4">
                                 <div>
@@ -134,9 +141,14 @@ const getEventLabel = (event: string) => {
                                     <Input
                                         id="name"
                                         v-model="form.name"
-                                        :class="{ 'border-red-500': form.errors.name }"
+                                        :class="{
+                                            'border-red-500': form.errors.name,
+                                        }"
                                     />
-                                    <p v-if="form.errors.name" class="text-sm text-red-500 mt-1">
+                                    <p
+                                        v-if="form.errors.name"
+                                        class="mt-1 text-sm text-red-500"
+                                    >
                                         {{ form.errors.name }}
                                     </p>
                                 </div>
@@ -147,9 +159,14 @@ const getEventLabel = (event: string) => {
                                         id="email"
                                         v-model="form.email"
                                         type="email"
-                                        :class="{ 'border-red-500': form.errors.email }"
+                                        :class="{
+                                            'border-red-500': form.errors.email,
+                                        }"
                                     />
-                                    <p v-if="form.errors.email" class="text-sm text-red-500 mt-1">
+                                    <p
+                                        v-if="form.errors.email"
+                                        class="mt-1 text-sm text-red-500"
+                                    >
                                         {{ form.errors.email }}
                                     </p>
                                 </div>
@@ -157,9 +174,11 @@ const getEventLabel = (event: string) => {
                                 <!-- Compañías (Multi-select con checkboxes) -->
                                 <div>
                                     <Label>Compañías * (mínimo 1)</Label>
-                                    <div class="space-y-2 mt-2 border rounded-md p-4 max-h-48 overflow-y-auto">
-                                        <div 
-                                            v-for="company in companies" 
+                                    <div
+                                        class="mt-2 max-h-48 space-y-2 overflow-y-auto rounded-md border p-4"
+                                    >
+                                        <div
+                                            v-for="company in companies"
                                             :key="company.id"
                                             class="flex items-center space-x-2"
                                         >
@@ -170,15 +189,18 @@ const getEventLabel = (event: string) => {
                                                 v-model="form.company_ids"
                                                 class="h-4 w-4 rounded border-gray-300"
                                             />
-                                            <label 
+                                            <label
                                                 :for="`company-${company.id}`"
-                                                class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                                class="cursor-pointer text-sm leading-none font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                                             >
                                                 {{ company.trade_name }}
                                             </label>
                                         </div>
                                     </div>
-                                    <p v-if="form.errors.company_ids" class="text-sm text-red-500 mt-1">
+                                    <p
+                                        v-if="form.errors.company_ids"
+                                        class="mt-1 text-sm text-red-500"
+                                    >
                                         {{ form.errors.company_ids }}
                                     </p>
                                 </div>
@@ -189,25 +211,38 @@ const getEventLabel = (event: string) => {
                         <Card>
                             <CardHeader>
                                 <CardTitle>Cambiar Contraseña</CardTitle>
-                                <CardDescription>Dejar en blanco para mantener la actual</CardDescription>
+                                <CardDescription
+                                    >Dejar en blanco para mantener la
+                                    actual</CardDescription
+                                >
                             </CardHeader>
                             <CardContent class="space-y-4">
                                 <div>
-                                    <Label for="password">Nueva Contraseña</Label>
+                                    <Label for="password"
+                                        >Nueva Contraseña</Label
+                                    >
                                     <Input
                                         id="password"
                                         v-model="form.password"
                                         type="password"
                                         placeholder="Mínimo 8 caracteres"
-                                        :class="{ 'border-red-500': form.errors.password }"
+                                        :class="{
+                                            'border-red-500':
+                                                form.errors.password,
+                                        }"
                                     />
-                                    <p v-if="form.errors.password" class="text-sm text-red-500 mt-1">
+                                    <p
+                                        v-if="form.errors.password"
+                                        class="mt-1 text-sm text-red-500"
+                                    >
                                         {{ form.errors.password }}
                                     </p>
                                 </div>
 
                                 <div>
-                                    <Label for="password_confirmation">Confirmar Nueva Contraseña</Label>
+                                    <Label for="password_confirmation"
+                                        >Confirmar Nueva Contraseña</Label
+                                    >
                                     <Input
                                         id="password_confirmation"
                                         v-model="form.password_confirmation"
@@ -234,11 +269,15 @@ const getEventLabel = (event: string) => {
                             </div>
                             <div>
                                 <p class="font-medium">Creado</p>
-                                <p class="text-muted-foreground">{{ formatDate(user.created_at) }}</p>
+                                <p class="text-muted-foreground">
+                                    {{ formatDate(user.created_at) }}
+                                </p>
                             </div>
                             <div>
                                 <p class="font-medium">Último cambio</p>
-                                <p class="text-muted-foreground">{{ formatDate(user.updated_at) }}</p>
+                                <p class="text-muted-foreground">
+                                    {{ formatDate(user.updated_at) }}
+                                </p>
                             </div>
                         </CardContent>
                     </Card>
@@ -250,42 +289,83 @@ const getEventLabel = (event: string) => {
                                 <Clock class="h-4 w-4" />
                                 Historial de Cambios
                             </CardTitle>
-                            <CardDescription>Últimos 20 cambios registrados</CardDescription>
+                            <CardDescription
+                                >Últimos 20 cambios registrados</CardDescription
+                            >
                         </CardHeader>
                         <CardContent>
-                            <div v-if="activities.length === 0" class="text-center text-muted-foreground py-4">
+                            <div
+                                v-if="activities.length === 0"
+                                class="py-4 text-center text-muted-foreground"
+                            >
                                 No hay cambios registrados
                             </div>
                             <div v-else class="space-y-4">
                                 <div
                                     v-for="(activity, index) in activities"
                                     :key="index"
-                                    class="border-l-2 border-muted pl-4 pb-4 last:pb-0"
+                                    class="border-l-2 border-muted pb-4 pl-4 last:pb-0"
                                 >
-                                    <div class="flex items-center gap-2 mb-1">
-                                        <Badge :variant="getEventBadgeVariant(activity.event)" size="sm">
+                                    <div class="mb-1 flex items-center gap-2">
+                                        <Badge
+                                            :variant="
+                                                getEventBadgeVariant(
+                                                    activity.event,
+                                                )
+                                            "
+                                            size="sm"
+                                        >
                                             {{ getEventLabel(activity.event) }}
                                         </Badge>
-                                        <span class="text-xs text-muted-foreground">
-                                            {{ formatDate(activity.created_at) }}
+                                        <span
+                                            class="text-xs text-muted-foreground"
+                                        >
+                                            {{
+                                                formatDate(activity.created_at)
+                                            }}
                                         </span>
                                     </div>
-                                    
-                                    <div v-if="activity.causer" class="flex items-center gap-1 text-xs text-muted-foreground mb-2">
+
+                                    <div
+                                        v-if="activity.causer"
+                                        class="mb-2 flex items-center gap-1 text-xs text-muted-foreground"
+                                    >
                                         <UserIcon class="h-3 w-3" />
                                         {{ activity.causer.name }}
                                     </div>
 
-                                    <div v-if="activity.properties.attributes" class="text-sm space-y-1">
+                                    <div
+                                        v-if="activity.properties.attributes"
+                                        class="space-y-1 text-sm"
+                                    >
                                         <template
-                                            v-for="(value, key) in activity.properties.attributes"
+                                            v-for="(value, key) in activity
+                                                .properties.attributes"
                                             :key="key"
                                         >
-                                            <div v-if="activity.properties.old && activity.properties.old[key] !== value">
-                                                <span class="font-medium">{{ key }}:</span>
-                                                <span class="text-red-500 line-through">{{ activity.properties.old[key] }}</span>
+                                            <div
+                                                v-if="
+                                                    activity.properties.old &&
+                                                    activity.properties.old[
+                                                        key
+                                                    ] !== value
+                                                "
+                                            >
+                                                <span class="font-medium"
+                                                    >{{ key }}:</span
+                                                >
+                                                <span
+                                                    class="text-red-500 line-through"
+                                                    >{{
+                                                        activity.properties.old[
+                                                            key
+                                                        ]
+                                                    }}</span
+                                                >
                                                 →
-                                                <span class="text-green-500">{{ value }}</span>
+                                                <span class="text-green-500">{{
+                                                    value
+                                                }}</span>
                                             </div>
                                         </template>
                                     </div>

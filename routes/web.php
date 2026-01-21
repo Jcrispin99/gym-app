@@ -207,8 +207,16 @@ Route::middleware(['auth'])->group(function () {
     Route::get('pos/{session}/close', [\App\Http\Controllers\Pos\PosController::class, 'close'])->name('pos.close');
     Route::post('pos/{session}/close', [\App\Http\Controllers\Pos\PosController::class, 'storeClose'])->name('pos.storeClose');
 
+    Route::get('pos/{session}/refund', [\App\Http\Controllers\Pos\PosRefundController::class, 'index'])->name('pos.refund.index');
+    Route::get('pos/{session}/refund/orders', [\App\Http\Controllers\Pos\PosRefundController::class, 'orders'])->name('pos.refund.orders');
+    Route::get('pos/{session}/refund/sales/{sale}', [\App\Http\Controllers\Pos\PosRefundController::class, 'origin'])->name('pos.refund.origin');
+    Route::post('pos/{session}/refund/lookup', [\App\Http\Controllers\Pos\PosRefundController::class, 'lookupSale'])->name('pos.refund.lookup');
+    Route::post('pos/{session}/refund/preview', [\App\Http\Controllers\Pos\PosRefundController::class, 'preview'])->name('pos.refund.preview');
+    Route::post('pos/{session}/refund/process', [\App\Http\Controllers\Pos\PosRefundController::class, 'process'])->name('pos.refund.process');
+
     // POS API endpoints
     Route::get('api/pos/customers', [\App\Http\Controllers\Pos\PosController::class, 'apiCustomers'])->name('api.pos.customers');
-    Route::get('api/pos/partners/lookup', [\App\Http\Controllers\Pos\PosController::class, 'apiPartnerLookup'])->name('api.pos.partners.lookup');
-    Route::post('api/pos/customers', [\App\Http\Controllers\Pos\PosController::class, 'apiUpsertCustomer'])->name('api.pos.customers.upsert');
+    Route::post('pos/{session}/customers/lookup', [\App\Http\Controllers\Pos\PosController::class, 'apiPartnerLookup'])->name('pos.customers.lookup');
+    Route::post('pos/{session}/customers/upsert', [\App\Http\Controllers\Pos\PosController::class, 'apiUpsertCustomer'])->name('pos.customers.upsert');
+    Route::get('pos/{session}/credit-notes/{partner}', [\App\Http\Controllers\Pos\PosController::class, 'getCreditNotes'])->name('pos.credit-notes');
 });

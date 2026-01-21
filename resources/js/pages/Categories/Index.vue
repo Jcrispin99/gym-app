@@ -1,15 +1,5 @@
 <script setup lang="ts">
-import AppLayout from '@/layouts/AppLayout.vue';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
+import FormPageHeader from '@/components/FormPageHeader.vue';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -20,12 +10,23 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Head, router } from '@inertiajs/vue3';
-import { Plus, Edit, Trash2, Folder, Search, Power } from 'lucide-vue-next';
-import { ref, computed } from 'vue';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
+import AppLayout from '@/layouts/AppLayout.vue';
 import type { BreadcrumbItem } from '@/types';
+import { Head, router } from '@inertiajs/vue3';
+import { Edit, Folder, Plus, Power, Search, Trash2 } from 'lucide-vue-next';
+import { computed, ref } from 'vue';
 
 interface Category {
     id: number;
@@ -74,9 +75,13 @@ const deleteCategory = () => {
 };
 
 const toggleStatus = (category: Category) => {
-    router.post(`/categories/${category.id}/toggle-status`, {}, {
-        preserveScroll: true,
-    });
+    router.post(
+        `/categories/${category.id}/toggle-status`,
+        {},
+        {
+            preserveScroll: true,
+        },
+    );
 };
 
 const filteredCategories = computed(() => {
@@ -89,7 +94,7 @@ const filteredCategories = computed(() => {
         (category) =>
             category.name.toLowerCase().includes(query) ||
             category.slug.toLowerCase().includes(query) ||
-            category.description?.toLowerCase().includes(query)
+            category.description?.toLowerCase().includes(query),
     );
 });
 
@@ -105,51 +110,68 @@ const activeCategories = computed(() => {
 <template>
     <Head title="Categorías" />
 
-    <AppLayout>
+    <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex flex-col gap-4 p-4">
-            <!-- Header -->
-            <div class="flex items-center justify-between">
-                <div>
-                    <h1 class="text-3xl font-bold tracking-tight">Categorías</h1>
-                    <p class="text-muted-foreground">
-                        Gestiona las categorías de productos del inventario
-                    </p>
-                </div>
-                <Button @click="router.visit('/categories/create')">
-                    <Plus class="mr-2 h-4 w-4" />
-                    Nueva Categoría
-                </Button>
-            </div>
+            <FormPageHeader
+                title="Categorías"
+                description="Gestiona las categorías de productos del inventario"
+                :show-back="false"
+            >
+                <template #actions>
+                    <Button @click="router.visit('/categories/create')">
+                        <Plus class="mr-2 h-4 w-4" />
+                        Nueva Categoría
+                    </Button>
+                </template>
+            </FormPageHeader>
 
             <!-- Stats Cards -->
             <div class="grid gap-4 md:grid-cols-3">
                 <Card>
-                    <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle class="text-sm font-medium">Total Categorías</CardTitle>
+                    <CardHeader
+                        class="flex flex-row items-center justify-between space-y-0 pb-2"
+                    >
+                        <CardTitle class="text-sm font-medium"
+                            >Total Categorías</CardTitle
+                        >
                         <Folder class="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div class="text-2xl font-bold">{{ categories.length }}</div>
+                        <div class="text-2xl font-bold">
+                            {{ categories.length }}
+                        </div>
                     </CardContent>
                 </Card>
 
                 <Card>
-                    <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle class="text-sm font-medium">Categorías Raíz</CardTitle>
+                    <CardHeader
+                        class="flex flex-row items-center justify-between space-y-0 pb-2"
+                    >
+                        <CardTitle class="text-sm font-medium"
+                            >Categorías Raíz</CardTitle
+                        >
                         <Folder class="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div class="text-2xl font-bold">{{ rootCategories.length }}</div>
+                        <div class="text-2xl font-bold">
+                            {{ rootCategories.length }}
+                        </div>
                     </CardContent>
                 </Card>
 
                 <Card>
-                    <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle class="text-sm font-medium">Activas</CardTitle>
+                    <CardHeader
+                        class="flex flex-row items-center justify-between space-y-0 pb-2"
+                    >
+                        <CardTitle class="text-sm font-medium"
+                            >Activas</CardTitle
+                        >
                         <Folder class="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div class="text-2xl font-bold">{{ activeCategories.length }}</div>
+                        <div class="text-2xl font-bold">
+                            {{ activeCategories.length }}
+                        </div>
                     </CardContent>
                 </Card>
             </div>
@@ -157,7 +179,9 @@ const activeCategories = computed(() => {
             <!-- Search -->
             <div class="flex items-center gap-2">
                 <div class="relative flex-1">
-                    <Search class="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Search
+                        class="absolute top-2.5 left-2 h-4 w-4 text-muted-foreground"
+                    />
                     <Input
                         v-model="searchQuery"
                         placeholder="Buscar categorías..."
@@ -180,7 +204,9 @@ const activeCategories = computed(() => {
                                 <TableHead>Categoría Padre</TableHead>
                                 <TableHead>Descripción</TableHead>
                                 <TableHead>Estado</TableHead>
-                                <TableHead class="text-right">Acciones</TableHead>
+                                <TableHead class="text-right"
+                                    >Acciones</TableHead
+                                >
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -189,21 +215,36 @@ const activeCategories = computed(() => {
                                     No se encontraron categorías
                                 </TableCell>
                             </TableRow>
-                            <TableRow v-for="category in filteredCategories" :key="category.id">
-                                <TableCell class="font-medium">{{ category.name }}</TableCell>
+                            <TableRow
+                                v-for="category in filteredCategories"
+                                :key="category.id"
+                            >
+                                <TableCell class="font-medium">{{
+                                    category.name
+                                }}</TableCell>
                                 <TableCell>
-                                    <code class="rounded bg-muted px-1 py-0.5 text-xs">{{
-                                        category.slug
-                                    }}</code>
+                                    <code
+                                        class="rounded bg-muted px-1 py-0.5 text-xs"
+                                        >{{ category.slug }}</code
+                                    >
                                 </TableCell>
                                 <TableCell>
-                                    <span v-if="category.parent" class="text-sm text-muted-foreground">
+                                    <span
+                                        v-if="category.parent"
+                                        class="text-sm text-muted-foreground"
+                                    >
                                         {{ category.parent.name }}
                                     </span>
-                                    <span v-else class="text-sm text-muted-foreground">-</span>
+                                    <span
+                                        v-else
+                                        class="text-sm text-muted-foreground"
+                                        >-</span
+                                    >
                                 </TableCell>
                                 <TableCell>
-                                    <span class="text-sm text-muted-foreground line-clamp-1">
+                                    <span
+                                        class="line-clamp-1 text-sm text-muted-foreground"
+                                    >
                                         {{ category.description || '-' }}
                                     </span>
                                 </TableCell>
@@ -215,7 +256,11 @@ const activeCategories = computed(() => {
                                                 : 'bg-gray-100 text-gray-800'
                                         "
                                     >
-                                        {{ category.is_active ? 'Activa' : 'Inactiva' }}
+                                        {{
+                                            category.is_active
+                                                ? 'Activa'
+                                                : 'Inactiva'
+                                        }}
                                     </Badge>
                                 </TableCell>
                                 <TableCell class="text-right">
@@ -225,7 +270,9 @@ const activeCategories = computed(() => {
                                             size="sm"
                                             @click="toggleStatus(category)"
                                             :title="
-                                                category.is_active ? 'Desactivar' : 'Activar'
+                                                category.is_active
+                                                    ? 'Desactivar'
+                                                    : 'Activar'
                                             "
                                         >
                                             <Power
@@ -241,7 +288,9 @@ const activeCategories = computed(() => {
                                             variant="ghost"
                                             size="sm"
                                             @click="
-                                                router.visit(`/categories/${category.id}/edit`)
+                                                router.visit(
+                                                    `/categories/${category.id}/edit`,
+                                                )
                                             "
                                         >
                                             <Edit class="h-4 w-4" />
@@ -251,7 +300,9 @@ const activeCategories = computed(() => {
                                             size="sm"
                                             @click="openDeleteDialog(category)"
                                         >
-                                            <Trash2 class="h-4 w-4 text-destructive" />
+                                            <Trash2
+                                                class="h-4 w-4 text-destructive"
+                                            />
                                         </Button>
                                     </div>
                                 </TableCell>
@@ -268,14 +319,17 @@ const activeCategories = computed(() => {
                 <AlertDialogHeader>
                     <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
                     <AlertDialogDescription>
-                        Esta acción no se puede deshacer. Se eliminará la categoría
+                        Esta acción no se puede deshacer. Se eliminará la
+                        categoría
                         <strong>{{ categoryToDelete?.name }}</strong
                         >.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction @click="deleteCategory">Eliminar</AlertDialogAction>
+                    <AlertDialogAction @click="deleteCategory"
+                        >Eliminar</AlertDialogAction
+                    >
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>

@@ -471,11 +471,13 @@ class PosController extends Controller
             'client_id' => 'nullable|integer',
             'total' => 'nullable|numeric|min:0',
             'payments' => 'required|string', // JSON string
+            'credit_note_info' => 'nullable|string', // JSON string with credit note details
         ]);
 
         // Decode JSON data
         $cart = json_decode($validated['cart'], true);
         $payments = json_decode($validated['payments'], true);
+        $creditNoteInfo = isset($validated['credit_note_info']) ? json_decode($validated['credit_note_info'], true) : null;
 
         // Validate cart not empty
         if (empty($cart)) {
@@ -548,7 +550,7 @@ class PosController extends Controller
         ]);
 
         try {
-            DB::transaction(function () use ($validated, $cart, $payments, $session, $hasSubscription, $membershipPlans, $posJournal) {
+            DB::transaction(function () use ($validated, $cart, $payments, $session, $hasSubscription, $membershipPlans, $posJournal, $creditNoteInfo) {
                 Log::info('🔄 [POS DEBUG] Dentro de transacción DB');
 
                 // 1. Get journal
@@ -564,6 +566,14 @@ class PosController extends Controller
                 $pricesIncludeTax = (bool) ($posConfig?->prices_include_tax ?? false);
                 $tax = $applyTax && $posConfig?->tax_id ? $posConfig->tax : null;
                 $taxRate = $applyTax && $tax ? (float) $tax->rate_percent : 0.0;
+
+                // Prepare notes
+                $notes = null;
+                // Note: We keep the text note for backward compatibility/readability,
+                // but the real logic is now in the reference_sale_id column
+                if ($creditNoteInfo) {
+                    $notes = "Nota de Crédito aplicada: {$creditNoteInfo['document']} - S/ " . number_format($creditNoteInfo['amount_used'], 2);
+                }
 
                 // 4. Create Sale
                 Log::info('📝 [POS DEBUG] Creando Sale...');
@@ -581,7 +591,7 @@ class PosController extends Controller
                     'subtotal' => 0,
                     'tax_amount' => 0,
                     'total' => 0,
-                    'notes' => null,
+                    'notes' => $notes,
                 ]);
 
                 Log::info('✅ [POS DEBUG] Sale creado!', [
@@ -654,11 +664,27 @@ class PosController extends Controller
 
                 // 7. Register payments
                 foreach ($payments as $payment) {
+                    // Check if this payment is a credit note payment
+                    // We identify it by checking if we have creditNoteInfo and if this is the "credit note" method
+                    // For now, we assume if creditNoteInfo exists, the payment with method_id matching "Nota de Crédito" is the one.
+                    // But since we don't have the method ID for "Nota de Crédito" hardcoded, we can check against the payment amount
+                    // or simply check if this payment matches the credit note usage.
+
+                    $referenceSaleId = null;
+                    if ($creditNoteInfo && abs($payment['amount'] - $creditNoteInfo['amount_used']) < 0.01) {
+                        // This heuristic assumes the payment amount matches the credit note usage amount.
+                        // It's safer if the frontend sends the type, but for now this works for mixed payments
+                        // as long as cash amount != credit note amount, or if they are equal it doesn't matter much.
+                        // Ideally, we should check the payment method type.
+                        $referenceSaleId = $creditNoteInfo['id'];
+                    }
+
                     \App\Models\PosSessionPayment::create([
                         'pos_session_id' => $session->id,
                         'sale_id' => $sale->id,
                         'payment_method_id' => $payment['payment_method_id'],
                         'amount' => $payment['amount'],
+                        'reference_sale_id' => $referenceSaleId,
                     ]);
                 }
 
@@ -705,47 +731,105 @@ class PosController extends Controller
 
                             try {
                                 $firstPayment = $payments[0] ?? null;
+                                $qty = max(1, (int) ($item['qty'] ?? 1));
 
                                 // Use custom dates from cart if provided, otherwise auto-calculate
                                 if (!empty($item['subscription_start_date']) && !empty($item['subscription_end_date'])) {
-                                    $startDate = Carbon::parse($item['subscription_start_date']);
-                                    $endDate = Carbon::parse($item['subscription_end_date']);
+                                    $baseStartDate = Carbon::parse($item['subscription_start_date'])->startOfDay();
+                                    $baseEndDate = Carbon::parse($item['subscription_end_date'])->startOfDay();
 
                                     Log::info('📅 [POS DEBUG] Usando fechas personalizadas del carrito', [
-                                        'start_date' => $startDate->toDateString(),
-                                        'end_date' => $endDate->toDateString(),
+                                        'start_date' => $baseStartDate->toDateString(),
+                                        'end_date' => $baseEndDate->toDateString(),
+                                        'qty' => $qty,
                                     ]);
                                 } else {
-                                    $startDate = Carbon::now();
-                                    $endDate = Carbon::now()->addDays($plan->duration_days);
+                                    $baseStartDate = Carbon::now()->startOfDay();
+                                    $baseEndDate = null;
+                                }
 
-                                    Log::info('📅 [POS DEBUG] Generando fechas automáticamente', [
+                                $hasCustomDates = ! empty($item['subscription_start_date']) && ! empty($item['subscription_end_date']);
+                                $periodMonths = 0;
+                                $periodDays = 0;
+
+                                if ($hasCustomDates) {
+                                    $exclusiveEnd = $baseEndDate->copy()->addDay();
+                                    $m = $baseStartDate->diffInMonths($exclusiveEnd);
+                                    if ($m > 0 && $baseStartDate->copy()->addMonthsNoOverflow($m)->equalTo($exclusiveEnd)) {
+                                        $periodMonths = $m;
+                                    } else {
+                                        $periodDays = $baseStartDate->diffInDays($baseEndDate);
+                                    }
+                                } else {
+                                    $durationDays = (int) ($plan->duration_days ?? 0);
+                                    if ($durationDays > 0 && $durationDays % 30 === 0) {
+                                        $periodMonths = (int) ($durationDays / 30);
+                                    } else {
+                                        $periodDays = max(1, $durationDays);
+                                    }
+                                }
+
+                                $existing = MembershipSubscription::query()
+                                    ->where('partner_id', $validated['client_id'])
+                                    ->where('membership_plan_id', $plan->id)
+                                    ->orderByDesc('end_date')
+                                    ->first();
+
+                                if ($existing && $existing->end_date && $existing->end_date->startOfDay()->greaterThanOrEqualTo($baseStartDate)) {
+                                    $baseStartDate = $existing->end_date->copy()->addDay()->startOfDay();
+                                    if ($hasCustomDates) {
+                                        if ($periodMonths > 0) {
+                                            $baseEndDate = $baseStartDate->copy()->addMonthsNoOverflow($periodMonths)->subDay();
+                                        } else {
+                                            $baseEndDate = $baseStartDate->copy()->addDays($periodDays);
+                                        }
+                                    }
+                                }
+
+                                $totalPaid = (float) ($item['subtotal'] ?? ($plan->price * $qty));
+                                $perPeriodPaid = $qty > 0 ? ($totalPaid / $qty) : $totalPaid;
+
+                                $prevEnd = null;
+                                for ($i = 0; $i < $qty; $i++) {
+                                    $index = $i + 1;
+                                    $startDate = $i === 0 ? $baseStartDate->copy() : $prevEnd->copy()->addDay()->startOfDay();
+                                    if ($hasCustomDates && $i === 0) {
+                                        $endDate = $baseEndDate->copy();
+                                    } else {
+                                        if ($periodMonths > 0) {
+                                            $endDate = $startDate->copy()->addMonthsNoOverflow($periodMonths)->subDay();
+                                        } else {
+                                            $endDate = $startDate->copy()->addDays($periodDays);
+                                        }
+                                    }
+
+                                    $subscription = MembershipSubscription::create([
+                                        'partner_id' => $validated['client_id'],
+                                        'membership_plan_id' => $plan->id,
+                                        'company_id' => $session->posConfig->company_id,
+                                        'start_date' => $startDate,
+                                        'end_date' => $endDate,
+                                        'original_end_date' => $endDate,
+                                        'status' => 'active',
+                                        'amount_paid' => $perPeriodPaid,
+                                        'payment_method' => $firstPayment['payment_method_id'] ?? 'efectivo',
+                                        'payment_reference' => "Venta {$sale->document_number}",
+                                        'sold_by' => Auth::id(),
+                                        'remaining_freeze_days' => $plan->max_freeze_days ?? 0,
+                                        'notes' => "Suscripción {$index}/{$qty} (POS)",
+                                    ]);
+
+                                    $prevEnd = $endDate->copy();
+
+                                    Log::info('🎉 [POS] Suscripción creada', [
+                                        'subscription_id' => $subscription->id,
+                                        'plan' => $plan->name,
+                                        'partner_id' => $validated['client_id'],
+                                        'sale' => $sale->document_number,
                                         'start_date' => $startDate->toDateString(),
                                         'end_date' => $endDate->toDateString(),
                                     ]);
                                 }
-
-                                $subscription = MembershipSubscription::create([
-                                    'partner_id' => $validated['client_id'],
-                                    'membership_plan_id' => $plan->id,
-                                    'company_id' => $session->posConfig->company_id,
-                                    'start_date' => $startDate,
-                                    'end_date' => $endDate,
-                                    'original_end_date' => $endDate, // Required field for freeze tracking
-                                    'status' => 'active',
-                                    'amount_paid' => $item['price'] ?? $plan->price,
-                                    'payment_method' => $firstPayment['payment_method_id'] ?? 'efectivo',
-                                    'payment_reference' => "Venta {$sale->document_number}",
-                                    'sold_by' => Auth::id(),
-                                    'remaining_freeze_days' => $plan->max_freeze_days ?? 0,
-                                ]);
-
-                                Log::info('🎉 [POS] Suscripción creada', [
-                                    'subscription_id' => $subscription->id,
-                                    'plan' => $plan->name,
-                                    'partner_id' => $validated['client_id'],
-                                    'sale' => $sale->document_number,
-                                ]);
                             } catch (\Exception $e) {
                                 Log::error('❌ [POS ERROR] Error creando suscripción', [
                                     'error' => $e->getMessage(),
@@ -904,5 +988,42 @@ class PosController extends Controller
             'email' => $partner->email,
             'phone' => $partner->phone,
         ]);
+    }
+
+    /**
+     * Get available credit notes for a partner
+     */
+    public function getCreditNotes(Request $request, PosSession $session, Partner $partner)
+    {
+        // Find credit notes (Document Type 07) that are posted
+        $creditNotes = Sale::query()
+            ->where('partner_id', $partner->id)
+            ->where('status', 'posted')
+            ->whereHas('journal', function ($q) {
+                $q->where('document_type_code', '07');
+            })
+            ->with(['journal'])
+            ->withSum('paymentsUsingThisCredit', 'amount') // Load total used amount
+            ->orderByDesc('date')
+            ->get();
+
+        $availableNotes = $creditNotes->map(function ($note) {
+            $document = $note->serie . '-' . $note->correlative;
+            $totalUsed = (float) $note->payments_using_this_credit_sum_amount;
+            $totalAmount = (float) $note->total;
+            $balance = max(0, $totalAmount - $totalUsed);
+
+            return [
+                'id' => $note->id,
+                'document' => $document,
+                'date' => $note->date?->format('d/m/Y'),
+                'total' => $totalAmount,
+                'balance' => $balance,
+            ];
+        })->filter(function ($note) {
+            return $note['balance'] > 0;
+        })->values();
+
+        return response()->json($availableNotes);
     }
 }

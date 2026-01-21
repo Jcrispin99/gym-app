@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import FormPageHeader from '@/components/FormPageHeader.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -15,8 +16,8 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/AppLayout.vue';
 import type { BreadcrumbItem } from '@/types';
-import { Head, router, useForm } from '@inertiajs/vue3';
-import { ArrowLeft } from 'lucide-vue-next';
+import { Head, useForm } from '@inertiajs/vue3';
+import { Save } from 'lucide-vue-next';
 
 interface Company {
     id: number;
@@ -130,300 +131,304 @@ const toggleDay = (day: string) => {
 
         <div class="w-full p-4">
             <div class="flex flex-col gap-4">
-                <!-- Header -->
-                <div class="flex items-center gap-4">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        @click="router.visit('/membership-plans')"
-                    >
-                        <ArrowLeft class="h-4 w-4" />
-                    </Button>
-                    <div>
-                        <h1 class="text-3xl font-bold tracking-tight">
-                            Editar Plan de Membresía
-                        </h1>
-                        <p class="text-muted-foreground">
-                            {{ plan.name }}
-                        </p>
-                    </div>
-                </div>
+                <FormPageHeader
+                    title="Editar Plan de Membresía"
+                    :description="plan.name"
+                    back-href="/membership-plans"
+                >
+                    <template #actions>
+                        <Button @click="submit" :disabled="form.processing">
+                            <Save class="mr-2 h-4 w-4" />
+                            {{
+                                form.processing
+                                    ? 'Guardando...'
+                                    : 'Guardar Cambios'
+                            }}
+                        </Button>
+                    </template>
+                </FormPageHeader>
 
                 <!-- Form -->
                 <form @submit.prevent="submit">
-                <div class="grid gap-6 md:grid-cols-2">
-                    <!-- Información Básica -->
-                    <Card class="md:col-span-2">
-                        <CardHeader>
-                            <CardTitle>Información Básica</CardTitle>
-                        </CardHeader>
-                        <CardContent class="space-y-4">
-                            <div class="grid gap-4 md:grid-cols-2">
+                    <div class="grid gap-6 md:grid-cols-2">
+                        <!-- Información Básica -->
+                        <Card class="md:col-span-2">
+                            <CardHeader>
+                                <CardTitle>Información Básica</CardTitle>
+                            </CardHeader>
+                            <CardContent class="space-y-4">
+                                <div class="grid gap-4 md:grid-cols-2">
+                                    <div class="space-y-2">
+                                        <Label for="company_id">Compañía</Label>
+                                        <Input
+                                            :value="
+                                                companies.find(
+                                                    (c) =>
+                                                        c.id ===
+                                                        plan.company_id,
+                                                )?.trade_name
+                                            "
+                                            disabled
+                                            class="bg-muted"
+                                        />
+                                        <p
+                                            class="text-xs text-muted-foreground"
+                                        >
+                                            No se puede cambiar la compañía de
+                                            un plan existente
+                                        </p>
+                                    </div>
+
+                                    <div class="space-y-2">
+                                        <Label for="name"
+                                            >Nombre del Plan *</Label
+                                        >
+                                        <Input
+                                            id="name"
+                                            v-model="form.name"
+                                            placeholder="Premium Full Access"
+                                        />
+                                        <p
+                                            v-if="form.errors.name"
+                                            class="text-sm text-red-500"
+                                        >
+                                            {{ form.errors.name }}
+                                        </p>
+                                    </div>
+                                </div>
+
                                 <div class="space-y-2">
-                                    <Label for="company_id">Compañía</Label>
+                                    <Label for="description">Descripción</Label>
+                                    <Textarea
+                                        id="description"
+                                        v-model="form.description"
+                                        placeholder="Acceso ilimitado todos los días..."
+                                        rows="3"
+                                    />
+                                </div>
+
+                                <div class="grid gap-4 md:grid-cols-3">
+                                    <div class="space-y-2">
+                                        <Label for="duration_days"
+                                            >Duración (días) *</Label
+                                        >
+                                        <Select v-model="form.duration_days">
+                                            <SelectTrigger>
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem :value="30"
+                                                    >30 días (1 mes)</SelectItem
+                                                >
+                                                <SelectItem :value="60"
+                                                    >60 días (2
+                                                    meses)</SelectItem
+                                                >
+                                                <SelectItem :value="90"
+                                                    >90 días (3
+                                                    meses)</SelectItem
+                                                >
+                                                <SelectItem :value="180"
+                                                    >180 días (6
+                                                    meses)</SelectItem
+                                                >
+                                                <SelectItem :value="365"
+                                                    >365 días (1
+                                                    año)</SelectItem
+                                                >
+                                            </SelectContent>
+                                        </Select>
+                                        <p
+                                            v-if="form.errors.duration_days"
+                                            class="text-sm text-red-500"
+                                        >
+                                            {{ form.errors.duration_days }}
+                                        </p>
+                                    </div>
+
+                                    <div class="space-y-2">
+                                        <Label for="price">Precio (S/) *</Label>
+                                        <Input
+                                            id="price"
+                                            v-model="form.price"
+                                            type="number"
+                                            step="0.01"
+                                            placeholder="150.00"
+                                        />
+                                        <p
+                                            v-if="form.errors.price"
+                                            class="text-sm text-red-500"
+                                        >
+                                            {{ form.errors.price }}
+                                        </p>
+                                    </div>
+
+                                    <div
+                                        class="flex items-center space-x-2 pt-8"
+                                    >
+                                        <Switch
+                                            id="is_active"
+                                            v-model:checked="form.is_active"
+                                        />
+                                        <Label for="is_active"
+                                            >Plan activo</Label
+                                        >
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <!-- Restricciones de Acceso -->
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Restricciones de Acceso</CardTitle>
+                            </CardHeader>
+                            <CardContent class="space-y-4">
+                                <div class="space-y-2">
+                                    <Label for="max_entries_per_month"
+                                        >Entradas por mes</Label
+                                    >
                                     <Input
-                                        :value="
-                                            companies.find(
-                                                (c) => c.id === plan.company_id,
-                                            )?.trade_name
-                                        "
-                                        disabled
-                                        class="bg-muted"
+                                        id="max_entries_per_month"
+                                        v-model="form.max_entries_per_month"
+                                        type="number"
+                                        placeholder="Dejar vacío para ilimitado"
                                     />
                                     <p class="text-xs text-muted-foreground">
-                                        No se puede cambiar la compañía de un
-                                        plan existente
+                                        Vacío = ilimitado, ej: 12 = 3 veces por
+                                        semana
                                     </p>
                                 </div>
 
                                 <div class="space-y-2">
-                                    <Label for="name">Nombre del Plan *</Label>
+                                    <Label for="max_entries_per_day"
+                                        >Entradas por día *</Label
+                                    >
                                     <Input
-                                        id="name"
-                                        v-model="form.name"
-                                        placeholder="Premium Full Access"
-                                    />
-                                    <p
-                                        v-if="form.errors.name"
-                                        class="text-sm text-red-500"
-                                    >
-                                        {{ form.errors.name }}
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div class="space-y-2">
-                                <Label for="description">Descripción</Label>
-                                <Textarea
-                                    id="description"
-                                    v-model="form.description"
-                                    placeholder="Acceso ilimitado todos los días..."
-                                    rows="3"
-                                />
-                            </div>
-
-                            <div class="grid gap-4 md:grid-cols-3">
-                                <div class="space-y-2">
-                                    <Label for="duration_days"
-                                        >Duración (días) *</Label
-                                    >
-                                    <Select v-model="form.duration_days">
-                                        <SelectTrigger>
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem :value="30"
-                                                >30 días (1 mes)</SelectItem
-                                            >
-                                            <SelectItem :value="60"
-                                                >60 días (2 meses)</SelectItem
-                                            >
-                                            <SelectItem :value="90"
-                                                >90 días (3 meses)</SelectItem
-                                            >
-                                            <SelectItem :value="180"
-                                                >180 días (6 meses)</SelectItem
-                                            >
-                                            <SelectItem :value="365"
-                                                >365 días (1 año)</SelectItem
-                                            >
-                                        </SelectContent>
-                                    </Select>
-                                    <p
-                                        v-if="form.errors.duration_days"
-                                        class="text-sm text-red-500"
-                                    >
-                                        {{ form.errors.duration_days }}
-                                    </p>
-                                </div>
-
-                                <div class="space-y-2">
-                                    <Label for="price">Precio (S/) *</Label>
-                                    <Input
-                                        id="price"
-                                        v-model="form.price"
+                                        id="max_entries_per_day"
+                                        v-model.number="
+                                            form.max_entries_per_day
+                                        "
                                         type="number"
-                                        step="0.01"
-                                        placeholder="150.00"
+                                        min="1"
                                     />
-                                    <p
-                                        v-if="form.errors.price"
-                                        class="text-sm text-red-500"
+                                </div>
+
+                                <div class="space-y-4 border-t pt-4">
+                                    <div class="flex items-center space-x-2">
+                                        <Switch
+                                            id="time_restricted"
+                                            v-model:checked="
+                                                form.time_restricted
+                                            "
+                                        />
+                                        <Label for="time_restricted"
+                                            >Restringir horario</Label
+                                        >
+                                    </div>
+
+                                    <div
+                                        v-if="form.time_restricted"
+                                        class="grid gap-4 md:grid-cols-2"
                                     >
-                                        {{ form.errors.price }}
+                                        <div class="space-y-2">
+                                            <Label for="allowed_time_start"
+                                                >Hora inicio</Label
+                                            >
+                                            <Input
+                                                id="allowed_time_start"
+                                                v-model="
+                                                    form.allowed_time_start
+                                                "
+                                                type="time"
+                                            />
+                                        </div>
+
+                                        <div class="space-y-2">
+                                            <Label for="allowed_time_end"
+                                                >Hora fin</Label
+                                            >
+                                            <Input
+                                                id="allowed_time_end"
+                                                v-model="form.allowed_time_end"
+                                                type="time"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="space-y-2 border-t pt-4">
+                                    <Label>Días permitidos</Label>
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <div
+                                            v-for="day in days"
+                                            :key="day.value"
+                                            class="flex items-center space-x-2"
+                                        >
+                                            <Checkbox
+                                                :id="day.value"
+                                                :checked="
+                                                    form.allowed_days.includes(
+                                                        day.value,
+                                                    )
+                                                "
+                                                @update:checked="
+                                                    toggleDay(day.value)
+                                                "
+                                            />
+                                            <Label
+                                                :for="day.value"
+                                                class="cursor-pointer"
+                                                >{{ day.label }}</Label
+                                            >
+                                        </div>
+                                    </div>
+                                    <p class="text-xs text-muted-foreground">
+                                        Vacío = todos los días permitidos
                                     </p>
                                 </div>
+                            </CardContent>
+                        </Card>
 
-                                <div class="flex items-center space-x-2 pt-8">
-                                    <Switch
-                                        id="is_active"
-                                        v-model:checked="form.is_active"
-                                    />
-                                    <Label for="is_active">Plan activo</Label>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <!-- Restricciones de Acceso -->
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Restricciones de Acceso</CardTitle>
-                        </CardHeader>
-                        <CardContent class="space-y-4">
-                            <div class="space-y-2">
-                                <Label for="max_entries_per_month"
-                                    >Entradas por mes</Label
-                                >
-                                <Input
-                                    id="max_entries_per_month"
-                                    v-model="form.max_entries_per_month"
-                                    type="number"
-                                    placeholder="Dejar vacío para ilimitado"
-                                />
-                                <p class="text-xs text-muted-foreground">
-                                    Vacío = ilimitado, ej: 12 = 3 veces por
-                                    semana
-                                </p>
-                            </div>
-
-                            <div class="space-y-2">
-                                <Label for="max_entries_per_day"
-                                    >Entradas por día *</Label
-                                >
-                                <Input
-                                    id="max_entries_per_day"
-                                    v-model.number="form.max_entries_per_day"
-                                    type="number"
-                                    min="1"
-                                />
-                            </div>
-
-                            <div class="space-y-4 border-t pt-4">
+                        <!-- Congelamiento -->
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Congelamiento</CardTitle>
+                            </CardHeader>
+                            <CardContent class="space-y-4">
                                 <div class="flex items-center space-x-2">
                                     <Switch
-                                        id="time_restricted"
-                                        v-model:checked="form.time_restricted"
+                                        id="allows_freezing"
+                                        v-model:checked="form.allows_freezing"
                                     />
-                                    <Label for="time_restricted"
-                                        >Restringir horario</Label
+                                    <Label for="allows_freezing"
+                                        >Permitir congelamiento</Label
                                     >
                                 </div>
 
                                 <div
-                                    v-if="form.time_restricted"
-                                    class="grid gap-4 md:grid-cols-2"
+                                    v-if="form.allows_freezing"
+                                    class="space-y-2"
                                 >
-                                    <div class="space-y-2">
-                                        <Label for="allowed_time_start"
-                                            >Hora inicio</Label
-                                        >
-                                        <Input
-                                            id="allowed_time_start"
-                                            v-model="form.allowed_time_start"
-                                            type="time"
-                                        />
-                                    </div>
-
-                                    <div class="space-y-2">
-                                        <Label for="allowed_time_end"
-                                            >Hora fin</Label
-                                        >
-                                        <Input
-                                            id="allowed_time_end"
-                                            v-model="form.allowed_time_end"
-                                            type="time"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="space-y-2 border-t pt-4">
-                                <Label>Días permitidos</Label>
-                                <div class="grid grid-cols-2 gap-2">
-                                    <div
-                                        v-for="day in days"
-                                        :key="day.value"
-                                        class="flex items-center space-x-2"
+                                    <Label for="max_freeze_days"
+                                        >Días máximos de congelamiento</Label
                                     >
-                                        <Checkbox
-                                            :id="day.value"
-                                            :checked="
-                                                form.allowed_days.includes(
-                                                    day.value,
-                                                )
-                                            "
-                                            @update:checked="
-                                                toggleDay(day.value)
-                                            "
-                                        />
-                                        <Label
-                                            :for="day.value"
-                                            class="cursor-pointer"
-                                            >{{ day.label }}</Label
-                                        >
-                                    </div>
+                                    <Input
+                                        id="max_freeze_days"
+                                        v-model.number="form.max_freeze_days"
+                                        type="number"
+                                        min="0"
+                                        placeholder="30"
+                                    />
+                                    <p class="text-xs text-muted-foreground">
+                                        Total de días que se puede congelar
+                                        durante toda la vigencia del plan
+                                    </p>
                                 </div>
-                                <p class="text-xs text-muted-foreground">
-                                    Vacío = todos los días permitidos
-                                </p>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <!-- Congelamiento -->
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Congelamiento</CardTitle>
-                        </CardHeader>
-                        <CardContent class="space-y-4">
-                            <div class="flex items-center space-x-2">
-                                <Switch
-                                    id="allows_freezing"
-                                    v-model:checked="form.allows_freezing"
-                                />
-                                <Label for="allows_freezing"
-                                    >Permitir congelamiento</Label
-                                >
-                            </div>
-
-                            <div v-if="form.allows_freezing" class="space-y-2">
-                                <Label for="max_freeze_days"
-                                    >Días máximos de congelamiento</Label
-                                >
-                                <Input
-                                    id="max_freeze_days"
-                                    v-model.number="form.max_freeze_days"
-                                    type="number"
-                                    min="0"
-                                    placeholder="30"
-                                />
-                                <p class="text-xs text-muted-foreground">
-                                    Total de días que se puede congelar durante
-                                    toda la vigencia del plan
-                                </p>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
-
-                <!-- Actions -->
-                <div class="mt-6 flex justify-end gap-4">
-                    <Button
-                        type="button"
-                        variant="outline"
-                        @click="router.visit('/membership-plans')"
-                        :disabled="form.processing"
-                    >
-                        Cancelar
-                    </Button>
-                    <Button type="submit" :disabled="form.processing">
-                        {{
-                            form.processing ? 'Guardando...' : 'Guardar Cambios'
-                        }}
-                    </Button>
-                </div>
-            </form>
+                            </CardContent>
+                        </Card>
+                    </div>
+                </form>
             </div>
         </div>
     </AppLayout>

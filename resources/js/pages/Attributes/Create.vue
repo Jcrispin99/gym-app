@@ -1,13 +1,20 @@
 <script setup lang="ts">
-import AppLayout from '@/layouts/AppLayout.vue';
+import FormPageHeader from '@/components/FormPageHeader.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import AppLayout from '@/layouts/AppLayout.vue';
+import type { BreadcrumbItem } from '@/types';
 import { Head, useForm } from '@inertiajs/vue3';
-import { ArrowLeft, Plus, X } from 'lucide-vue-next';
-import { ref } from 'vue';
+import { Plus, Save, X } from 'lucide-vue-next';
+
+const breadcrumbs: BreadcrumbItem[] = [
+    { title: 'Dashboard', href: '/dashboard' },
+    { title: 'Atributos', href: '/attributes' },
+    { title: 'Nuevo Atributo', href: '/attributes/create' },
+];
 
 const form = useForm({
     name: '',
@@ -38,20 +45,22 @@ const submit = () => {
 <template>
     <Head title="Nuevo Atributo" />
 
-    <AppLayout>
+    <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex flex-col gap-4 p-4">
-            <!-- Header -->
-            <div class="flex items-center gap-4">
-                <Button variant="ghost" size="icon" @click="$inertia.visit('/attributes')">
-                    <ArrowLeft class="h-4 w-4" />
-                </Button>
-                <div>
-                    <h1 class="text-3xl font-bold tracking-tight">Nuevo Atributo</h1>
-                    <p class="text-muted-foreground">
-                        Crear un nuevo atributo con sus valores
-                    </p>
-                </div>
-            </div>
+            <FormPageHeader
+                title="Nuevo Atributo"
+                description="Crear un nuevo atributo con sus valores"
+                back-href="/attributes"
+            >
+                <template #actions>
+                    <Button @click="submit" :disabled="form.processing">
+                        <Save class="mr-2 h-4 w-4" />
+                        {{
+                            form.processing ? 'Guardando...' : 'Crear Atributo'
+                        }}
+                    </Button>
+                </template>
+            </FormPageHeader>
 
             <!-- Form -->
             <Card class="max-w-2xl">
@@ -67,10 +76,15 @@ const submit = () => {
                                 id="name"
                                 v-model="form.name"
                                 placeholder="Ej: Color, Talla, Material..."
-                                :class="{ 'border-destructive': form.errors.name }"
+                                :class="{
+                                    'border-destructive': form.errors.name,
+                                }"
                                 required
                             />
-                            <p v-if="form.errors.name" class="text-sm text-destructive">
+                            <p
+                                v-if="form.errors.name"
+                                class="text-sm text-destructive"
+                            >
                                 {{ form.errors.name }}
                             </p>
                         </div>
@@ -114,36 +128,32 @@ const submit = () => {
                             </div>
 
                             <p class="text-xs text-muted-foreground">
-                                Agrega al menos un valor para el atributo. Ej: Rojo, Azul, Verde
+                                Agrega al menos un valor para el atributo. Ej:
+                                Rojo, Azul, Verde
                             </p>
-                            <p v-if="form.errors.values" class="text-sm text-destructive">
+                            <p
+                                v-if="form.errors.values"
+                                class="text-sm text-destructive"
+                            >
                                 {{ form.errors.values }}
                             </p>
                         </div>
 
                         <!-- Is Active -->
-                        <div class="flex items-center justify-between rounded-lg border p-4">
+                        <div
+                            class="flex items-center justify-between rounded-lg border p-4"
+                        >
                             <div class="space-y-0.5">
                                 <Label for="is_active">Estado Activo</Label>
                                 <p class="text-sm text-muted-foreground">
-                                    El atributo estará disponible para asignar a productos
+                                    El atributo estará disponible para asignar a
+                                    productos
                                 </p>
                             </div>
-                            <Switch id="is_active" v-model:checked="form.is_active" />
-                        </div>
-
-                        <!-- Actions -->
-                        <div class="flex gap-2">
-                            <Button type="submit" :disabled="form.processing">
-                                {{ form.processing ? 'Guardando...' : 'Crear Atributo' }}
-                            </Button>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                @click="$inertia.visit('/attributes')"
-                            >
-                                Cancelar
-                            </Button>
+                            <Switch
+                                id="is_active"
+                                v-model:checked="form.is_active"
+                            />
                         </div>
                     </form>
                 </CardContent>

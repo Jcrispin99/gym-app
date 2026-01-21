@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import FormPageHeader from '@/components/FormPageHeader.vue';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -28,6 +29,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import AppLayout from '@/layouts/AppLayout.vue';
+import type { BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/vue3';
 import {
     Calendar,
@@ -73,6 +75,11 @@ interface Props {
 }
 
 const props = defineProps<Props>();
+
+const breadcrumbs: BreadcrumbItem[] = [
+    { title: 'Dashboard', href: '/dashboard' },
+    { title: 'Planes', href: '/membership-plans' },
+];
 
 const deleteDialogOpen = ref(false);
 const planToDelete = ref<MembershipPlan | null>(null);
@@ -152,26 +159,22 @@ const averagePrice = computed(() => {
 </script>
 
 <template>
-    <AppLayout>
+    <AppLayout :breadcrumbs="breadcrumbs">
         <Head title="Planes de Membresía" />
 
         <div class="flex flex-col gap-4 p-4">
-            <!-- Header -->
-            <div class="flex items-center justify-between">
-                <div>
-                    <h1 class="text-3xl font-bold tracking-tight">
-                        Planes de Membresía
-                    </h1>
-                    <p class="text-muted-foreground">
-                        Gestiona los planes de membresía disponibles para tus
-                        clientes
-                    </p>
-                </div>
-                <Button @click="router.visit('/membership-plans/create')">
-                    <Plus class="mr-2 h-4 w-4" />
-                    Nuevo Plan
-                </Button>
-            </div>
+            <FormPageHeader
+                title="Planes de Membresía"
+                description="Gestiona los planes de membresía disponibles para tus clientes"
+                :show-back="false"
+            >
+                <template #actions>
+                    <Button @click="router.visit('/membership-plans/create')">
+                        <Plus class="mr-2 h-4 w-4" />
+                        Nuevo Plan
+                    </Button>
+                </template>
+            </FormPageHeader>
 
             <!-- Stats Cards -->
             <div class="grid gap-4 md:grid-cols-3">
@@ -346,9 +349,7 @@ const averagePrice = computed(() => {
                                             variant="outline"
                                             class="w-fit"
                                         >
-                                            {{
-                                                plan.allowed_days.length
-                                            }}
+                                            {{ plan.allowed_days.length }}
                                             días/semana
                                         </Badge>
                                         <span

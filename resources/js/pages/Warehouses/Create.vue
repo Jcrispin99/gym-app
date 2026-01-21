@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import { useForm } from '@inertiajs/vue3';
-import AppLayout from '@/layouts/AppLayout.vue';
+import FormPageHeader from '@/components/FormPageHeader.vue';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import {
     Select,
     SelectContent,
@@ -13,8 +17,11 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { Head, router } from '@inertiajs/vue3';
-import { ArrowLeft, Save } from 'lucide-vue-next';
+import { Textarea } from '@/components/ui/textarea';
+import AppLayout from '@/layouts/AppLayout.vue';
+import type { BreadcrumbItem } from '@/types';
+import { Head, router, useForm } from '@inertiajs/vue3';
+import { Save } from 'lucide-vue-next';
 
 interface Company {
     id: number;
@@ -26,6 +33,12 @@ interface Props {
 }
 
 defineProps<Props>();
+
+const breadcrumbs: BreadcrumbItem[] = [
+    { title: 'Dashboard', href: '/dashboard' },
+    { title: 'Almacenes', href: '/warehouses' },
+    { title: 'Nuevo Almacén', href: '/warehouses/create' },
+];
 
 const form = useForm({
     name: '',
@@ -47,27 +60,23 @@ const submit = () => {
 <template>
     <Head title="Nuevo Almacén" />
 
-    <AppLayout>
+    <AppLayout :breadcrumbs="breadcrumbs">
         <div class="p-4">
-            <!-- Header -->
-            <div class="flex items-center justify-between mb-6">
-                <div class="flex items-center gap-4">
-                    <Button variant="ghost" size="icon" @click="router.visit('/warehouses')">
-                        <ArrowLeft class="h-5 w-5" />
+            <FormPageHeader
+                title="Nuevo Almacén"
+                description="Crea un nuevo almacén para gestionar inventario"
+                back-href="/warehouses"
+            >
+                <template #actions>
+                    <Button @click="submit" :disabled="form.processing">
+                        <Save class="mr-2 h-4 w-4" />
+                        {{ form.processing ? 'Guardando...' : 'Guardar' }}
                     </Button>
-                    <div>
-                        <h1 class="text-3xl font-bold">Nuevo Almacén</h1>
-                        <p class="text-muted-foreground">Crea un nuevo almacén para gestionar inventario</p>
-                    </div>
-                </div>
-                <Button @click="submit" :disabled="form.processing">
-                    <Save class="mr-2 h-4 w-4" />
-                    {{ form.processing ? 'Guardando...' : 'Guardar' }}
-                </Button>
-            </div>
+                </template>
+            </FormPageHeader>
 
             <!-- Odoo-style Layout -->
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
                 <!-- Main Form (Left) -->
                 <div class="lg:col-span-2">
                     <form @submit.prevent="submit" class="space-y-6">
@@ -75,19 +84,29 @@ const submit = () => {
                         <Card>
                             <CardHeader>
                                 <CardTitle>Información del Almacén</CardTitle>
-                                <CardDescription>Completa los datos básicos del almacén</CardDescription>
+                                <CardDescription
+                                    >Completa los datos básicos del
+                                    almacén</CardDescription
+                                >
                             </CardHeader>
                             <CardContent class="space-y-4">
                                 <!-- Name -->
                                 <div>
-                                    <Label for="name">Código del Almacén *</Label>
+                                    <Label for="name"
+                                        >Código del Almacén *</Label
+                                    >
                                     <Input
                                         id="name"
                                         v-model="form.name"
                                         placeholder="Ej: IK01, ALMACEN-01"
-                                        :class="{ 'border-red-500': form.errors.name }"
+                                        :class="{
+                                            'border-red-500': form.errors.name,
+                                        }"
                                     />
-                                    <p v-if="form.errors.name" class="text-sm text-red-500 mt-1">
+                                    <p
+                                        v-if="form.errors.name"
+                                        class="mt-1 text-sm text-red-500"
+                                    >
                                         {{ form.errors.name }}
                                     </p>
                                 </div>
@@ -96,11 +115,22 @@ const submit = () => {
                                 <div>
                                     <Label for="company_id">Empresa *</Label>
                                     <Select
-                                        :model-value="form.company_id?.toString()"
-                                        @update:model-value="handleCompanyChange"
+                                        :model-value="
+                                            form.company_id?.toString()
+                                        "
+                                        @update:model-value="
+                                            handleCompanyChange
+                                        "
                                     >
-                                        <SelectTrigger :class="{ 'border-red-500': form.errors.company_id }">
-                                            <SelectValue placeholder="Seleccionar empresa..." />
+                                        <SelectTrigger
+                                            :class="{
+                                                'border-red-500':
+                                                    form.errors.company_id,
+                                            }"
+                                        >
+                                            <SelectValue
+                                                placeholder="Seleccionar empresa..."
+                                            />
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem
@@ -112,7 +142,10 @@ const submit = () => {
                                             </SelectItem>
                                         </SelectContent>
                                     </Select>
-                                    <p v-if="form.errors.company_id" class="text-sm text-red-500 mt-1">
+                                    <p
+                                        v-if="form.errors.company_id"
+                                        class="mt-1 text-sm text-red-500"
+                                    >
                                         {{ form.errors.company_id }}
                                     </p>
                                 </div>
@@ -124,10 +157,16 @@ const submit = () => {
                                         id="location"
                                         v-model="form.location"
                                         placeholder="Dirección completa del almacén"
-                                        :class="{ 'border-red-500': form.errors.location }"
+                                        :class="{
+                                            'border-red-500':
+                                                form.errors.location,
+                                        }"
                                         rows="3"
                                     />
-                                    <p v-if="form.errors.location" class="text-sm text-red-500 mt-1">
+                                    <p
+                                        v-if="form.errors.location"
+                                        class="mt-1 text-sm text-red-500"
+                                    >
                                         {{ form.errors.location }}
                                     </p>
                                 </div>
@@ -146,7 +185,9 @@ const submit = () => {
                         <CardContent class="space-y-3 text-sm">
                             <div>
                                 <p class="font-medium">Estado</p>
-                                <p class="text-muted-foreground">Nuevo registro</p>
+                                <p class="text-muted-foreground">
+                                    Nuevo registro
+                                </p>
                             </div>
                         </CardContent>
                     </Card>
@@ -156,7 +197,7 @@ const submit = () => {
                         <CardHeader>
                             <CardTitle>Ayuda</CardTitle>
                         </CardHeader>
-                        <CardContent class="text-sm space-y-2">
+                        <CardContent class="space-y-2 text-sm">
                             <p class="text-muted-foreground">
                                 Los campos marcados con * son obligatorios.
                             </p>
@@ -164,7 +205,8 @@ const submit = () => {
                                 El código debe ser único y fácil de identificar.
                             </p>
                             <p class="text-muted-foreground">
-                                La ubicación ayuda a localizar físicamente el almacén.
+                                La ubicación ayuda a localizar físicamente el
+                                almacén.
                             </p>
                         </CardContent>
                     </Card>

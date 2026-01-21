@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import FormPageHeader from '@/components/FormPageHeader.vue';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -177,6 +178,19 @@ const getSunatBadge = (sale: Sale) => {
         <Head title="Ventas" />
 
         <div class="flex flex-col gap-4 p-4">
+            <FormPageHeader
+                title="Ventas"
+                description="Gestiona ventas directas y borradores"
+                :show-back="false"
+            >
+                <template #actions>
+                    <Button @click="router.visit('/sales/create')">
+                        <Plus class="mr-2 h-4 w-4" />
+                        Nueva Venta
+                    </Button>
+                </template>
+            </FormPageHeader>
+
             <!-- Stats Cards -->
             <div class="grid gap-4 md:grid-cols-3">
                 <Card>
@@ -240,14 +254,8 @@ const getSunatBadge = (sale: Sale) => {
 
             <!-- Sales Table -->
             <Card>
-                <CardHeader class="flex flex-row items-center justify-between">
-                    <CardTitle>Ventas</CardTitle>
-                    <Button as-child>
-                        <a href="/sales/create">
-                            <Plus class="mr-2 h-4 w-4" />
-                            Nueva Venta
-                        </a>
-                    </Button>
+                <CardHeader>
+                    <CardTitle>Listado de Ventas</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <Table>

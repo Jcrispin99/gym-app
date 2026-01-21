@@ -1,70 +1,54 @@
-## Aclaración clave (tu duda)
-- La **devolución** siempre se materializa como **Nota de Crédito 07** (otro `Sale`) que referencia la boleta/factura origen.
-- La **venta “a partir de esa devolución”** es simplemente **una nueva venta 01/03** que se crea usando el “crédito” generado por la Nota de Crédito como **forma de pago** (total o parcial).
-- Así tú puedes ver claramente:
-  - que hubo una devolución (NC 07)
-  - y que el cliente pagó/cobró diferencia
-  - y si parte del pago fue “con Nota de Crédito” (aplicación de crédito).
+## Decisión de arquitectura (de acuerdo contigo)
+- En vez de seguir cargando [PosController.php](file:///Users/wild/Herd/kraken_gym/app/Http/Controllers/Pos/PosController.php), se crea un controller nuevo dentro de `app/Http/Controllers/Pos/` dedicado a **reembolsos + notas + intercambio**.
+- La idea es que `PosController` se quede para: abrir/cerrar sesión, dashboard, payment normal.
 
-## Cómo se ve contablemente en el sistema (2 documentos + pagos)
-### Documento 1: Nota de Crédito (07)
-- Se crea contra la venta origen (`original_sale_id`).
-- Total de la NC = `return_total`.
-- Si hay devolución física: Kardex **entrada** por qty devuelta.
+## Estructura propuesta (backend)
+- Nuevo controller: `app/Http/Controllers/Pos/PosRefundController.php`
+  - `index(PosSession $session)` → pantalla de reembolso (buscador de órdenes)
+  - `lookupSale(PosSession $session, Request $request)` → buscar venta por doc (serie-correlativo) o por id
+  - `preview(PosSession $session, Request $request)` → calcular `return_total`, `sale_total`, `net`, y validar cantidades disponibles
+  - `process(PosSession $session, Request $request)` → ejecuta transacción (NC 07 + venta 01/03 opcional + kardex + pagos + jobs)
 
-### Documento 2: Nueva venta (01/03) (opcional)
-- Se crea con los nuevos ítems (`sale_total`).
-- Kardex **salida** por qty vendida.
-- Pagos de esta venta se descomponen en:
-  - **Pago “Nota de Crédito”** = `applied = min(return_total, sale_total)`
-  - **Pago adicional** (efectivo/tarjeta) = `max(0, sale_total - return_total)`
+## Estructura propuesta (frontend)
+- Reemplazar el botón “% desc.” por “Reembolso” en [Pos/Dashboard.vue](file:///Users/wild/Herd/kraken_gym/resources/js/pages/Pos/Dashboard.vue#L1003-L1046).
+- Crear nueva página Inertia: `resources/js/pages/Pos/Refund.vue` (o `Pos/Refund/Index.vue`)
+  - Selector de orden origen (puede reutilizar el layout de [Pos/Orders.vue](file:///Users/wild/Herd/kraken_gym/resources/js/pages/Pos/Orders.vue))
+  - ReturnCart (ítems devueltos + qty)
+  - SaleCart (ítems nuevos)
+  - Resumen neto y pagos
 
-### Si la devolución es mayor que la nueva venta
-- Queda un saldo a devolver al cliente:
-  - `refund_cash = max(0, return_total - sale_total)`
-- Ese reembolso se registra como un pago **negativo** ligado a la NC 07 (o como un pago explícito “Reembolso” ligado a la NC).
+## Flujo de negocio (claro y trazable)
+- En una sola operación se pueden hacer 2 cosas:
+  1) **Devolución** → Nota de Crédito 07 ligada a la boleta/factura origen.
+  2) **Venta adicional** (intercambio) → nueva venta 01/03.
+- Para que tú puedas “ver que pagaron con nota”, se registra un pago en la venta nueva con PaymentMethod “Nota de Crédito” por el monto aplicado.
 
-## Flujo UX (POS)
-1) Click botón **Reembolso** (reemplaza “% desc.”).
-2) Buscar/seleccionar orden origen (reutilizar datos de Órdenes POS).
-3) Seleccionar cantidades a devolver (ReturnCart).
-4) (Opcional) Agregar productos a vender (SaleCart).
-5) Confirmar:
-   - Return total
-   - Sale total
-   - Aplicación de NC a la venta (automática)
-   - Pago adicional o reembolso
+## Lógica de transacción (process)
+- DB::transaction:
+  1) Crea NC 07 (`Sale`), `original_sale_id` apunta a la venta origen, líneas = qty devueltas.
+  2) Publica NC 07 y registra Kardex **entry** (solo si `tracks_inventory=true`).
+  3) Si hay productos nuevos, crea venta 01/03 y la publica, Kardex **exit** (solo si `tracks_inventory=true`).
+  4) Pagos:
+     - En venta nueva: pago “Nota de Crédito” por `min(return_total, sale_total)`.
+     - Diferencia a cobrar: pagos normales positivos.
+     - Si sobra devolución: pago negativo ligado a la NC.
+  5) Jobs SUNAT `afterCommit` para ambos documentos.
 
-## Flujo Backend (en una sola transacción)
-1) Crear `Sale` NC (journal 07) + líneas devueltas + `original_sale_id`.
-2) Publicar NC y registrar Kardex entry si `tracks_inventory=true`.
-3) Si `sale_total > 0`, crear `Sale` nueva 01/03 + líneas vendidas.
-4) Publicar venta nueva y registrar Kardex exit (respetar `tracks_inventory=true`).
-5) Registrar pagos en `pos_session_payments`:
-   - Para venta nueva:
-     - `Nota de Crédito` (payment method) por `applied`.
-     - + método real por diferencia si corresponde.
-   - Para la NC:
-     - si hay devolución de dinero: pago con `amount` negativo por `refund_cash`.
-6) Encolar SUNAT:
-   - NC 07 -> `notes/send`
-   - Venta 01/03 -> `invoices/send`
+## Rutas
+- Agregar rutas separadas, por ejemplo:
+  - GET `pos/{session}/refund` → `PosRefundController@index`
+  - POST `pos/{session}/refund/lookup` → `lookupSale`
+  - POST `pos/{session}/refund/preview` → `preview`
+  - POST `pos/{session}/refund/process` → `process`
 
-## Cómo “ver” luego lo que pasó (trazabilidad)
-- La venta nueva mostrará en su resumen de pagos:
-  - “Nota de Crédito: S/ X.XX”
-  - “Efectivo/Tarjeta: S/ Y.YY”
-- La Nota de Crédito mostrará:
-  - “Reembolso: S/ -Z.ZZ” si se devolvió dinero.
-- Para vincular ambos documentos (NC ↔ venta nueva) propongo:
-  - Mínimo viable: guardar en `notes` de ambos el documento relacionado.
-  - Mejor (si quieres robustez): agregar `exchange_group_id` (UUID) en `sales` para agrupar intercambio.
+## Validaciones críticas
+- No devolver más de lo vendido menos lo ya devuelto.
+- Venta origen debe ser 01/03 con numeración.
+- Si producto `tracks_inventory=false`, no registrar movimiento.
 
-## Cambios concretos a implementar
-- UI: reemplazar botón “% desc.” por “Reembolso” y crear modal/página de reembolso en POS.
-- Backend: endpoints para:
-  - buscar ventas por documento/órdenes POS,
-  - ejecutar reembolso/intercambio (creación 07 + opcional 01/03 + pagos + kardex).
-- Pagos: agregar/usar PaymentMethod “Nota de Crédito” y permitir registrar `amount` negativo para reembolsos.
+## Entregables
+- Nuevo controller `PosRefundController` + rutas.
+- Página POS de Reembolso.
+- Transacción completa de devolución + venta + neteo de pagos.
 
-Si apruebas este flujo, lo implemento respetando tu idea de que el usuario pueda devolver y vender en una sola operación y que luego sea visible que parte del pago fue con Nota de Crédito.
+Si esto te parece bien, procedo a implementarlo exactamente así (sin seguir cargando PosController).

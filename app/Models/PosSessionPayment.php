@@ -17,6 +17,7 @@ class PosSessionPayment extends Model
         'sale_id',
         'payment_method_id',
         'amount',
+        'reference_sale_id',
     ];
 
     protected $casts = [
@@ -35,6 +36,14 @@ class PosSessionPayment extends Model
     public function sale(): BelongsTo
     {
         return $this->belongsTo(Sale::class);
+    }
+
+    /**
+     * The credit note sale referenced by this payment (if applicable)
+     */
+    public function creditNote(): BelongsTo
+    {
+        return $this->belongsTo(Sale::class, 'reference_sale_id');
     }
 
     public function paymentMethod(): BelongsTo

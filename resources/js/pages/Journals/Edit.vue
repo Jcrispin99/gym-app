@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import FormPageHeader from '@/components/FormPageHeader.vue';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -20,7 +21,7 @@ import {
 import AppLayout from '@/layouts/AppLayout.vue';
 import type { BreadcrumbItem } from '@/types';
 import { Head, useForm } from '@inertiajs/vue3';
-import { ArrowLeft } from 'lucide-vue-next';
+import { Save } from 'lucide-vue-next';
 
 interface Journal {
     id: number;
@@ -62,8 +63,7 @@ const form = useForm({
     code: props.journal.code,
     type: props.journal.type,
     is_fiscal: props.journal.is_fiscal,
-    document_type_code:
-        props.journal.document_type_code || ('' as string | null),
+    document_type_code: props.journal.document_type_code || '',
     company_id: props.journal.company_id,
     next_number: props.journal.sequence.next_number,
 });
@@ -86,25 +86,20 @@ const journalTypes = [
         <Head :title="`Editar ${journal.name}`" />
 
         <div class="w-full p-4">
-            <!-- Header -->
-            <div class="mb-6 flex items-center justify-between">
-                <div class="flex items-center gap-4">
-                    <Button variant="ghost" size="icon" as-child>
-                        <a href="/journals">
-                            <ArrowLeft class="h-5 w-5" />
-                        </a>
+            <FormPageHeader
+                title="Editar Diario"
+                :description="journal.name"
+                back-href="/journals"
+            >
+                <template #actions>
+                    <Button @click="submit" :disabled="form.processing">
+                        <Save class="mr-2 h-4 w-4" />
+                        {{
+                            form.processing ? 'Guardando...' : 'Guardar Cambios'
+                        }}
                     </Button>
-                    <div>
-                        <h1 class="text-2xl font-bold">Editar Diario</h1>
-                        <p class="text-sm text-muted-foreground">
-                            {{ journal.name }}
-                        </p>
-                    </div>
-                </div>
-                <Button @click="submit" :disabled="form.processing">
-                    Guardar Cambios
-                </Button>
-            </div>
+                </template>
+            </FormPageHeader>
 
             <div class="grid gap-6 lg:grid-cols-3">
                 <!-- Main Form -->
@@ -253,9 +248,7 @@ const journalTypes = [
                                 <div class="space-y-2">
                                     <Label>Tamaño de Secuencia</Label>
                                     <p class="text-sm text-muted-foreground">
-                                        {{
-                                            journal.sequence.sequence_size
-                                        }}
+                                        {{ journal.sequence.sequence_size }}
                                         dígitos (no editable)
                                     </p>
                                 </div>

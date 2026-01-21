@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import AppLayout from '@/layouts/AppLayout.vue';
+import FormPageHeader from '@/components/FormPageHeader.vue';
+import ProductCombobox from '@/components/ProductCombobox.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import {
     Select,
     SelectContent,
@@ -20,11 +20,12 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { Head, useForm } from '@inertiajs/vue3';
-import { ArrowLeft, Plus, Trash2 } from 'lucide-vue-next';
-import { computed } from 'vue';
+import { Textarea } from '@/components/ui/textarea';
+import AppLayout from '@/layouts/AppLayout.vue';
 import type { BreadcrumbItem } from '@/types';
-import ProductCombobox from '@/components/ProductCombobox.vue';
+import { Head, useForm } from '@inertiajs/vue3';
+import { Plus, Save, Trash2 } from 'lucide-vue-next';
+import { computed } from 'vue';
 
 interface Partner {
     id: number;
@@ -77,7 +78,7 @@ const addProductLine = () => {
         product_product_id: null,
         quantity: 1,
         price: 0,
-        tax_id: props.taxes.find(t => t.rate_percent === 18)?.id || null,
+        tax_id: props.taxes.find((t) => t.rate_percent === 18)?.id || null,
     });
 };
 
@@ -87,7 +88,7 @@ const removeProductLine = (index: number) => {
 
 const getTaxRate = (taxId: number | null) => {
     if (!taxId) return 0;
-    const tax = props.taxes.find(t => t.id === taxId);
+    const tax = props.taxes.find((t) => t.id === taxId);
     return tax ? tax.rate_percent : 0;
 };
 
@@ -106,11 +107,17 @@ const calculateLineTotal = (line: ProductLine) => {
 };
 
 const grandTotal = computed(() => {
-    return form.products.reduce((sum, line) => sum + calculateLineTotal(line), 0);
+    return form.products.reduce(
+        (sum, line) => sum + calculateLineTotal(line),
+        0,
+    );
 });
 
 const grandSubtotal = computed(() => {
-    return form.products.reduce((sum, line) => sum + calculateLineSubtotal(line), 0);
+    return form.products.reduce(
+        (sum, line) => sum + calculateLineSubtotal(line),
+        0,
+    );
 });
 
 const grandTaxTotal = computed(() => {
@@ -131,26 +138,28 @@ if (form.products.length === 0) {
     <AppLayout :breadcrumbs="breadcrumbs">
         <Head title="Crear Compra" />
 
-        <div class="container mx-auto p-4 max-w-6xl">
-            <!-- Header -->
-            <div class="mb-6 flex items-center justify-between">
-                <div class="flex items-center gap-4">
-                    <Button variant="ghost" size="icon" as-child>
-                        <a href="/purchases">
-                            <ArrowLeft class="h-5 w-5" />
-                        </a>
+        <div class="container mx-auto max-w-6xl p-4">
+            <FormPageHeader
+                title="Crear Compra"
+                description="Nueva compra de productos"
+                back-href="/purchases"
+            >
+                <template #actions>
+                    <Button
+                        @click="submit"
+                        :disabled="
+                            form.processing || form.products.length === 0
+                        "
+                    >
+                        <Save class="mr-2 h-4 w-4" />
+                        {{
+                            form.processing
+                                ? 'Guardando...'
+                                : 'Guardar como Borrador'
+                        }}
                     </Button>
-                    <div>
-                        <h1 class="text-2xl font-bold">Crear Compra</h1>
-                        <p class="text-sm text-muted-foreground">
-                            Nueva compra de productos
-                        </p>
-                    </div>
-                </div>
-                <Button @click="submit" :disabled="form.processing || form.products.length === 0">
-                    Guardar como Borrador
-                </Button>
-            </div>
+                </template>
+            </FormPageHeader>
 
             <form @submit.prevent="submit" class="space-y-6">
                 <!-- Información General -->
@@ -164,7 +173,9 @@ if (form.products.length === 0) {
                             <Label for="partner_id">Proveedor *</Label>
                             <Select v-model="form.partner_id">
                                 <SelectTrigger id="partner_id">
-                                    <SelectValue placeholder="Seleccionar proveedor" />
+                                    <SelectValue
+                                        placeholder="Seleccionar proveedor"
+                                    />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem
@@ -176,7 +187,10 @@ if (form.products.length === 0) {
                                     </SelectItem>
                                 </SelectContent>
                             </Select>
-                            <p v-if="form.errors.partner_id" class="text-sm text-destructive">
+                            <p
+                                v-if="form.errors.partner_id"
+                                class="text-sm text-destructive"
+                            >
                                 {{ form.errors.partner_id }}
                             </p>
                         </div>
@@ -186,7 +200,9 @@ if (form.products.length === 0) {
                             <Label for="warehouse_id">Almacén *</Label>
                             <Select v-model="form.warehouse_id">
                                 <SelectTrigger id="warehouse_id">
-                                    <SelectValue placeholder="Seleccionar almacén" />
+                                    <SelectValue
+                                        placeholder="Seleccionar almacén"
+                                    />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem
@@ -198,14 +214,19 @@ if (form.products.length === 0) {
                                     </SelectItem>
                                 </SelectContent>
                             </Select>
-                            <p v-if="form.errors.warehouse_id" class="text-sm text-destructive">
+                            <p
+                                v-if="form.errors.warehouse_id"
+                                class="text-sm text-destructive"
+                            >
                                 {{ form.errors.warehouse_id }}
                             </p>
                         </div>
 
                         <!-- Factura del Proveedor -->
                         <div class="space-y-2">
-                            <Label for="vendor_bill_number">Factura del Proveedor</Label>
+                            <Label for="vendor_bill_number"
+                                >Factura del Proveedor</Label
+                            >
                             <Input
                                 id="vendor_bill_number"
                                 v-model="form.vendor_bill_number"
@@ -218,7 +239,9 @@ if (form.products.length === 0) {
 
                         <!-- Fecha de Factura -->
                         <div class="space-y-2">
-                            <Label for="vendor_bill_date">Fecha de Factura</Label>
+                            <Label for="vendor_bill_date"
+                                >Fecha de Factura</Label
+                            >
                             <Input
                                 id="vendor_bill_date"
                                 v-model="form.vendor_bill_date"
@@ -241,7 +264,9 @@ if (form.products.length === 0) {
 
                 <!-- Productos -->
                 <Card>
-                    <CardHeader class="flex flex-row items-center justify-between">
+                    <CardHeader
+                        class="flex flex-row items-center justify-between"
+                    >
                         <CardTitle>Productos</CardTitle>
                         <Button type="button" @click="addProductLine" size="sm">
                             <Plus class="mr-2 h-4 w-4" />
@@ -253,30 +278,51 @@ if (form.products.length === 0) {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>Producto</TableHead>
-                                    <TableHead class="w-[120px]">Cantidad</TableHead>
-                                    <TableHead class="w-[150px]">Precio Unit.</TableHead>
-                                    <TableHead class="w-[150px]">Impuesto</TableHead>
-                                    <TableHead class="text-right w-[120px]">Subtotal</TableHead>
-                                    <TableHead class="text-right w-[100px]">IGV</TableHead>
-                                    <TableHead class="text-right w-[120px]">Total</TableHead>
+                                    <TableHead class="w-[120px]"
+                                        >Cantidad</TableHead
+                                    >
+                                    <TableHead class="w-[150px]"
+                                        >Precio Unit.</TableHead
+                                    >
+                                    <TableHead class="w-[150px]"
+                                        >Impuesto</TableHead
+                                    >
+                                    <TableHead class="w-[120px] text-right"
+                                        >Subtotal</TableHead
+                                    >
+                                    <TableHead class="w-[100px] text-right"
+                                        >IGV</TableHead
+                                    >
+                                    <TableHead class="w-[120px] text-right"
+                                        >Total</TableHead
+                                    >
                                     <TableHead class="w-[50px]"></TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                <TableRow v-for="(line, index) in form.products" :key="index">
+                                <TableRow
+                                    v-for="(line, index) in form.products"
+                                    :key="index"
+                                >
                                     <!-- Producto -->
                                     <TableCell>
                                         <ProductCombobox
                                             v-model="line.product_product_id"
                                             :warehouse-id="form.warehouse_id"
                                             placeholder="Buscar producto..."
-                                            @select="(product) => {
-                                                // Auto-llenar con el ÚLTIMO PRECIO DE COMPRA
-                                                line.price = product.cost_price || 0;
-                                                if (!line.quantity || line.quantity === 0) {
-                                                    line.quantity = 1;
+                                            @select="
+                                                (product) => {
+                                                    // Auto-llenar con el ÚLTIMO PRECIO DE COMPRA
+                                                    line.price =
+                                                        product.cost_price || 0;
+                                                    if (
+                                                        !line.quantity ||
+                                                        line.quantity === 0
+                                                    ) {
+                                                        line.quantity = 1;
+                                                    }
                                                 }
-                                            }"
+                                            "
                                         />
                                     </TableCell>
 
@@ -306,10 +352,14 @@ if (form.products.length === 0) {
                                     <TableCell>
                                         <Select v-model="line.tax_id">
                                             <SelectTrigger>
-                                                <SelectValue placeholder="Sin IGV" />
+                                                <SelectValue
+                                                    placeholder="Sin IGV"
+                                                />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem :value="null">Sin IGV</SelectItem>
+                                                <SelectItem :value="null"
+                                                    >Sin IGV</SelectItem
+                                                >
                                                 <SelectItem
                                                     v-for="tax in taxes"
                                                     :key="tax.id"
@@ -323,7 +373,11 @@ if (form.products.length === 0) {
 
                                     <!-- Subtotal -->
                                     <TableCell class="text-right font-mono">
-                                        {{ calculateLineSubtotal(line).toFixed(2) }}
+                                        {{
+                                            calculateLineSubtotal(line).toFixed(
+                                                2,
+                                            )
+                                        }}
                                     </TableCell>
 
                                     <!-- IGV -->
@@ -332,8 +386,12 @@ if (form.products.length === 0) {
                                     </TableCell>
 
                                     <!-- Total -->
-                                    <TableCell class="text-right font-mono font-medium">
-                                        {{ calculateLineTotal(line).toFixed(2) }}
+                                    <TableCell
+                                        class="text-right font-mono font-medium"
+                                    >
+                                        {{
+                                            calculateLineTotal(line).toFixed(2)
+                                        }}
                                     </TableCell>
 
                                     <!-- Acciones -->
@@ -343,7 +401,9 @@ if (form.products.length === 0) {
                                             variant="ghost"
                                             size="icon"
                                             @click="removeProductLine(index)"
-                                            :disabled="form.products.length === 1"
+                                            :disabled="
+                                                form.products.length === 1
+                                            "
                                         >
                                             <Trash2 class="h-4 w-4" />
                                         </Button>
@@ -352,14 +412,24 @@ if (form.products.length === 0) {
 
                                 <!-- Totales -->
                                 <TableRow class="bg-muted/50">
-                                    <TableCell colspan="4" class="text-right font-medium">Totales:</TableCell>
-                                    <TableCell class="text-right font-mono font-bold">
+                                    <TableCell
+                                        colspan="4"
+                                        class="text-right font-medium"
+                                        >Totales:</TableCell
+                                    >
+                                    <TableCell
+                                        class="text-right font-mono font-bold"
+                                    >
                                         S/ {{ grandSubtotal.toFixed(2) }}
                                     </TableCell>
-                                    <TableCell class="text-right font-mono font-bold">
+                                    <TableCell
+                                        class="text-right font-mono font-bold"
+                                    >
                                         S/ {{ grandTaxTotal.toFixed(2) }}
                                     </TableCell>
-                                    <TableCell class="text-right font-mono font-bold text-lg">
+                                    <TableCell
+                                        class="text-right font-mono text-lg font-bold"
+                                    >
                                         S/ {{ grandTotal.toFixed(2) }}
                                     </TableCell>
                                     <TableCell></TableCell>
@@ -367,7 +437,10 @@ if (form.products.length === 0) {
                             </TableBody>
                         </Table>
 
-                        <p v-if="form.errors.products" class="text-sm text-destructive mt-2">
+                        <p
+                            v-if="form.errors.products"
+                            class="mt-2 text-sm text-destructive"
+                        >
                             {{ form.errors.products }}
                         </p>
                     </CardContent>

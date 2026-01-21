@@ -1,15 +1,5 @@
 <script setup lang="ts">
-import AppLayout from '@/layouts/AppLayout.vue';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
+import FormPageHeader from '@/components/FormPageHeader.vue';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -20,12 +10,31 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Head, router } from '@inertiajs/vue3';
-import { Plus, Edit, Trash2, ShoppingCart, Search, CheckCircle, XCircle } from 'lucide-vue-next';
-import { ref, computed } from 'vue';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
+import AppLayout from '@/layouts/AppLayout.vue';
 import type { BreadcrumbItem } from '@/types';
+import { Head, router } from '@inertiajs/vue3';
+import {
+    CheckCircle,
+    Edit,
+    Plus,
+    Search,
+    ShoppingCart,
+    Trash2,
+    XCircle,
+} from 'lucide-vue-next';
+import { computed, ref } from 'vue';
 
 interface Purchase {
     id: number;
@@ -83,37 +92,61 @@ const deletePurchase = () => {
 };
 
 const postPurchase = (purchase: Purchase) => {
-    if (confirm(`¿Estás seguro de publicar esta compra? Se generará la numeración y se actualizará el inventario.`)) {
-        router.post(`/purchases/${purchase.id}/post`, {}, {
-            preserveScroll: true,
-        });
+    if (
+        confirm(
+            `¿Estás seguro de publicar esta compra? Se generará la numeración y se actualizará el inventario.`,
+        )
+    ) {
+        router.post(
+            `/purchases/${purchase.id}/post`,
+            {},
+            {
+                preserveScroll: true,
+            },
+        );
     }
 };
 
 const cancelPurchase = (purchase: Purchase) => {
-    if (confirm(`¿Estás seguro de cancelar esta compra? Se revertirá el inventario.`)) {
-        router.post(`/purchases/${purchase.id}/cancel`, {}, {
-            preserveScroll: true,
-        });
+    if (
+        confirm(
+            `¿Estás seguro de cancelar esta compra? Se revertirá el inventario.`,
+        )
+    ) {
+        router.post(
+            `/purchases/${purchase.id}/cancel`,
+            {},
+            {
+                preserveScroll: true,
+            },
+        );
     }
 };
 
 const performSearch = () => {
-    router.get('/purchases', { search: searchQuery.value }, {
-        preserveState: true,
-        preserveScroll: true,
-    });
+    router.get(
+        '/purchases',
+        { search: searchQuery.value },
+        {
+            preserveState: true,
+            preserveScroll: true,
+        },
+    );
 };
 
 const totalPurchases = computed(() => props.purchases.data.length);
-const draftPurchases = computed(() => props.purchases.data.filter(p => p.status === 'draft').length);
-const postedPurchases = computed(() => props.purchases.data.filter(p => p.status === 'posted').length);
+const draftPurchases = computed(
+    () => props.purchases.data.filter((p) => p.status === 'draft').length,
+);
+const postedPurchases = computed(
+    () => props.purchases.data.filter((p) => p.status === 'posted').length,
+);
 
 const getStatusBadge = (status: string) => {
     const badges: Record<string, any> = {
-        'draft': { label: 'Borrador', variant: 'secondary' },
-        'posted': { label: 'Publicado', variant: 'default' },
-        'cancelled': { label: 'Cancelado', variant: 'destructive' },
+        draft: { label: 'Borrador', variant: 'secondary' },
+        posted: { label: 'Publicado', variant: 'default' },
+        cancelled: { label: 'Cancelado', variant: 'destructive' },
     };
     return badges[status] || { label: status, variant: 'outline' };
 };
@@ -131,35 +164,66 @@ const getDisplayNumber = (purchase: Purchase) => {
         <Head title="Compras" />
 
         <div class="flex flex-col gap-4 p-4">
+            <FormPageHeader
+                title="Compras"
+                description="Gestiona compras y borradores"
+                :show-back="false"
+            >
+                <template #actions>
+                    <Button @click="router.visit('/purchases/create')">
+                        <Plus class="mr-2 h-4 w-4" />
+                        Nueva Compra
+                    </Button>
+                </template>
+            </FormPageHeader>
+
             <!-- Stats Cards -->
             <div class="grid gap-4 md:grid-cols-3">
                 <Card>
-                    <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle class="text-sm font-medium">Total Compras</CardTitle>
+                    <CardHeader
+                        class="flex flex-row items-center justify-between space-y-0 pb-2"
+                    >
+                        <CardTitle class="text-sm font-medium"
+                            >Total Compras</CardTitle
+                        >
                         <ShoppingCart class="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div class="text-2xl font-bold">{{ totalPurchases }}</div>
+                        <div class="text-2xl font-bold">
+                            {{ totalPurchases }}
+                        </div>
                     </CardContent>
                 </Card>
 
                 <Card>
-                    <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle class="text-sm font-medium">Borradores</CardTitle>
+                    <CardHeader
+                        class="flex flex-row items-center justify-between space-y-0 pb-2"
+                    >
+                        <CardTitle class="text-sm font-medium"
+                            >Borradores</CardTitle
+                        >
                         <Edit class="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div class="text-2xl font-bold">{{ draftPurchases }}</div>
+                        <div class="text-2xl font-bold">
+                            {{ draftPurchases }}
+                        </div>
                     </CardContent>
                 </Card>
 
                 <Card>
-                    <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle class="text-sm font-medium">Publicadas</CardTitle>
+                    <CardHeader
+                        class="flex flex-row items-center justify-between space-y-0 pb-2"
+                    >
+                        <CardTitle class="text-sm font-medium"
+                            >Publicadas</CardTitle
+                        >
                         <CheckCircle class="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div class="text-2xl font-bold">{{ postedPurchases }}</div>
+                        <div class="text-2xl font-bold">
+                            {{ postedPurchases }}
+                        </div>
                     </CardContent>
                 </Card>
             </div>
@@ -167,10 +231,12 @@ const getDisplayNumber = (purchase: Purchase) => {
             <!-- Search Bar -->
             <div class="flex items-center gap-2">
                 <div class="relative flex-1">
-                    <Search class="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input 
+                    <Search
+                        class="absolute top-2.5 left-2 h-4 w-4 text-muted-foreground"
+                    />
+                    <Input
                         v-model="searchQuery"
-                        placeholder="Buscar por número o proveedor..." 
+                        placeholder="Buscar por número o proveedor..."
                         class="pl-8"
                         @keyup.enter="performSearch"
                     />
@@ -180,14 +246,8 @@ const getDisplayNumber = (purchase: Purchase) => {
 
             <!-- Purchases Table -->
             <Card>
-                <CardHeader class="flex flex-row items-center justify-between">
-                    <CardTitle>Compras</CardTitle>
-                    <Button as-child>
-                        <a href="/purchases/create">
-                            <Plus class="mr-2 h-4 w-4" />
-                            Nueva Compra
-                        </a>
-                    </Button>
+                <CardHeader>
+                    <CardTitle>Listado de Compras</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <Table>
@@ -199,26 +259,52 @@ const getDisplayNumber = (purchase: Purchase) => {
                                 <TableHead>Total</TableHead>
                                 <TableHead>Estado</TableHead>
                                 <TableHead>Fecha</TableHead>
-                                <TableHead class="text-right">Acciones</TableHead>
+                                <TableHead class="text-right"
+                                    >Acciones</TableHead
+                                >
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            <TableRow v-for="purchase in purchases.data" :key="purchase.id">
+                            <TableRow
+                                v-for="purchase in purchases.data"
+                                :key="purchase.id"
+                            >
                                 <TableCell class="font-medium">
                                     {{ getDisplayNumber(purchase) }}
                                 </TableCell>
-                                <TableCell>{{ purchase.partner.name }}</TableCell>
-                                <TableCell>{{ purchase.warehouse.name }}</TableCell>
+                                <TableCell>{{
+                                    purchase.partner.name
+                                }}</TableCell>
+                                <TableCell>{{
+                                    purchase.warehouse.name
+                                }}</TableCell>
                                 <TableCell class="font-mono">
-                                    S/ {{ parseFloat(purchase.total as any).toFixed(2) }}
+                                    S/
+                                    {{
+                                        parseFloat(
+                                            purchase.total as any,
+                                        ).toFixed(2)
+                                    }}
                                 </TableCell>
                                 <TableCell>
-                                    <Badge :variant="getStatusBadge(purchase.status).variant">
-                                        {{ getStatusBadge(purchase.status).label }}
+                                    <Badge
+                                        :variant="
+                                            getStatusBadge(purchase.status)
+                                                .variant
+                                        "
+                                    >
+                                        {{
+                                            getStatusBadge(purchase.status)
+                                                .label
+                                        }}
                                     </Badge>
                                 </TableCell>
                                 <TableCell>
-                                    {{ new Date(purchase.created_at).toLocaleDateString() }}
+                                    {{
+                                        new Date(
+                                            purchase.created_at,
+                                        ).toLocaleDateString()
+                                    }}
                                 </TableCell>
                                 <TableCell class="text-right">
                                     <div class="flex justify-end gap-2">
@@ -230,7 +316,9 @@ const getDisplayNumber = (purchase: Purchase) => {
                                             as-child
                                             title="Editar"
                                         >
-                                            <a :href="`/purchases/${purchase.id}/edit`">
+                                            <a
+                                                :href="`/purchases/${purchase.id}/edit`"
+                                            >
                                                 <Edit class="h-4 w-4" />
                                             </a>
                                         </Button>
@@ -273,7 +361,10 @@ const getDisplayNumber = (purchase: Purchase) => {
                         </TableBody>
                     </Table>
 
-                    <div v-if="purchases.data.length === 0" class="text-center py-8 text-muted-foreground">
+                    <div
+                        v-if="purchases.data.length === 0"
+                        class="py-8 text-center text-muted-foreground"
+                    >
                         No se encontraron compras
                     </div>
                 </CardContent>
@@ -286,13 +377,18 @@ const getDisplayNumber = (purchase: Purchase) => {
                 <AlertDialogHeader>
                     <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
                     <AlertDialogDescription>
-                        Esta acción eliminará la compra "{{ purchaseToDelete ? getDisplayNumber(purchaseToDelete) : '' }}" permanentemente.
-                        Esta acción no se puede deshacer.
+                        Esta acción eliminará la compra "{{
+                            purchaseToDelete
+                                ? getDisplayNumber(purchaseToDelete)
+                                : ''
+                        }}" permanentemente. Esta acción no se puede deshacer.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction @click="deletePurchase">Eliminar</AlertDialogAction>
+                    <AlertDialogAction @click="deletePurchase"
+                        >Eliminar</AlertDialogAction
+                    >
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>

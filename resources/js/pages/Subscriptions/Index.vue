@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import FormPageHeader from '@/components/FormPageHeader.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,7 +22,8 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import AppLayout from '@/layouts/AppLayout.vue';
-import { router } from '@inertiajs/vue3';
+import type { BreadcrumbItem } from '@/types';
+import { Head, router } from '@inertiajs/vue3';
 import { Filter, Search, Snowflake } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
@@ -96,6 +98,11 @@ interface Props {
 }
 
 const props = defineProps<Props>();
+
+const breadcrumbs: BreadcrumbItem[] = [
+    { title: 'Dashboard', href: '/dashboard' },
+    { title: 'Suscripciones', href: '/subscriptions' },
+];
 
 const searchQuery = ref(props.filters.search || '');
 const statusFilter = ref(props.filters.status || 'all');
@@ -173,18 +180,14 @@ const goToSubscription = (subscription: Subscription) => {
 </script>
 
 <template>
-    <AppLayout title="Suscripciones">
+    <Head title="Suscripciones" />
+    <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex flex-col gap-4 p-4">
-            <div class="flex items-center justify-between">
-                <div>
-                    <h1 class="text-3xl font-bold tracking-tight">
-                        Suscripciones
-                    </h1>
-                    <p class="text-muted-foreground">
-                        Panel administrativo de suscripciones y congelamientos
-                    </p>
-                </div>
-            </div>
+            <FormPageHeader
+                title="Suscripciones"
+                description="Panel administrativo de suscripciones y congelamientos"
+                :show-back="false"
+            />
 
             <Card>
                 <CardHeader>

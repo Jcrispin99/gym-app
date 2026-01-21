@@ -1,8 +1,13 @@
 <script setup lang="ts">
-
-import AppLayout from '@/layouts/AppLayout.vue';
+import FormPageHeader from '@/components/FormPageHeader.vue';
 import { Button } from '@/components/ui/button';
-import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -12,9 +17,10 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { Head, router, useForm } from '@inertiajs/vue3';
-import { ArrowLeft, Save, Clock, User as UserIcon } from 'lucide-vue-next';
+import AppLayout from '@/layouts/AppLayout.vue';
 import type { BreadcrumbItem } from '@/types';
+import { Head, useForm } from '@inertiajs/vue3';
+import { Clock, Save, User as UserIcon } from 'lucide-vue-next';
 
 interface Activity {
     description: string;
@@ -53,15 +59,20 @@ interface Customer {
 
 interface Props {
     customer: Customer;
-    activities: Activity[];
+    activities?: Activity[];
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+    activities: () => [],
+});
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
     { title: 'Clientes', href: '/customers' },
-    { title: `${props.customer.first_name} ${props.customer.last_name}`, href: `/customers/${props.customer.id}/edit` },
+    {
+        title: `${props.customer.first_name} ${props.customer.last_name}`,
+        href: `/customers/${props.customer.id}/edit`,
+    },
 ];
 
 const form = useForm({
@@ -104,24 +115,23 @@ const formatDate = (date: string) => {
 
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="p-4">
-            <!-- Header -->
-            <div class="mb-6 flex items-center justify-between">
-                <div>
-                    <h1 class="text-3xl font-bold tracking-tight">
-                        Editar Cliente
-                    </h1>
-                    <p class="text-muted-foreground">
-                        {{ customer.first_name }} {{ customer.last_name }}
-                    </p>
-                </div>
-                <Button variant="outline" @click="router.visit('/customers')">
-                    <ArrowLeft class="mr-2 h-4 w-4" />
-                    Volver
-                </Button>
-            </div>
+            <FormPageHeader
+                title="Editar Cliente"
+                :description="`${customer.first_name} ${customer.last_name}`"
+                back-href="/customers"
+            >
+                <template #actions>
+                    <Button @click="submit" :disabled="form.processing">
+                        <Save class="mr-2 h-4 w-4" />
+                        {{
+                            form.processing ? 'Guardando...' : 'Guardar Cambios'
+                        }}
+                    </Button>
+                </template>
+            </FormPageHeader>
 
             <!-- Layout -->
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
                 <!-- Main Form (Left) -->
                 <div class="lg:col-span-2">
                     <form @submit.prevent="submit" class="space-y-6">
@@ -133,28 +143,47 @@ const formatDate = (date: string) => {
                             <CardContent class="space-y-4">
                                 <div class="grid grid-cols-2 gap-4">
                                     <div>
-                                        <Label for="document_type">Tipo Documento *</Label>
+                                        <Label for="document_type"
+                                            >Tipo Documento *</Label
+                                        >
                                         <Select v-model="form.document_type">
                                             <SelectTrigger>
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="DNI">DNI</SelectItem>
-                                                <SelectItem value="RUC">RUC</SelectItem>
-                                                <SelectItem value="CE">Carnet Extranjería</SelectItem>
-                                                <SelectItem value="Passport">Pasaporte</SelectItem>
+                                                <SelectItem value="DNI"
+                                                    >DNI</SelectItem
+                                                >
+                                                <SelectItem value="RUC"
+                                                    >RUC</SelectItem
+                                                >
+                                                <SelectItem value="CE"
+                                                    >Carnet
+                                                    Extranjería</SelectItem
+                                                >
+                                                <SelectItem value="Passport"
+                                                    >Pasaporte</SelectItem
+                                                >
                                             </SelectContent>
                                         </Select>
                                     </div>
-                                    
+
                                     <div>
-                                        <Label for="document_number">Número Documento *</Label>
+                                        <Label for="document_number"
+                                            >Número Documento *</Label
+                                        >
                                         <Input
                                             id="document_number"
                                             v-model="form.document_number"
-                                            :class="{ 'border-red-500': form.errors.document_number }"
+                                            :class="{
+                                                'border-red-500':
+                                                    form.errors.document_number,
+                                            }"
                                         />
-                                        <p v-if="form.errors.document_number" class="text-sm text-red-500 mt-1">
+                                        <p
+                                            v-if="form.errors.document_number"
+                                            class="mt-1 text-sm text-red-500"
+                                        >
                                             {{ form.errors.document_number }}
                                         </p>
                                     </div>
@@ -162,25 +191,41 @@ const formatDate = (date: string) => {
 
                                 <div class="grid grid-cols-2 gap-4">
                                     <div>
-                                        <Label for="first_name">Nombres *</Label>
+                                        <Label for="first_name"
+                                            >Nombres *</Label
+                                        >
                                         <Input
                                             id="first_name"
                                             v-model="form.first_name"
-                                            :class="{ 'border-red-500': form.errors.first_name }"
+                                            :class="{
+                                                'border-red-500':
+                                                    form.errors.first_name,
+                                            }"
                                         />
-                                        <p v-if="form.errors.first_name" class="text-sm text-red-500 mt-1">
+                                        <p
+                                            v-if="form.errors.first_name"
+                                            class="mt-1 text-sm text-red-500"
+                                        >
                                             {{ form.errors.first_name }}
                                         </p>
                                     </div>
 
                                     <div>
-                                        <Label for="last_name">Apellidos *</Label>
+                                        <Label for="last_name"
+                                            >Apellidos *</Label
+                                        >
                                         <Input
                                             id="last_name"
                                             v-model="form.last_name"
-                                            :class="{ 'border-red-500': form.errors.last_name }"
+                                            :class="{
+                                                'border-red-500':
+                                                    form.errors.last_name,
+                                            }"
                                         />
-                                        <p v-if="form.errors.last_name" class="text-sm text-red-500 mt-1">
+                                        <p
+                                            v-if="form.errors.last_name"
+                                            class="mt-1 text-sm text-red-500"
+                                        >
                                             {{ form.errors.last_name }}
                                         </p>
                                     </div>
@@ -188,7 +233,9 @@ const formatDate = (date: string) => {
 
                                 <div class="grid grid-cols-3 gap-4">
                                     <div>
-                                        <Label for="birth_date">Fecha Nacimiento</Label>
+                                        <Label for="birth_date"
+                                            >Fecha Nacimiento</Label
+                                        >
                                         <Input
                                             id="birth_date"
                                             type="date"
@@ -200,12 +247,20 @@ const formatDate = (date: string) => {
                                         <Label for="gender">Género</Label>
                                         <Select v-model="form.gender">
                                             <SelectTrigger>
-                                                <SelectValue placeholder="Seleccionar..." />
+                                                <SelectValue
+                                                    placeholder="Seleccionar..."
+                                                />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="M">Masculino</SelectItem>
-                                                <SelectItem value="F">Femenino</SelectItem>
-                                                <SelectItem value="Other">Otro</SelectItem>
+                                                <SelectItem value="M"
+                                                    >Masculino</SelectItem
+                                                >
+                                                <SelectItem value="F"
+                                                    >Femenino</SelectItem
+                                                >
+                                                <SelectItem value="Other"
+                                                    >Otro</SelectItem
+                                                >
                                             </SelectContent>
                                         </Select>
                                     </div>
@@ -219,9 +274,15 @@ const formatDate = (date: string) => {
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="active">Activo</SelectItem>
-                                                <SelectItem value="inactive">Inactivo</SelectItem>
-                                                <SelectItem value="suspended">Suspendido</SelectItem>
+                                                <SelectItem value="active"
+                                                    >Activo</SelectItem
+                                                >
+                                                <SelectItem value="inactive"
+                                                    >Inactivo</SelectItem
+                                                >
+                                                <SelectItem value="suspended"
+                                                    >Suspendido</SelectItem
+                                                >
                                             </SelectContent>
                                         </Select>
                                     </div>
@@ -246,31 +307,51 @@ const formatDate = (date: string) => {
                                     </div>
                                     <div>
                                         <Label for="phone">Teléfono</Label>
-                                        <Input id="phone" v-model="form.phone" />
+                                        <Input
+                                            id="phone"
+                                            v-model="form.phone"
+                                        />
                                     </div>
                                     <div>
                                         <Label for="mobile">Celular</Label>
-                                        <Input id="mobile" v-model="form.mobile" />
+                                        <Input
+                                            id="mobile"
+                                            v-model="form.mobile"
+                                        />
                                     </div>
                                 </div>
 
                                 <div>
                                     <Label for="address">Dirección</Label>
-                                    <Input id="address" v-model="form.address" />
+                                    <Input
+                                        id="address"
+                                        v-model="form.address"
+                                    />
                                 </div>
 
                                 <div class="grid grid-cols-3 gap-4">
                                     <div>
                                         <Label for="district">Distrito</Label>
-                                        <Input id="district" v-model="form.district" />
+                                        <Input
+                                            id="district"
+                                            v-model="form.district"
+                                        />
                                     </div>
                                     <div>
                                         <Label for="province">Provincia</Label>
-                                        <Input id="province" v-model="form.province" />
+                                        <Input
+                                            id="province"
+                                            v-model="form.province"
+                                        />
                                     </div>
                                     <div>
-                                        <Label for="department">Departamento</Label>
-                                        <Input id="department" v-model="form.department" />
+                                        <Label for="department"
+                                            >Departamento</Label
+                                        >
+                                        <Input
+                                            id="department"
+                                            v-model="form.department"
+                                        />
                                     </div>
                                 </div>
                             </CardContent>
@@ -284,33 +365,30 @@ const formatDate = (date: string) => {
                             <CardContent class="space-y-4">
                                 <div class="grid grid-cols-2 gap-4">
                                     <div>
-                                        <Label for="emergency_contact_name">Nombre</Label>
+                                        <Label for="emergency_contact_name"
+                                            >Nombre</Label
+                                        >
                                         <Input
                                             id="emergency_contact_name"
-                                            v-model="form.emergency_contact_name"
+                                            v-model="
+                                                form.emergency_contact_name
+                                            "
                                         />
                                     </div>
                                     <div>
-                                        <Label for="emergency_contact_phone">Teléfono</Label>
+                                        <Label for="emergency_contact_phone"
+                                            >Teléfono</Label
+                                        >
                                         <Input
                                             id="emergency_contact_phone"
-                                            v-model="form.emergency_contact_phone"
+                                            v-model="
+                                                form.emergency_contact_phone
+                                            "
                                         />
                                     </div>
                                 </div>
                             </CardContent>
                         </Card>
-
-                        <!-- Actions -->
-                        <div class="flex justify-end gap-2">
-                            <Button type="button" variant="outline" @click="router.visit('/customers')">
-                                Cancelar
-                            </Button>
-                            <Button type="submit" :disabled="form.processing">
-                                <Save class="mr-2 h-4 w-4" />
-                                Guardar Cambios
-                            </Button>
-                        </div>
                     </form>
                 </div>
 
@@ -319,7 +397,9 @@ const formatDate = (date: string) => {
                     <Card class="sticky top-4">
                         <CardHeader>
                             <CardTitle>Historial de Cambios</CardTitle>
-                            <CardDescription>Últimas 20 actividades</CardDescription>
+                            <CardDescription
+                                >Últimas 20 actividades</CardDescription
+                            >
                         </CardHeader>
                         <CardContent>
                             <div class="space-y-4">
@@ -329,21 +409,35 @@ const formatDate = (date: string) => {
                                     class="flex gap-3 text-sm"
                                 >
                                     <div class="flex-shrink-0">
-                                        <Clock class="h-4 w-4 text-muted-foreground" />
+                                        <Clock
+                                            class="h-4 w-4 text-muted-foreground"
+                                        />
                                     </div>
                                     <div class="flex-1 space-y-1">
-                                        <p class="font-medium">{{ activity.description }}</p>
-                                        <p class="text-xs text-muted-foreground">
-                                            {{ formatDate(activity.created_at) }}
+                                        <p class="font-medium">
+                                            {{ activity.description }}
                                         </p>
-                                        <p v-if="activity.causer" class="text-xs text-muted-foreground flex items-center gap-1">
+                                        <p
+                                            class="text-xs text-muted-foreground"
+                                        >
+                                            {{
+                                                formatDate(activity.created_at)
+                                            }}
+                                        </p>
+                                        <p
+                                            v-if="activity.causer"
+                                            class="flex items-center gap-1 text-xs text-muted-foreground"
+                                        >
                                             <UserIcon class="h-3 w-3" />
                                             {{ activity.causer.name }}
                                         </p>
                                     </div>
                                 </div>
 
-                                <div v-if="activities.length === 0" class="text-center text-sm text-muted-foreground py-4">
+                                <div
+                                    v-if="activities.length === 0"
+                                    class="py-4 text-center text-sm text-muted-foreground"
+                                >
                                     No hay actividades registradas
                                 </div>
                             </div>
@@ -351,6 +445,6 @@ const formatDate = (date: string) => {
                     </Card>
                 </div>
             </div>
-            </div>
+        </div>
     </AppLayout>
 </template>

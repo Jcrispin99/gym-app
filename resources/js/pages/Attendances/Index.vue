@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import FormPageHeader from '@/components/FormPageHeader.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -18,7 +19,8 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import AppLayout from '@/layouts/AppLayout.vue';
-import { router } from '@inertiajs/vue3';
+import type { BreadcrumbItem } from '@/types';
+import { Head, router } from '@inertiajs/vue3';
 import { Calendar, Clock, LogOut, UserCheck } from 'lucide-vue-next';
 import { ref } from 'vue';
 
@@ -69,6 +71,11 @@ interface Attendance {
 }
 
 const props = defineProps<Props>();
+
+const breadcrumbs: BreadcrumbItem[] = [
+    { title: 'Dashboard', href: '/dashboard' },
+    { title: 'Asistencias', href: '/attendances' },
+];
 
 const search = ref(props.filters.search || '');
 const selectedDate = ref(
@@ -138,21 +145,21 @@ const getPartnerDisplayName = (partner: Attendance['partner']) => {
 </script>
 
 <template>
-    <AppLayout title="Asistencias">
+    <Head title="Asistencias" />
+    <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex flex-col gap-4 p-4">
-            <!-- Header -->
-            <div class="flex items-center justify-between">
-                <div>
-                    <h1 class="text-3xl font-bold">Asistencias</h1>
-                    <p class="text-muted-foreground">
-                        Historial de entradas y salidas
-                    </p>
-                </div>
-                <Button @click="router.visit('/attendances/check-in')">
-                    <UserCheck class="mr-2 h-4 w-4" />
-                    Registrar Asistencia
-                </Button>
-            </div>
+            <FormPageHeader
+                title="Asistencias"
+                description="Historial de entradas y salidas"
+                :show-back="false"
+            >
+                <template #actions>
+                    <Button @click="router.visit('/attendances/check-in')">
+                        <UserCheck class="mr-2 h-4 w-4" />
+                        Registrar Asistencia
+                    </Button>
+                </template>
+            </FormPageHeader>
 
             <!-- Stats Cards -->
             <div class="grid grid-cols-1 gap-6 md:grid-cols-3">

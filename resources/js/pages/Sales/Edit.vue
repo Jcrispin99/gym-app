@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import FormPageHeader from '@/components/FormPageHeader.vue';
 import ProductCombobox from '@/components/ProductCombobox.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -38,12 +39,12 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import type { BreadcrumbItem } from '@/types';
 import { Head, router, useForm } from '@inertiajs/vue3';
 import {
-    ArrowLeft,
     CheckCircle,
     Clock,
     FilePlus,
     MoreVertical,
     Plus,
+    Save,
     Send,
     Trash2,
     User,
@@ -326,23 +327,14 @@ const deleteThisSale = () => {
         <Head :title="`Editar Venta #${sale.id}`" />
 
         <div class="container mx-auto max-w-6xl p-4">
-            <!-- Header -->
-            <div class="mb-6 flex items-center justify-between">
-                <div class="flex items-center gap-4">
-                    <Button variant="ghost" size="icon" as-child>
-                        <a href="/sales">
-                            <ArrowLeft class="h-5 w-5" />
-                        </a>
-                    </Button>
-                    <div>
-                        <h1 class="text-2xl font-bold">Editar Venta</h1>
-                        <p class="text-sm text-muted-foreground">
-                            Venta #{{ sale.id }}
-                        </p>
-                    </div>
-                </div>
-                <div class="flex items-center gap-2">
+            <FormPageHeader
+                title="Editar Venta"
+                :description="`Venta #${sale.id}`"
+                back-href="/sales"
+            >
+                <template #actions>
                     <Button @click="submit" :disabled="submitDisabled">
+                        <Save class="mr-2 h-4 w-4" />
                         Guardar
                     </Button>
 
@@ -406,8 +398,8 @@ const deleteThisSale = () => {
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
-                </div>
-            </div>
+                </template>
+            </FormPageHeader>
 
             <!-- Alert para ventas publicadas -->
             <Alert v-if="!isEditable" class="mb-6">

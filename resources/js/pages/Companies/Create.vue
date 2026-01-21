@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import FormPageHeader from '@/components/FormPageHeader.vue';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -19,7 +20,7 @@ import {
 import AppLayout from '@/layouts/AppLayout.vue';
 import type { BreadcrumbItem } from '@/types';
 import { Head, router, useForm } from '@inertiajs/vue3';
-import { ArrowLeft, Save } from 'lucide-vue-next';
+import { Save } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 interface Props {
@@ -87,28 +88,18 @@ const submit = () => {
 
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="p-4">
-            <!-- Header -->
-            <div class="mb-6 flex items-center justify-between">
-                <div class="flex items-center gap-4">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        @click="router.visit('/companies')"
-                    >
-                        <ArrowLeft class="h-5 w-5" />
+            <FormPageHeader
+                title="Nueva Sucursal"
+                description="Crea una nueva compañía o sucursal"
+                back-href="/companies"
+            >
+                <template #actions>
+                    <Button @click="submit" :disabled="form.processing">
+                        <Save class="mr-2 h-4 w-4" />
+                        {{ form.processing ? 'Guardando...' : 'Guardar' }}
                     </Button>
-                    <div>
-                        <h1 class="text-3xl font-bold">Nueva Sucursal</h1>
-                        <p class="text-muted-foreground">
-                            Crea una nueva compañía o sucursal
-                        </p>
-                    </div>
-                </div>
-                <Button @click="submit" :disabled="form.processing">
-                    <Save class="mr-2 h-4 w-4" />
-                    {{ form.processing ? 'Guardando...' : 'Guardar' }}
-                </Button>
-            </div>
+                </template>
+            </FormPageHeader>
 
             <!-- Odoo-style Layout -->
             <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
