@@ -459,6 +459,15 @@ const selectClient = (client: Client) => {
     currentClient.value = client;
 };
 
+const handleClientCreated = (client: Client) => {
+    const index = clients.value.findIndex((c) => c.id === client.id);
+    if (index >= 0) {
+        clients.value.splice(index, 1, client);
+    } else {
+        clients.value.unshift(client);
+    }
+};
+
 const clearClient = () => {
     currentClient.value = null;
 };
@@ -737,8 +746,10 @@ const clearClient = () => {
         v-model:open="showClientModal"
         :selected-client="currentClient"
         :clients="clients"
+        :session-id="session.id"
         @select="selectClient"
         @clear="clearClient"
+        @client-created="handleClientCreated"
     />
 
     <!-- Credit Note Selector Modal -->
