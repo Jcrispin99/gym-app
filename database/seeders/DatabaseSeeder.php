@@ -34,16 +34,16 @@ class DatabaseSeeder extends Seeder
         $this->call(PartnerSeeder::class);
 
         // Seed membership plans
-        $this->call(MembershipPlanSeeder::class);
+        // $this->call(MembershipPlanSeeder::class);
 
         // Seed categories
-        $this->call(CategorySeeder::class);
+        // $this->call(CategorySeeder::class);
 
         // Seed attributes
-        $this->call(AttributeSeeder::class);
+        // $this->call(AttributeSeeder::class);
 
         // Seed products
-        $this->call(ProductSeeder::class);
+        // $this->call(ProductSeeder::class);
 
         // Seed POS configs
         $this->call(PosConfigSeeder::class);
