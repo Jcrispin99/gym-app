@@ -40,7 +40,7 @@ class CustomerController extends Controller
     }
 
     /**
-     * Store a newly created customer
+     * Store a newly created customer or update existing partner
      */
     public function store(Request $request)
     {
@@ -49,14 +49,7 @@ class CustomerController extends Controller
 
             // Documentos
             'document_type' => 'required|in:DNI,RUC,CE,Passport',
-            'document_number' => [
-                'required',
-                'string',
-                'max:20',
-                Rule::unique('partners', 'document_number')->where(
-                    fn ($q) => $q->where('document_type', $request->input('document_type'))
-                ),
-            ],
+            'document_number' => 'required|string|max:20', // Removed unique rule for upsert logic
 
             // Datos personales
             'first_name' => 'required|string|max:100',
@@ -66,6 +59,8 @@ class CustomerController extends Controller
             'mobile' => 'nullable|string|max:20',
             'address' => 'nullable|string',
             'district' => 'nullable|string|max:100',
+            'province' => 'nullable|string|max:100',
+            'department' => 'nullable|string|max:100',
             
             // Optional: Customers might have birthdays for marketing
             'birth_date' => 'nullable|date',
@@ -74,14 +69,26 @@ class CustomerController extends Controller
             'photo_url' => 'nullable|string',
         ]);
 
-        $validated['is_customer'] = true;
-        $validated['is_member'] = false; // Explicitly false unless upgraded later
-        $validated['status'] = 'active';
+        // Upsert Logic
+        $partner = Partner::where('document_type', $validated['document_type'])
+            ->where('document_number', $validated['document_number'])
+            ->first();
 
-        Partner::create($validated);
+        if ($partner) {
+            $partner->fill($validated);
+            $partner->is_customer = true;
+            $partner->save();
+            $message = 'Cliente actualizado exitosamente (Partner existente)';
+        } else {
+            $validated['is_customer'] = true;
+            $validated['is_member'] = false; // Default
+            $validated['status'] = 'active';
+            Partner::create($validated);
+            $message = 'Cliente registrado exitosamente';
+        }
 
         return redirect()->route('customers.index')
-            ->with('success', 'Cliente registrado exitosamente');
+            ->with('success', $message);
     }
 
     /**

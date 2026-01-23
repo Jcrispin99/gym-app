@@ -19,6 +19,8 @@ import {
 import AppLayout from '@/layouts/AppLayout.vue';
 
 import FormPageHeader from '@/components/FormPageHeader.vue';
+import PartnerLookupField from '@/components/PartnerLookupField.vue';
+import { usePartnerLookup } from '@/composables/usePartnerLookup';
 import type { BreadcrumbItem } from '@/types';
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { Save } from 'lucide-vue-next';
@@ -33,6 +35,8 @@ interface Props {
 }
 
 defineProps<Props>();
+
+const { handlePartnerFound } = usePartnerLookup();
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -59,6 +63,10 @@ const form = useForm({
     emergency_contact_phone: '',
     photo_url: '',
 });
+
+const onPartnerFound = (data: any) => {
+    handlePartnerFound(data, form);
+};
 
 const submit = () => {
     form.post('/customers', {
@@ -99,53 +107,14 @@ const submit = () => {
                                 >
                             </CardHeader>
                             <CardContent class="space-y-4">
-                                <div class="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <Label for="document_type"
-                                            >Tipo Documento *</Label
-                                        >
-                                        <Select v-model="form.document_type">
-                                            <SelectTrigger>
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="DNI"
-                                                    >DNI</SelectItem
-                                                >
-                                                <SelectItem value="RUC"
-                                                    >RUC</SelectItem
-                                                >
-                                                <SelectItem value="CE"
-                                                    >Carnet
-                                                    Extranjería</SelectItem
-                                                >
-                                                <SelectItem value="Passport"
-                                                    >Pasaporte</SelectItem
-                                                >
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-
-                                    <div>
-                                        <Label for="document_number"
-                                            >Número Documento *</Label
-                                        >
-                                        <Input
-                                            id="document_number"
-                                            v-model="form.document_number"
-                                            :class="{
-                                                'border-red-500':
-                                                    form.errors.document_number,
-                                            }"
-                                        />
-                                        <p
-                                            v-if="form.errors.document_number"
-                                            class="mt-1 text-sm text-red-500"
-                                        >
-                                            {{ form.errors.document_number }}
-                                        </p>
-                                    </div>
-                                </div>
+                                <PartnerLookupField
+                                    v-model:document-type="form.document_type"
+                                    v-model:document-number="
+                                        form.document_number
+                                    "
+                                    :error="form.errors.document_number"
+                                    @found="onPartnerFound"
+                                />
 
                                 <div class="grid grid-cols-2 gap-4">
                                     <div>

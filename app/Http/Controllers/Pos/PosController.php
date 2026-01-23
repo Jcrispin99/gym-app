@@ -895,13 +895,14 @@ class PosController extends Controller
         return response()->json($customers);
     }
 
-    public function apiPartnerLookup(Request $request)
+    public function apiPartnerLookup(Request $request, \App\Services\ApiPeruService $apiPeru)
     {
         $validated = $request->validate([
             'document_number' => 'required|string|max:20',
             'document_type' => 'nullable|in:DNI,RUC,CE,Passport',
         ]);
 
+        // 1. Try Local DB first
         $partner = Partner::query()
             ->when(! empty($validated['document_type'] ?? null), function ($q) use ($validated) {
                 $q->where('document_type', $validated['document_type']);
@@ -909,29 +910,82 @@ class PosController extends Controller
             ->where('document_number', $validated['document_number'])
             ->first();
 
-        if (! $partner) {
+        if ($partner) {
             return response()->json([
-                'found' => false,
+                'found' => true,
+                'source' => 'db',
+                'partner' => [
+                    'id' => $partner->id,
+                    'document_type' => $partner->document_type,
+                    'document_number' => $partner->document_number,
+                    'business_name' => $partner->business_name,
+                    'first_name' => $partner->first_name,
+                    'last_name' => $partner->last_name,
+                    'email' => $partner->email,
+                    'phone' => $partner->phone,
+                    'mobile' => $partner->mobile,
+                    'is_member' => (bool) $partner->is_member,
+                    'is_customer' => (bool) $partner->is_customer,
+                    'is_supplier' => (bool) $partner->is_supplier,
+                    'status' => $partner->status,
+                ],
             ]);
         }
 
+        // 2. Try External API (Sunat/Reniec)
+        // Only if type is DNI or RUC
+        $docType = $validated['document_type'] ?? null;
+        if (! $docType) {
+            $len = strlen($validated['document_number']);
+            if ($len === 8) $docType = 'DNI';
+            elseif ($len === 11) $docType = 'RUC';
+        }
+
+        if ($docType && in_array($docType, ['DNI', 'RUC'])) {
+            try {
+                $docTypeSlug = $docType === 'DNI' ? 'dni' : 'ruc';
+                $raw = $apiPeru->lookup($docTypeSlug, $validated['document_number']);
+                $payload = $raw['data'] ?? $raw;
+
+                $businessName = null;
+                $firstName = null;
+                $lastName = null;
+                $address = null;
+
+                if ($docType === 'DNI') {
+                    $firstName = $payload['nombres'] ?? null;
+                    $lastName = trim(($payload['apellido_paterno'] ?? $payload['apellidoPaterno'] ?? '') . ' ' . ($payload['apellido_materno'] ?? $payload['apellidoMaterno'] ?? ''));
+                    $address = $payload['direccion'] ?? null;
+                } else { // RUC
+                    $businessName = $payload['nombre_o_razon_social'] ?? ($payload['razonSocial'] ?? ($payload['nombre'] ?? ''));
+                    $address = $payload['direccion'] ?? ($payload['direccion_completa'] ?? null);
+                }
+
+                return response()->json([
+                    'found' => true,
+                    'source' => 'sunat',
+                    'partner' => [
+                        'id' => null, // New record
+                        'document_type' => $docType,
+                        'document_number' => $validated['document_number'],
+                        'business_name' => $businessName,
+                        'first_name' => $firstName,
+                        'last_name' => $lastName,
+                        'email' => null,
+                        'phone' => null,
+                        'mobile' => null,
+                        'address' => $address, // Frontend might not use this yet, but good to send
+                    ],
+                ]);
+
+            } catch (\Throwable $e) {
+                // Log error silently and return not found
+                Log::warning('External API lookup failed: ' . $e->getMessage());
+            }
+        }
+
         return response()->json([
-            'found' => true,
-            'partner' => [
-                'id' => $partner->id,
-                'document_type' => $partner->document_type,
-                'document_number' => $partner->document_number,
-                'business_name' => $partner->business_name,
-                'first_name' => $partner->first_name,
-                'last_name' => $partner->last_name,
-                'email' => $partner->email,
-                'phone' => $partner->phone,
-                'mobile' => $partner->mobile,
-                'is_member' => (bool) $partner->is_member,
-                'is_customer' => (bool) $partner->is_customer,
-                'is_supplier' => (bool) $partner->is_supplier,
-                'status' => $partner->status,
-            ],
+            'found' => false,
         ]);
     }
 

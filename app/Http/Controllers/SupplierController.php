@@ -40,7 +40,7 @@ class SupplierController extends Controller
     }
 
     /**
-     * Store a newly created supplier
+     * Store a newly created supplier or update existing partner
      */
     public function store(Request $request)
     {
@@ -49,14 +49,7 @@ class SupplierController extends Controller
 
             // Documents
             'document_type' => 'required|in:DNI,RUC,CE,Passport',
-            'document_number' => [
-                'required',
-                'string',
-                'max:20',
-                Rule::unique('partners', 'document_number')->where(
-                    fn ($q) => $q->where('document_type', $request->input('document_type'))
-                ),
-            ],
+            'document_number' => 'required|string|max:20', // Removed unique rule for upsert logic
 
             // Basic Info
             'business_name' => 'required_if:document_type,RUC|nullable|string|max:150',
@@ -80,19 +73,28 @@ class SupplierController extends Controller
             'notes' => 'nullable|string',
         ]);
 
-        // Force supplier flag
-        $validated['is_supplier'] = true;
-        // Ensure not a member unless explicitly set (which we aren't doing here)
-        $validated['is_member'] = false;
-        $validated['status'] = 'active';
+        // Upsert Logic: Check if partner exists
+        $partner = Partner::where('document_type', $validated['document_type'])
+            ->where('document_number', $validated['document_number'])
+            ->first();
 
-        // Auto-fill business name from name if not RUC, or vice versa if needed
-        // But for now we stick to standard Partner model logic
-
-        Partner::create($validated);
+        if ($partner) {
+            // Update existing partner
+            $partner->fill($validated);
+            $partner->is_supplier = true; // Activate supplier flag
+            $partner->save();
+            $message = 'Proveedor actualizado exitosamente (Partner existente)';
+        } else {
+            // Create new partner
+            $validated['is_supplier'] = true;
+            $validated['is_member'] = false; // Default
+            $validated['status'] = 'active';
+            Partner::create($validated);
+            $message = 'Proveedor registrado exitosamente';
+        }
 
         return redirect()->route('suppliers.index')
-            ->with('success', 'Proveedor registrado exitosamente');
+            ->with('success', $message);
     }
 
     /**

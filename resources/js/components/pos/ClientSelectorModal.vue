@@ -469,8 +469,18 @@ watch(
                                 <template
                                     v-else-if="partnerLookupStatus === 'found'"
                                 >
-                                    Encontrado: se actualizará y se marcará como
-                                    cliente.
+                                    <span
+                                        v-if="
+                                            newClientDocumentType === 'DNI' ||
+                                            newClientDocumentType === 'RUC'
+                                        "
+                                        class="font-medium text-green-600"
+                                    >
+                                        ¡Datos encontrados!
+                                    </span>
+                                    <span v-else>
+                                        Cliente encontrado en el sistema.
+                                    </span>
                                 </template>
                                 <template
                                     v-else-if="

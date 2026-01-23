@@ -36,6 +36,9 @@ Route::middleware(['auth'])->group(function () {
     // Product search API
     Route::get('/api/products/search', [\App\Http\Controllers\Api\ProductApiController::class, 'search'])->name('products.search');
     Route::get('/api/products/{id}', [\App\Http\Controllers\Api\ProductApiController::class, 'show'])->name('products.show');
+
+    // Sunat/Reniec Lookup API
+    Route::get('/api/sunat/lookup', [\App\Http\Controllers\Api\PartnerLookupController::class, 'lookup'])->name('api.sunat.lookup');
 });
 
 // Users pages

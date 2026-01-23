@@ -40,7 +40,7 @@ class MemberController extends Controller
     }
 
     /**
-     * Store a newly created member in storage
+     * Store a newly created member or update existing partner
      */
     public function store(Request $request)
     {
@@ -49,14 +49,7 @@ class MemberController extends Controller
 
             // Documentos
             'document_type' => 'required|in:DNI,RUC,CE,Passport',
-            'document_number' => [
-                'required',
-                'string',
-                'max:20',
-                Rule::unique('partners', 'document_number')->where(
-                    fn ($q) => $q->where('document_type', $request->input('document_type'))
-                ),
-            ],
+            'document_number' => 'required|string|max:20', // Removed unique rule for upsert logic
 
             // Datos personales
             'first_name' => 'required|string|max:100',
@@ -88,13 +81,25 @@ class MemberController extends Controller
             'photo_url' => 'nullable|string',
         ]);
 
-        $validated['is_member'] = true;
-        $validated['status'] = 'active';
+        // Upsert Logic
+        $partner = Partner::where('document_type', $validated['document_type'])
+            ->where('document_number', $validated['document_number'])
+            ->first();
 
-        Partner::create($validated);
+        if ($partner) {
+            $partner->fill($validated);
+            $partner->is_member = true;
+            $partner->save();
+            $message = 'Miembro actualizado exitosamente (Partner existente)';
+        } else {
+            $validated['is_member'] = true;
+            $validated['status'] = 'active';
+            Partner::create($validated);
+            $message = 'Miembro registrado exitosamente';
+        }
 
         return redirect()->route('members.index')
-            ->with('success', 'Miembro registrado exitosamente');
+            ->with('success', $message);
     }
 
     /**
