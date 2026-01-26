@@ -6,6 +6,7 @@ use App\Models\MembershipPlan;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Spatie\Activitylog\Models\Activity;
+use Illuminate\Support\Str;
 
 class MembershipPlanController extends Controller
 {
@@ -59,6 +60,45 @@ class MembershipPlanController extends Controller
         ]);
 
         $plan = MembershipPlan::create($validated);
+
+        // --- Crear Producto Asociado (Oculto) ---
+        // 1. Obtener categoría Suscripciones
+        $category = \App\Models\Category::firstOrCreate(
+            ['slug' => Str::slug('Suscripciones')],
+            [
+                'name' => 'Suscripciones',
+                'full_name' => 'Suscripciones',
+                'description' => 'Productos internos para planes y suscripciones.',
+                'is_active' => false,
+            ]
+        );
+
+        // 2. Crear Product Template (Oculto)
+        $template = \App\Models\ProductTemplate::create([
+            'name' => "Plan: {$plan->name}",
+            'description' => $plan->description,
+            'price' => $plan->price,
+            'category_id' => $category->id,
+            'is_active' => true,
+            'is_pos_visible' => false, // Oculto en POS
+            'tracks_inventory' => false,
+        ]);
+
+        // 3. Crear Variante
+        $variant = \App\Models\ProductProduct::create([
+            'product_template_id' => $template->id,
+            'sku' => null,
+            'barcode' => null,
+            'price' => $plan->price,
+            'cost_price' => 0,
+            'is_principal' => true,
+        ]);
+
+        // 4. Vincular al Plan
+        $plan->update([
+            'product_product_id' => $variant->id,
+        ]);
+        // ----------------------------------------
 
         activity()
             ->performedOn($plan)
