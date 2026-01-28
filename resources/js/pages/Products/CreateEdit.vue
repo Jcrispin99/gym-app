@@ -45,9 +45,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/AppLayout.vue';
 import type { BreadcrumbItem } from '@/types';
-import { Head, useForm } from '@inertiajs/vue3';
+import { Head, router, usePage } from '@inertiajs/vue3';
+import axios from 'axios';
 import { Clock, Save, User, X } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 
 interface Category {
     id: number;
@@ -104,26 +105,26 @@ interface Activity {
     };
 }
 
-interface Props {
-    product?: Product;
-    categories: Category[];
-    attributes: Attribute[];
-    activities?: Activity[];
-}
-
-const props = withDefaults(defineProps<Props>(), {
-    categories: () => [],
-    attributes: () => [],
-    activities: () => [],
+const page = usePage();
+const productId = computed(() => {
+    const m = page.url.match(/\/products\/(\d+)/);
+    return m ? Number(m[1]) : null;
 });
 
-const isEditing = computed(() => !!props.product);
+const isEditing = computed(() => productId.value !== null);
+
+const product = ref<Product | null>(null);
+const categories = ref<Category[]>([]);
+const attributes = ref<Attribute[]>([]);
+const activities = ref<Activity[]>([]);
 
 const breadcrumbs = computed<BreadcrumbItem[]>(() => {
     const current = isEditing.value
         ? {
-              title: props.product!.name,
-              href: `/products/${props.product!.id}/edit`,
+              title: product.value?.name || 'Editar',
+              href: productId.value
+                  ? `/products/${productId.value}/edit`
+                  : '/products',
           }
         : { title: 'Nuevo Producto', href: '/products/create' };
 
@@ -134,19 +135,21 @@ const breadcrumbs = computed<BreadcrumbItem[]>(() => {
     ];
 });
 
-const form = useForm({
-    name: props.product?.name || '',
-    description: props.product?.description || '',
-    price: props.product?.price || 0,
-    category_id: props.product?.category_id || null,
-    is_active: props.product?.is_active ?? true,
-    sku: props.product?.sku || '',
-    barcode: props.product?.barcode || '',
+const form = reactive({
+    name: '',
+    description: '',
+    price: 0,
+    category_id: null as number | null,
+    is_active: true,
+    sku: '',
+    barcode: '',
     image: null as File | null,
     additionalImages: [] as File[],
-    existingImageIds: props.product?.images?.map((img) => img.id) || [],
+    existingImageIds: [] as number[],
     attributeLines: [] as { attribute_id: number; values: string[] }[],
     generatedVariants: [] as any[],
+    processing: false,
+    errors: {} as Record<string, string>,
 });
 
 const activeTab = ref('general');
@@ -212,7 +215,7 @@ const updateAttributeLines = () => {
     form.attributeLines = Object.entries(attributeSelections.value)
         .filter(([, valueIds]) => valueIds.length > 0) // Solo incluir si tiene valores seleccionados
         .map(([attrId, valueIds]) => {
-            const attribute = props.attributes.find(
+            const attribute = attributes.value.find(
                 (a) => a.id === parseInt(attrId),
             );
             if (!attribute) return null;
@@ -240,21 +243,24 @@ const updateAttributeLines = () => {
 };
 
 const getAttributeName = (attributeId: number): string => {
-    return props.attributes.find((a) => a.id === attributeId)?.name || '';
+    return attributes.value.find((a) => a.id === attributeId)?.name || '';
 };
 
 // ============================================
 // INICIALIZACIÓN AL EDITAR PRODUCTO EXISTENTE
 // ============================================
-if (
-    isEditing.value &&
-    props.product?.product_products &&
-    props.product.product_products.length > 0
-) {
-    // Paso 1: Reconstruir attributeSelections desde las variantes existentes
-    const attributeMap: Record<number, Set<number>> = {};
+const hydrateFromProduct = (p: Product) => {
+    form.name = p.name || '';
+    form.description = p.description || '';
+    form.price = p.price || 0;
+    form.category_id = p.category_id || null;
+    form.is_active = p.is_active ?? true;
+    form.sku = p.sku || '';
+    form.barcode = p.barcode || '';
+    form.existingImageIds = p.images?.map((img: any) => img.id) || [];
 
-    props.product.product_products.forEach((variant) => {
+    const attributeMap: Record<number, Set<number>> = {};
+    p.product_products?.forEach((variant) => {
         if (variant.attribute_values && variant.attribute_values.length > 0) {
             variant.attribute_values.forEach((attrValue: any) => {
                 if (!attributeMap[attrValue.attribute_id]) {
@@ -265,15 +271,14 @@ if (
         }
     });
 
-    // Convertir Sets a arrays y asignar a attributeSelections
+    attributeSelections.value = {};
     Object.entries(attributeMap).forEach(([attrId, valueIds]) => {
         attributeSelections.value[parseInt(attrId)] = Array.from(valueIds);
     });
 
-    // Paso 2: Construir attributeLines manualmente (sin llamar updateAttributeLines)
     form.attributeLines = Object.entries(attributeMap)
         .map(([attrId, valueIds]) => {
-            const attribute = props.attributes.find(
+            const attribute = attributes.value.find(
                 (a) => a.id === parseInt(attrId),
             );
             if (!attribute) return null;
@@ -294,13 +299,11 @@ if (
         })
         .filter(Boolean) as { attribute_id: number; values: string[] }[];
 
-    // Paso 3: Reconstruir form.generatedVariants desde variantes existentes
-    form.generatedVariants = props.product.product_products.map((variant) => {
-        const attributes: Record<number, string> = {};
-
+    form.generatedVariants = (p.product_products || []).map((variant) => {
+        const variantAttributes: Record<number, string> = {};
         if (variant.attribute_values) {
             variant.attribute_values.forEach((attrValue: any) => {
-                attributes[attrValue.attribute_id] = attrValue.value;
+                variantAttributes[attrValue.attribute_id] = attrValue.value;
             });
         }
 
@@ -309,10 +312,10 @@ if (
             barcode: variant.barcode || '',
             price: variant.price,
             stock: variant.stock,
-            attributes,
+            attributes: variantAttributes,
         };
     });
-}
+};
 
 // Cartesian product helper (for generating variants)
 const generateVariants = () => {
@@ -373,17 +376,128 @@ function cartesianProduct(
     return result;
 }
 
-const submit = () => {
-    if (isEditing.value) {
-        form.put(`/products/${props.product!.id}`, {
-            forceFormData: true,
+const submit = async () => {
+    form.processing = true;
+    form.errors = {};
+
+    try {
+        const payload: any = {
+            name: form.name,
+            description: form.description || null,
+            price: form.price,
+            category_id: form.category_id,
+            is_active: form.is_active,
+            sku: form.sku || null,
+            barcode: form.barcode || null,
+            existingImageIds: form.existingImageIds,
+            attributeLines: form.attributeLines,
+            generatedVariants: form.generatedVariants,
+        };
+
+        const headers = {
+            Accept: 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+        };
+
+        if (isEditing.value && productId.value) {
+            const response = await axios.put(
+                `/api/product-templates/${productId.value}`,
+                payload,
+                { headers },
+            );
+            product.value = response.data?.data as Product;
+            if (product.value) {
+                hydrateFromProduct(product.value);
+            }
+            return;
+        }
+
+        const response = await axios.post('/api/product-templates', payload, {
+            headers,
         });
-    } else {
-        form.post('/products', {
-            forceFormData: true,
-        });
+        product.value = response.data?.data as Product;
+        if (product.value?.id) {
+            router.visit(`/products/${product.value.id}/edit`);
+        }
+    } catch (e: any) {
+        if (e?.response?.status === 422) {
+            form.errors = e.response.data?.errors || {};
+        } else {
+            console.error('Error saving product:', e);
+        }
+    } finally {
+        form.processing = false;
     }
 };
+
+const loadCategories = async () => {
+    try {
+        const response = await axios.get('/api/categories', {
+            headers: {
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        });
+        categories.value = (response.data?.data || []) as Category[];
+    } catch (e) {
+        console.error('Error loading categories:', e);
+        categories.value = [];
+    }
+};
+
+const loadAttributes = async () => {
+    try {
+        const response = await axios.get('/api/attributes', {
+            params: { with_values: 1 },
+            headers: {
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        });
+        attributes.value = (response.data?.data || []) as Attribute[];
+    } catch (e) {
+        console.error('Error loading attributes:', e);
+        attributes.value = [];
+    }
+};
+
+const loadProduct = async () => {
+    if (!productId.value) return;
+
+    try {
+        const response = await axios.get(
+            `/api/product-templates/${productId.value}`,
+            {
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            },
+        );
+        product.value = response.data?.data as Product;
+        if (product.value) {
+            hydrateFromProduct(product.value);
+        }
+    } catch (e) {
+        console.error('Error loading product:', e);
+        product.value = null;
+    }
+};
+
+const loadActivities = () => {
+    const fromProps = (page.props as any)?.activities;
+    if (Array.isArray(fromProps)) {
+        activities.value = fromProps as Activity[];
+    }
+};
+
+onMounted(async () => {
+    await Promise.all([loadCategories(), loadAttributes()]);
+    loadActivities();
+    if (isEditing.value) {
+        await loadProduct();
+    }
+});
 
 const formatDate = (date: string) => {
     return new Date(date).toLocaleString('es-PE', {
@@ -397,14 +511,16 @@ const formatDate = (date: string) => {
 </script>
 
 <template>
-    <Head :title="isEditing ? `Editar ${product!.name}` : 'Nuevo Producto'" />
+    <Head
+        :title="isEditing ? `Editar ${product?.name || ''}` : 'Nuevo Producto'"
+    />
 
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex flex-col gap-4 p-4">
             <FormPageHeader
                 :title="isEditing ? 'Editar Producto' : 'Nuevo Producto'"
                 :description="
-                    isEditing ? product!.name : 'Crea un nuevo producto'
+                    isEditing ? product?.name || '' : 'Crea un nuevo producto'
                 "
                 back-href="/products"
             >
@@ -425,10 +541,18 @@ const formatDate = (date: string) => {
             <!-- Form con sidebar de historial -->
             <div
                 class="grid grid-cols-1"
-                :class="isEditing && activities ? 'lg:grid-cols-3' : ''"
+                :class="
+                    isEditing && activities.length > 0 ? 'lg:grid-cols-3' : ''
+                "
             >
                 <!-- Main Content-->
-                <div :class="isEditing && activities ? 'lg:col-span-2' : ''">
+                <div
+                    :class="
+                        isEditing && activities.length > 0
+                            ? 'lg:col-span-2'
+                            : ''
+                    "
+                >
                     <form @submit.prevent="submit">
                         <Tabs v-model="activeTab" class="w-full">
                             <TabsList class="grid w-full grid-cols-3">

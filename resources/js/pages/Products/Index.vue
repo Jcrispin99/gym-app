@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Spinner } from '@/components/ui/spinner';
 import {
     Table,
     TableBody,
@@ -25,8 +26,9 @@ import {
 import AppLayout from '@/layouts/AppLayout.vue';
 import type { BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/vue3';
+import axios from 'axios';
 import { Edit, Package, Plus, Power, Search, Trash2 } from 'lucide-vue-next';
-import { ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 
 interface Category {
     id: number;
@@ -53,69 +55,125 @@ interface Product {
     created_at: string;
 }
 
-interface PaginationLink {
-    url: string | null;
-    label: string;
-    active: boolean;
-}
-
-interface Props {
-    products: {
-        data: Product[];
-        current_page: number;
-        last_page: number;
-        per_page: number;
-        total: number;
-        links: PaginationLink[];
-    };
-}
-
-const props = defineProps<Props>();
-
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
     { title: 'Productos', href: '/products' },
 ];
 
+const products = ref<Product[]>([]);
+const meta = ref({
+    current_page: 1,
+    last_page: 1,
+    per_page: 20,
+    total: 0,
+});
+const isLoading = ref(false);
 const deleteDialogOpen = ref(false);
 const productToDelete = ref<Product | null>(null);
+const deleteError = ref<string | null>(null);
 const searchQuery = ref('');
+const currentPage = ref(1);
 
 const openDeleteDialog = (product: Product) => {
     productToDelete.value = product;
+    deleteError.value = null;
     deleteDialogOpen.value = true;
 };
 
-const deleteProduct = () => {
-    if (productToDelete.value) {
-        router.delete(`/products/${productToDelete.value.id}`, {
-            onSuccess: () => {
-                deleteDialogOpen.value = false;
-                productToDelete.value = null;
+const loadProducts = async () => {
+    isLoading.value = true;
+    try {
+        const response = await axios.get('/api/product-templates', {
+            params: {
+                search: searchQuery.value || undefined,
+                page: currentPage.value,
+                per_page: meta.value.per_page,
+            },
+            headers: {
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
             },
         });
+        products.value = (response.data?.data || []) as Product[];
+        meta.value = response.data?.meta || meta.value;
+    } catch (e) {
+        console.error('Error loading products:', e);
+        products.value = [];
+        meta.value = { ...meta.value, total: 0, last_page: 1, current_page: 1 };
+    } finally {
+        isLoading.value = false;
     }
 };
 
-const toggleStatus = (product: Product) => {
-    router.post(
-        `/products/${product.id}/toggle-status`,
-        {},
-        {
-            preserveScroll: true,
-        },
-    );
+const deleteProduct = async () => {
+    const target = productToDelete.value;
+    if (!target) return;
+
+    deleteError.value = null;
+    try {
+        await axios.delete(`/api/product-templates/${target.id}`, {
+            headers: {
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        });
+        products.value = products.value.filter((p) => p.id !== target.id);
+        meta.value = { ...meta.value, total: Math.max(0, meta.value.total - 1) };
+        deleteDialogOpen.value = false;
+        productToDelete.value = null;
+    } catch (e: any) {
+        if (e?.response?.status === 422) {
+            deleteError.value =
+                e.response.data?.errors?.product ||
+                e.response.data?.errors?.productTemplate ||
+                'No se pudo eliminar.';
+        } else {
+            console.error('Error deleting product:', e);
+            deleteError.value = 'No se pudo eliminar.';
+        }
+    }
 };
 
-const search = () => {
-    router.get(
-        '/products',
-        { search: searchQuery.value },
-        {
-            preserveState: true,
-            preserveScroll: true,
-        },
-    );
+const toggleStatus = async (product: Product) => {
+    try {
+        const response = await axios.post(
+            `/api/product-templates/${product.id}/toggle-status`,
+            {},
+            {
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            },
+        );
+        const updated = response.data?.data as Product;
+        const index = products.value.findIndex((p) => p.id === product.id);
+        if (index >= 0) {
+            products.value.splice(index, 1, { ...products.value[index], ...updated });
+        }
+    } catch (e) {
+        console.error('Error toggling product status:', e);
+    }
+};
+
+const search = async () => {
+    currentPage.value = 1;
+    await loadProducts();
+};
+
+const canPrev = computed(() => currentPage.value > 1);
+const canNext = computed(() => currentPage.value < meta.value.last_page);
+
+const goPrev = async () => {
+    if (!canPrev.value) return;
+    currentPage.value -= 1;
+    await loadProducts();
+};
+
+const goNext = async () => {
+    if (!canNext.value) return;
+    currentPage.value += 1;
+    await loadProducts();
 };
 
 const getTotalStock = (product: Product): number => {
@@ -128,6 +186,8 @@ const formatPrice = (price: number): string => {
         currency: 'PEN',
     }).format(price);
 };
+
+onMounted(loadProducts);
 </script>
 
 <template>
@@ -161,7 +221,7 @@ const formatPrice = (price: number): string => {
                     </CardHeader>
                     <CardContent>
                         <div class="text-2xl font-bold">
-                            {{ products.total }}
+                            {{ meta.total }}
                         </div>
                     </CardContent>
                 </Card>
@@ -177,7 +237,7 @@ const formatPrice = (price: number): string => {
                     </CardHeader>
                     <CardContent>
                         <div class="text-2xl font-bold">
-                            {{ products.data.length }}
+                            {{ products.length }}
                         </div>
                     </CardContent>
                 </Card>
@@ -193,8 +253,8 @@ const formatPrice = (price: number): string => {
                     </CardHeader>
                     <CardContent>
                         <div class="text-2xl font-bold">
-                            {{ products.current_page }} /
-                            {{ products.last_page }}
+                            {{ meta.current_page }} /
+                            {{ meta.last_page }}
                         </div>
                     </CardContent>
                 </Card>
@@ -239,13 +299,20 @@ const formatPrice = (price: number): string => {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            <TableRow v-if="products.data.length === 0">
+                            <TableRow v-if="products.length === 0">
                                 <TableCell colspan="9" class="text-center">
-                                    No se encontraron productos
+                                    <span
+                                        v-if="isLoading"
+                                        class="inline-flex items-center gap-2"
+                                    >
+                                        <Spinner />
+                                        Cargando...
+                                    </span>
+                                    <span v-else>No se encontraron productos</span>
                                 </TableCell>
                             </TableRow>
                             <TableRow
-                                v-for="product in products.data"
+                                v-for="product in products"
                                 :key="product.id"
                             >
                                 <TableCell>
@@ -387,19 +454,26 @@ const formatPrice = (price: number): string => {
                     <!-- Pagination -->
                     <div class="mt-4 flex items-center justify-between">
                         <div class="text-sm text-muted-foreground">
-                            Mostrando {{ products.data.length }} de
-                            {{ products.total }} productos
+                            Mostrando {{ products.length }} de
+                            {{ meta.total }} productos
                         </div>
                         <div class="flex gap-1">
                             <Button
-                                v-for="link in products.links"
-                                :key="link.label"
-                                :variant="link.active ? 'default' : 'outline'"
+                                variant="outline"
                                 size="sm"
-                                :disabled="!link.url"
-                                @click="link.url && router.visit(link.url)"
-                                v-html="link.label"
-                            />
+                                :disabled="!canPrev || isLoading"
+                                @click="goPrev"
+                            >
+                                Anterior
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                :disabled="!canNext || isLoading"
+                                @click="goNext"
+                            >
+                                Siguiente
+                            </Button>
                         </div>
                     </div>
                 </CardContent>
@@ -416,6 +490,9 @@ const formatPrice = (price: number): string => {
                         producto
                         <strong>{{ productToDelete?.name }}</strong> y todas sus
                         variantes.
+                    </AlertDialogDescription>
+                    <AlertDialogDescription v-if="deleteError" class="text-destructive">
+                        {{ deleteError }}
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>

@@ -15,6 +15,13 @@ class Category extends Model
         'is_active',
     ];
 
+    protected function casts(): array
+    {
+        return [
+            'is_active' => 'boolean',
+        ];
+    }
+
     public function parent()
     {
         return $this->belongsTo(Category::class, 'parent_id');

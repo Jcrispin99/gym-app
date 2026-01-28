@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Spinner } from '@/components/ui/spinner';
 import {
     Table,
     TableBody,
@@ -25,6 +26,7 @@ import {
 import AppLayout from '@/layouts/AppLayout.vue';
 import type { BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/vue3';
+import axios from 'axios';
 import {
     Edit,
     MapPin,
@@ -33,11 +35,12 @@ import {
     Trash2,
     Warehouse as WarehouseIcon,
 } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 
 interface Company {
     id: number;
-    name: string;
+    business_name?: string | null;
+    trade_name?: string | null;
 }
 
 interface Warehouse {
@@ -48,59 +51,84 @@ interface Warehouse {
     created_at: string;
 }
 
-interface Props {
-    warehouses: Warehouse[];
-}
-
-const props = defineProps<Props>();
-
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
     { title: 'Almacenes', href: '/warehouses' },
 ];
 
+const warehouses = ref<Warehouse[]>([]);
+const isLoading = ref(false);
 const deleteDialogOpen = ref(false);
 const warehouseToDelete = ref<Warehouse | null>(null);
 const searchQuery = ref('');
+
+const companyLabel = (company: Company) => {
+    return (
+        company.trade_name || company.business_name || `Empresa ${company.id}`
+    );
+};
+
+const loadWarehouses = async () => {
+    isLoading.value = true;
+    try {
+        const response = await axios.get('/api/warehouses', {
+            headers: { Accept: 'application/json' },
+        });
+        warehouses.value = (response.data?.data || []) as Warehouse[];
+    } catch (e) {
+        console.error('Error loading warehouses:', e);
+        warehouses.value = [];
+    } finally {
+        isLoading.value = false;
+    }
+};
 
 const openDeleteDialog = (warehouse: Warehouse) => {
     warehouseToDelete.value = warehouse;
     deleteDialogOpen.value = true;
 };
 
-const deleteWarehouse = () => {
-    if (warehouseToDelete.value) {
-        router.delete(`/warehouses/${warehouseToDelete.value.id}`, {
-            onSuccess: () => {
-                deleteDialogOpen.value = false;
-                warehouseToDelete.value = null;
-            },
+const deleteWarehouse = async () => {
+    const target = warehouseToDelete.value;
+    if (!target) return;
+
+    try {
+        await axios.delete(`/api/warehouses/${target.id}`, {
+            headers: { Accept: 'application/json' },
         });
+        warehouses.value = warehouses.value.filter((w) => w.id !== target.id);
+    } catch (e) {
+        console.error('Error deleting warehouse:', e);
+    } finally {
+        deleteDialogOpen.value = false;
+        warehouseToDelete.value = null;
     }
 };
 
 const filteredWarehouses = computed(() => {
     if (!searchQuery.value) {
-        return props.warehouses;
+        return warehouses.value;
     }
 
     const query = searchQuery.value.toLowerCase();
-    return props.warehouses.filter(
+    return warehouses.value.filter(
         (warehouse) =>
             warehouse.name.toLowerCase().includes(query) ||
             warehouse.location?.toLowerCase().includes(query) ||
-            warehouse.company.name.toLowerCase().includes(query),
+            companyLabel(warehouse.company).toLowerCase().includes(query),
     );
 });
 
 const uniqueCompanies = computed(() => {
-    const companies = new Set(props.warehouses.map((w) => w.company.id));
+    const companies = new Set(warehouses.value.map((w) => w.company.id));
     return companies.size;
 });
 
 const totalLocations = computed(() => {
-    return props.warehouses.filter((w) => w.location).length;
+    return warehouses.value.filter((w) => w.location).length;
 });
+
+onMounted(loadWarehouses);
 </script>
 
 <template>
@@ -206,7 +234,16 @@ const totalLocations = computed(() => {
                         <TableBody>
                             <TableRow v-if="filteredWarehouses.length === 0">
                                 <TableCell colspan="4" class="text-center">
-                                    No se encontraron almacenes
+                                    <span
+                                        v-if="isLoading"
+                                        class="inline-flex items-center gap-2"
+                                    >
+                                        <Spinner />
+                                        Cargando...
+                                    </span>
+                                    <span v-else
+                                        >No se encontraron almacenes</span
+                                    >
                                 </TableCell>
                             </TableRow>
                             <TableRow
@@ -231,7 +268,7 @@ const totalLocations = computed(() => {
                                 </TableCell>
                                 <TableCell>
                                     <Badge variant="secondary">
-                                        {{ warehouse.company.name }}
+                                        {{ companyLabel(warehouse.company) }}
                                     </Badge>
                                 </TableCell>
                                 <TableCell class="text-right">

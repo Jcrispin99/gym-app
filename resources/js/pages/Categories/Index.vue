@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Spinner } from '@/components/ui/spinner';
 import {
     Table,
     TableBody,
@@ -25,8 +26,9 @@ import {
 import AppLayout from '@/layouts/AppLayout.vue';
 import type { BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/vue3';
+import axios from 'axios';
 import { Edit, Folder, Plus, Power, Search, Trash2 } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 
 interface Category {
     id: number;
@@ -43,54 +45,97 @@ interface Category {
     created_at: string;
 }
 
-interface Props {
-    categories: Category[];
-}
-
-const props = defineProps<Props>();
-
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
     { title: 'Categorías', href: '/categories' },
 ];
 
+const categories = ref<Category[]>([]);
+const isLoading = ref(false);
 const deleteDialogOpen = ref(false);
 const categoryToDelete = ref<Category | null>(null);
+const deleteError = ref<string | null>(null);
 const searchQuery = ref('');
 
 const openDeleteDialog = (category: Category) => {
     categoryToDelete.value = category;
+    deleteError.value = null;
     deleteDialogOpen.value = true;
 };
 
-const deleteCategory = () => {
-    if (categoryToDelete.value) {
-        router.delete(`/categories/${categoryToDelete.value.id}`, {
-            onSuccess: () => {
-                deleteDialogOpen.value = false;
-                categoryToDelete.value = null;
+const loadCategories = async () => {
+    isLoading.value = true;
+    try {
+        const response = await axios.get('/api/categories', {
+            headers: {
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
             },
         });
+        categories.value = (response.data?.data || []) as Category[];
+    } catch (e) {
+        console.error('Error loading categories:', e);
+        categories.value = [];
+    } finally {
+        isLoading.value = false;
     }
 };
 
-const toggleStatus = (category: Category) => {
-    router.post(
-        `/categories/${category.id}/toggle-status`,
-        {},
-        {
-            preserveScroll: true,
-        },
-    );
+const deleteCategory = async () => {
+    const target = categoryToDelete.value;
+    if (!target) return;
+
+    deleteError.value = null;
+    try {
+        await axios.delete(`/api/categories/${target.id}`, {
+            headers: {
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        });
+        categories.value = categories.value.filter((c) => c.id !== target.id);
+        deleteDialogOpen.value = false;
+        categoryToDelete.value = null;
+    } catch (e: any) {
+        if (e?.response?.status === 422) {
+            deleteError.value =
+                e.response.data?.errors?.category || 'No se pudo eliminar.';
+        } else {
+            console.error('Error deleting category:', e);
+            deleteError.value = 'No se pudo eliminar.';
+        }
+    }
+};
+
+const toggleStatus = async (category: Category) => {
+    try {
+        const response = await axios.post(
+            `/api/categories/${category.id}/toggle-status`,
+            {},
+            {
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            },
+        );
+        const updated = response.data?.data as Category;
+        const index = categories.value.findIndex((c) => c.id === category.id);
+        if (index >= 0) {
+            categories.value.splice(index, 1, updated);
+        }
+    } catch (e) {
+        console.error('Error toggling category status:', e);
+    }
 };
 
 const filteredCategories = computed(() => {
     if (!searchQuery.value) {
-        return props.categories;
+        return categories.value;
     }
 
     const query = searchQuery.value.toLowerCase();
-    return props.categories.filter(
+    return categories.value.filter(
         (category) =>
             category.name.toLowerCase().includes(query) ||
             category.slug.toLowerCase().includes(query) ||
@@ -105,6 +150,8 @@ const rootCategories = computed(() => {
 const activeCategories = computed(() => {
     return filteredCategories.value.filter((c) => c.is_active);
 });
+
+onMounted(loadCategories);
 </script>
 
 <template>
@@ -212,7 +259,14 @@ const activeCategories = computed(() => {
                         <TableBody>
                             <TableRow v-if="filteredCategories.length === 0">
                                 <TableCell colspan="6" class="text-center">
-                                    No se encontraron categorías
+                                    <span
+                                        v-if="isLoading"
+                                        class="inline-flex items-center gap-2"
+                                    >
+                                        <Spinner />
+                                        Cargando...
+                                    </span>
+                                    <span v-else>No se encontraron categorías</span>
                                 </TableCell>
                             </TableRow>
                             <TableRow
@@ -323,6 +377,9 @@ const activeCategories = computed(() => {
                         categoría
                         <strong>{{ categoryToDelete?.name }}</strong
                         >.
+                    </AlertDialogDescription>
+                    <AlertDialogDescription v-if="deleteError" class="text-destructive">
+                        {{ deleteError }}
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>

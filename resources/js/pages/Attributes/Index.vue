@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Spinner } from '@/components/ui/spinner';
 import {
     Table,
     TableBody,
@@ -25,8 +26,9 @@ import {
 import AppLayout from '@/layouts/AppLayout.vue';
 import type { BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/vue3';
+import axios from 'axios';
 import { Edit, Plus, Power, Search, Tag, Trash2 } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 
 interface AttributeValue {
     id: number;
@@ -41,17 +43,13 @@ interface Attribute {
     created_at: string;
 }
 
-interface Props {
-    attributes: Attribute[];
-}
-
-const props = defineProps<Props>();
-
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
     { title: 'Atributos', href: '/attributes' },
 ];
 
+const attributes = ref<Attribute[]>([]);
+const isLoading = ref(false);
 const deleteDialogOpen = ref(false);
 const attributeToDelete = ref<Attribute | null>(null);
 const searchQuery = ref('');
@@ -61,34 +59,66 @@ const openDeleteDialog = (attribute: Attribute) => {
     deleteDialogOpen.value = true;
 };
 
-const deleteAttribute = () => {
-    if (attributeToDelete.value) {
-        router.delete(`/attributes/${attributeToDelete.value.id}`, {
-            onSuccess: () => {
-                deleteDialogOpen.value = false;
-                attributeToDelete.value = null;
+const loadAttributes = async () => {
+    isLoading.value = true;
+    try {
+        const response = await axios.get('/api/attributes', {
+            params: { with_values: 1 },
+            headers: {
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
             },
         });
+        attributes.value = (response.data?.data || []) as Attribute[];
+    } catch (e) {
+        console.error('Error loading attributes:', e);
+        attributes.value = [];
+    } finally {
+        isLoading.value = false;
     }
 };
 
-const toggleStatus = (attribute: Attribute) => {
-    router.post(
-        `/attributes/${attribute.id}/toggle-status`,
-        {},
-        {
-            preserveScroll: true,
-        },
-    );
+const deleteAttribute = async () => {
+    const target = attributeToDelete.value;
+    if (!target) return;
+
+    try {
+        await axios.delete(`/api/attributes/${target.id}`, {
+            headers: { Accept: 'application/json' },
+        });
+        attributes.value = attributes.value.filter((a) => a.id !== target.id);
+    } catch (e) {
+        console.error('Error deleting attribute:', e);
+    } finally {
+        deleteDialogOpen.value = false;
+        attributeToDelete.value = null;
+    }
+};
+
+const toggleStatus = async (attribute: Attribute) => {
+    try {
+        const response = await axios.post(
+            `/api/attributes/${attribute.id}/toggle-status`,
+            {},
+            { headers: { Accept: 'application/json' } },
+        );
+        const updated = response.data?.data as Attribute;
+        const index = attributes.value.findIndex((a) => a.id === attribute.id);
+        if (index >= 0) {
+            attributes.value.splice(index, 1, updated);
+        }
+    } catch (e) {
+        console.error('Error toggling attribute status:', e);
+    }
 };
 
 const filteredAttributes = computed(() => {
     if (!searchQuery.value) {
-        return props.attributes;
+        return attributes.value;
     }
 
     const query = searchQuery.value.toLowerCase();
-    return props.attributes.filter((attribute) =>
+    return attributes.value.filter((attribute) =>
         attribute.name.toLowerCase().includes(query),
     );
 });
@@ -98,11 +128,13 @@ const activeAttributes = computed(() => {
 });
 
 const totalValues = computed(() => {
-    return props.attributes.reduce(
+    return attributes.value.reduce(
         (sum, attr) => sum + attr.attribute_values.length,
         0,
     );
 });
+
+onMounted(loadAttributes);
 </script>
 
 <template>
@@ -207,7 +239,16 @@ const totalValues = computed(() => {
                         <TableBody>
                             <TableRow v-if="filteredAttributes.length === 0">
                                 <TableCell colspan="5" class="text-center">
-                                    No se encontraron atributos
+                                    <span
+                                        v-if="isLoading"
+                                        class="inline-flex items-center gap-2"
+                                    >
+                                        <Spinner />
+                                        Cargando...
+                                    </span>
+                                    <span v-else
+                                        >No se encontraron atributos</span
+                                    >
                                 </TableCell>
                             </TableRow>
                             <TableRow
@@ -220,9 +261,7 @@ const totalValues = computed(() => {
                                 <TableCell>
                                     <div class="flex flex-wrap gap-1">
                                         <Badge
-                                            v-for="(
-                                                value, index
-                                            ) in attribute.attribute_values.slice(
+                                            v-for="value in attribute.attribute_values.slice(
                                                 0,
                                                 5,
                                             )"
@@ -250,9 +289,7 @@ const totalValues = computed(() => {
                                 </TableCell>
                                 <TableCell>
                                     <span class="text-sm text-muted-foreground">
-                                        {{
-                                            attribute.attribute_values.length
-                                        }}
+                                        {{ attribute.attribute_values.length }}
                                         valores
                                     </span>
                                 </TableCell>

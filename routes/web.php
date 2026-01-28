@@ -98,23 +98,57 @@ Route::middleware(['auth', 'staff'])->group(function () {
 
 // Attributes routes
 Route::middleware(['auth', 'staff'])->group(function () {
-    Route::resource('attributes', \App\Http\Controllers\AttributeController::class);
-    Route::post('attributes/{attribute}/toggle-status', [\App\Http\Controllers\AttributeController::class, 'toggleStatus'])
-        ->name('attributes.toggle-status');
+    Route::get('attributes', function () {
+        return Inertia::render('Attributes/Index');
+    })->name('attributes.index');
+
+    Route::get('attributes/create', function () {
+        return Inertia::render('Attributes/FormPage', [
+            'mode' => 'create',
+        ]);
+    })->name('attributes.create');
+
+    Route::get('attributes/{attribute}/edit', function (string $attribute) {
+        return Inertia::render('Attributes/FormPage', [
+            'mode' => 'edit',
+            'attribute_id' => (int) $attribute,
+        ]);
+    })->name('attributes.edit');
 });
 
 // Products routes
 Route::middleware(['auth', 'staff'])->group(function () {
-    Route::resource('products', \App\Http\Controllers\ProductController::class);
-    Route::post('products/{product}/toggle-status', [\App\Http\Controllers\ProductController::class, 'toggleStatus'])
-        ->name('products.toggle-status');
+    Route::get('products', function () {
+        return Inertia::render('Products/Index');
+    })->name('products.index');
+
+    Route::get('products/create', function () {
+        return Inertia::render('Products/CreateEdit');
+    })->name('products.create');
+
+    Route::get('products/{product}/edit', function () {
+        return Inertia::render('Products/CreateEdit');
+    })->name('products.edit');
 });
 
 // Categories routes
 Route::middleware(['auth', 'staff'])->group(function () {
-    Route::resource('categories', \App\Http\Controllers\CategoryController::class);
-    Route::post('categories/{category}/toggle-status', [\App\Http\Controllers\CategoryController::class, 'toggleStatus'])
-        ->name('categories.toggle-status');
+    Route::get('categories', function () {
+        return Inertia::render('Categories/Index');
+    })->name('categories.index');
+
+    Route::get('categories/create', function () {
+        return Inertia::render('Categories/FormPage', [
+            'mode' => 'create',
+        ]);
+    })->name('categories.create');
+
+    Route::get('categories/{category}/edit', function (string $category) {
+        return Inertia::render('Categories/FormPage', [
+            'mode' => 'edit',
+            'category_id' => (int) $category,
+        ]);
+    })->name('categories.edit');
 });
 
 // Attendances routes
@@ -135,7 +169,22 @@ require __DIR__ . '/settings.php';
 
 // Warehouses routes
 Route::middleware(['auth'])->group(function () {
-    Route::resource('warehouses', \App\Http\Controllers\WarehouseController::class);
+    Route::get('warehouses', function () {
+        return Inertia::render('Warehouses/Index');
+    })->name('warehouses.index');
+
+    Route::get('warehouses/create', function () {
+        return Inertia::render('Warehouses/FormPage', [
+            'mode' => 'create',
+        ]);
+    })->name('warehouses.create');
+
+    Route::get('warehouses/{warehouse}/edit', function (string $warehouse) {
+        return Inertia::render('Warehouses/FormPage', [
+            'mode' => 'edit',
+            'warehouse_id' => (int) $warehouse,
+        ]);
+    })->name('warehouses.edit');
 });
 
 // Journals routes

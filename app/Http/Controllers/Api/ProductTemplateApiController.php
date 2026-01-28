@@ -1,29 +1,30 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Controller;
 use App\Models\Attribute;
 use App\Models\AttributeValue;
-use App\Models\Category;
 use App\Models\ProductTemplate;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
-use Inertia\Inertia;
-use Spatie\Activitylog\Models\Activity;
 
-class ProductController extends Controller
+class ProductTemplateApiController extends Controller
 {
-    /**
-     * Display a listing of products
-     */
     public function index(Request $request)
     {
+        $validated = $request->validate([
+            'search' => 'nullable|string|max:255',
+            'per_page' => 'nullable|integer|min:1|max:100',
+        ]);
+
+        $perPage = (int) ($validated['per_page'] ?? 20);
+
         $query = ProductTemplate::with(['productProducts', 'mainImage', 'category']);
 
-        if ($request->has('search') && $request->search) {
-            $search = $request->search;
+        if (!empty($validated['search'])) {
+            $search = $validated['search'];
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
                     ->orWhereHas('productProducts', function ($variantQuery) use ($search) {
@@ -38,31 +39,36 @@ class ProductController extends Controller
             });
         }
 
-        $products = $query->latest()->paginate(20);
+        $products = $query->latest()->paginate($perPage);
         $products->getCollection()->each->append(['image', 'sku', 'barcode']);
 
-        return Inertia::render('Products/Index', compact('products'));
+        return response()->json([
+            'data' => $products->items(),
+            'meta' => [
+                'current_page' => $products->currentPage(),
+                'last_page' => $products->lastPage(),
+                'per_page' => $products->perPage(),
+                'total' => $products->total(),
+            ],
+        ]);
     }
 
-    /**
-     * Show the form for creating a new product
-     */
-    public function create()
+    public function show(ProductTemplate $productTemplate)
     {
-        $categories = Category::with('parent')->get();
-        $attributes = Attribute::with('attributeValues')->get();
+        $productTemplate->load([
+            'category',
+            'images',
+            'mainImage',
+            'productProducts.attributeValues.attribute',
+        ]);
 
-        // Debug
-        Log::info('ProductController@create - Categories count: ' . $categories->count());
-        Log::info('ProductController@create - Attributes count: ' . $attributes->count());
-        Log::info('ProductController@create - Attributes: ' . json_encode($attributes));
+        $productTemplate->append(['image', 'sku', 'barcode']);
 
-        return Inertia::render('Products/CreateEdit', compact('categories', 'attributes'));
+        return response()->json([
+            'data' => $productTemplate,
+        ]);
     }
 
-    /**
-     * Store a newly created product with its variants
-     */
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -70,7 +76,9 @@ class ProductController extends Controller
             'description' => 'nullable|string',
             'price' => 'required|numeric',
             'category_id' => 'required|exists:categories,id',
-            'is_active' => 'boolean',
+            'is_active' => 'nullable|boolean',
+            'is_pos_visible' => 'nullable|boolean',
+            'tracks_inventory' => 'nullable|boolean',
             'sku' => 'nullable|string|max:255',
             'barcode' => 'nullable|string|max:255',
             'image' => 'nullable|image|max:10240',
@@ -81,48 +89,52 @@ class ProductController extends Controller
             'category_id' => 'categoría',
         ]);
 
-        DB::transaction(function () use ($request, $data) {
-            // 1. Create product template
-            $product = ProductTemplate::create([
+        /** @var ProductTemplate $productTemplate */
+        $productTemplate = DB::transaction(function () use ($request, $data) {
+            $productTemplate = ProductTemplate::create([
                 'name' => $data['name'],
                 'description' => $data['description'] ?? null,
                 'price' => $data['price'],
                 'category_id' => $data['category_id'],
                 'is_active' => $data['is_active'] ?? true,
+                'is_pos_visible' => $data['is_pos_visible'] ?? true,
+                'tracks_inventory' => $data['tracks_inventory'] ?? true,
             ]);
 
-            // 2. Save main image
             if ($request->hasFile('image')) {
                 $path = $request->file('image')->store('images/products', 'public');
-                $product->images()->create([
+                $productTemplate->images()->create([
                     'path' => $path,
                 ]);
             }
 
-            // 3. Save additional images
             if ($request->hasFile('additionalImages')) {
                 foreach ($request->file('additionalImages') as $imageFile) {
                     $path = $imageFile->store('images/products', 'public');
-                    $product->images()->create([
+                    $productTemplate->images()->create([
                         'path' => $path,
                         'size' => $imageFile->getSize(),
                     ]);
                 }
             }
 
-            // 4. Create AttributeValues if they don't exist (firstOrCreate)
-            if (! empty($data['attributeLines'])) {
+            if (!empty($data['attributeLines'])) {
                 foreach ($data['attributeLines'] as $line) {
-                    if (empty($line['attribute_id']) || empty($line['values'])) {
+                    if (empty($line['attribute_id']) || empty($line['values']) || !is_array($line['values'])) {
                         continue;
                     }
 
                     $attribute = Attribute::find($line['attribute_id']);
-                    if (! $attribute) {
+                    if (!$attribute) {
                         continue;
                     }
 
                     foreach ($line['values'] as $valueName) {
+                        $valueName = trim((string) $valueName);
+                        if ($valueName === '') {
+                            continue;
+                        }
+
                         AttributeValue::firstOrCreate([
                             'attribute_id' => $attribute->id,
                             'value' => $valueName,
@@ -131,116 +143,69 @@ class ProductController extends Controller
                 }
             }
 
-            // 5A. If there are generated variants:
-            if (! empty($data['generatedVariants'])) {
+            $createdVariantIds = [];
+
+            if (!empty($data['generatedVariants'])) {
                 foreach ($data['generatedVariants'] as $index => $variantData) {
-                    $productProduct = $product->productProducts()->create([
+                    $productProduct = $productTemplate->productProducts()->create([
                         'sku' => $variantData['sku'] ?? null,
                         'barcode' => $variantData['barcode'] ?? null,
-                        'price' => $variantData['price'] ?? $product->price,
-                        'stock' => $variantData['stock'] ?? 0,
+                        'price' => $variantData['price'] ?? $productTemplate->price,
+                        'cost_price' => $variantData['cost_price'] ?? 0,
                         'is_principal' => $index === 0,
                     ]);
 
-                    if (! empty($variantData['attributes'])) {
+                    $createdVariantIds[] = $productProduct->id;
+
+                    if (!empty($variantData['attributes']) && is_array($variantData['attributes'])) {
                         foreach ($variantData['attributes'] as $attributeId => $valueName) {
                             $attributeValue = AttributeValue::where('attribute_id', $attributeId)
                                 ->where('value', $valueName)
                                 ->first();
 
                             if ($attributeValue) {
-                                $productProduct->attributeValues()->attach($attributeValue->id);
+                                $productProduct->attributeValues()->syncWithoutDetaching([$attributeValue->id]);
                             }
                         }
                     }
                 }
-            } else {
-                // 5B. If NO variants (simple product):
-                $product->productProducts()->create([
+            }
+
+            if (empty($createdVariantIds)) {
+                $productTemplate->productProducts()->create([
                     'sku' => $data['sku'] ?? null,
                     'barcode' => $data['barcode'] ?? null,
                     'price' => $data['price'],
-                    'stock' => 0,
+                    'cost_price' => 0,
                     'is_principal' => true,
                 ]);
             }
+            return $productTemplate;
         });
 
-        return redirect()->route('products.index')
-            ->with('success', 'Producto creado exitosamente');
-    }
-
-    /**
-     * Display the specified product
-     */
-    public function show(ProductTemplate $product)
-    {
-        $product->load([
-            'productProducts' => function ($query) {
-                $query->orderBy('is_principal', 'desc');
-            },
-            'productProducts.attributeValues',
+        $productTemplate->load([
+            'category',
+            'mainImage',
             'images',
+            'productProducts.attributeValues.attribute',
         ]);
+        $productTemplate->append(['image', 'sku', 'barcode']);
 
-        return Inertia::render('Products/Show', [
-            'product' => $product,
-        ]);
+        return response()->json([
+            'data' => $productTemplate,
+        ], 201);
     }
 
-    /**
-     * Show the form for editing the specified product
-     */
-    public function edit(ProductTemplate $product)
-    {
-        $product->load([
-            'productProducts' => function ($query) {
-                $query->orderBy('is_principal', 'desc');
-            },
-            'productProducts.attributeValues',
-            'images',
-        ]);
-
-        // Ensure there's a principal variant
-        if ($product->productProducts->isNotEmpty()) {
-            $hasPrincipal = $product->productProducts->where('is_principal', true)->isNotEmpty();
-            if (! $hasPrincipal) {
-                $firstVariant = $product->productProducts->first();
-                $firstVariant->update(['is_principal' => true]);
-                $product->load([
-                    'productProducts' => function ($query) {
-                        $query->orderBy('is_principal', 'desc');
-                    },
-                    'productProducts.attributeValues',
-                ]);
-            }
-        }
-
-        // Get activity log
-        $activities = Activity::forSubject($product)
-            ->with('causer')
-            ->latest()
-            ->take(20)
-            ->get();
-
-        $categories = Category::with('parent')->get();
-        $attributes = Attribute::with('attributeValues')->get();
-        $product->append(['image', 'sku', 'barcode']);
-
-        return Inertia::render('Products/CreateEdit', compact('product', 'categories', 'attributes', 'activities'));
-    }
-
-    /**
-     * Update the specified product and its variants
-     */
-    public function update(Request $request, ProductTemplate $product)
+    public function update(Request $request, ProductTemplate $productTemplate)
     {
         $data = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'price' => 'required|numeric',
             'category_id' => 'required|exists:categories,id',
-            'is_active' => 'boolean',
+            'is_active' => 'nullable|boolean',
+            'is_pos_visible' => 'nullable|boolean',
+            'tracks_inventory' => 'nullable|boolean',
             'sku' => 'nullable|string|max:255',
             'barcode' => 'nullable|string|max:255',
             'image' => 'nullable|image|max:10240',
@@ -252,42 +217,41 @@ class ProductController extends Controller
             'category_id' => 'categoría',
         ]);
 
-        DB::transaction(function () use ($request, $product, $data) {
-            // 1. Update product template
-            $product->update([
+        DB::transaction(function () use ($request, $productTemplate, $data) {
+            $productTemplate->update([
                 'name' => $data['name'],
                 'description' => $data['description'] ?? null,
                 'price' => $data['price'],
                 'category_id' => $data['category_id'],
-                'is_active' => $data['is_active'] ?? true,
+                'is_active' => $data['is_active'] ?? $productTemplate->is_active,
+                'is_pos_visible' => $data['is_pos_visible'] ?? $productTemplate->is_pos_visible,
+                'tracks_inventory' => $data['tracks_inventory'] ?? $productTemplate->tracks_inventory,
             ]);
 
             $mainImageId = null;
 
-            // 2. Handle main image (replace or create)
             if ($request->hasFile('image')) {
                 $path = $request->file('image')->store('images/products', 'public');
-                $mainImage = $product->images()->first();
+                $mainImage = $productTemplate->images()->oldest()->first();
 
                 if ($mainImage) {
                     Storage::disk('public')->delete($mainImage->path);
                     $mainImage->update(['path' => $path]);
                     $mainImageId = $mainImage->id;
                 } else {
-                    $newImage = $product->images()->create(['path' => $path]);
+                    $newImage = $productTemplate->images()->create(['path' => $path]);
                     $mainImageId = $newImage->id;
                 }
             } else {
-                $mainImage = $product->images()->first();
+                $mainImage = $productTemplate->images()->oldest()->first();
                 if ($mainImage) {
                     $mainImageId = $mainImage->id;
                 }
             }
 
-            // 3. Delete additional images not sent (existingImageIds)
             if ($request->has('existingImageIds')) {
                 $existingIds = $request->input('existingImageIds', []);
-                $product->images()
+                $productTemplate->images()
                     ->whereNotIn('id', $existingIds)
                     ->when($mainImageId, function ($query) use ($mainImageId) {
                         return $query->where('id', '!=', $mainImageId);
@@ -298,30 +262,33 @@ class ProductController extends Controller
                     });
             }
 
-            // 4. Add new additional images
             if ($request->hasFile('additionalImages')) {
                 foreach ($request->file('additionalImages') as $imageFile) {
                     $path = $imageFile->store('images/products', 'public');
-                    $product->images()->create([
+                    $productTemplate->images()->create([
                         'path' => $path,
                         'size' => $imageFile->getSize(),
                     ]);
                 }
             }
 
-            // 5. Create new AttributeValues if they don't exist
-            if (! empty($data['attributeLines'])) {
+            if (!empty($data['attributeLines'])) {
                 foreach ($data['attributeLines'] as $line) {
-                    if (empty($line['attribute_id']) || empty($line['values'])) {
+                    if (empty($line['attribute_id']) || empty($line['values']) || !is_array($line['values'])) {
                         continue;
                     }
 
                     $attribute = Attribute::find($line['attribute_id']);
-                    if (! $attribute) {
+                    if (!$attribute) {
                         continue;
                     }
 
                     foreach ($line['values'] as $valueName) {
+                        $valueName = trim((string) $valueName);
+                        if ($valueName === '') {
+                            continue;
+                        }
+
                         AttributeValue::firstOrCreate([
                             'attribute_id' => $attribute->id,
                             'value' => $valueName,
@@ -330,66 +297,55 @@ class ProductController extends Controller
                 }
             }
 
-            // 6A. If there are generated variants:
-            if (! empty($data['generatedVariants'])) {
-                $existingVariants = $product->productProducts()->with('attributeValues')->get();
+            if (!empty($data['generatedVariants'])) {
+                $existingVariants = $productTemplate->productProducts()->with('attributeValues')->get();
                 $processedIds = [];
+                $signatureMap = [];
+
+                foreach ($existingVariants as $variant) {
+                    $attributes = [];
+                    foreach ($variant->attributeValues as $av) {
+                        $attributes[$av->attribute_id] = $av->value;
+                    }
+                    ksort($attributes);
+                    $signatureMap[json_encode($attributes)] = $variant;
+                }
 
                 foreach ($data['generatedVariants'] as $variantData) {
-                    // Create "signature" of the variant (JSON of sorted attributes)
-                    $attributeKey = '';
-                    if (! empty($variantData['attributes'])) {
-                        ksort($variantData['attributes']);
-                        $attributeKey = json_encode($variantData['attributes']);
+                    $attributes = [];
+                    if (!empty($variantData['attributes']) && is_array($variantData['attributes'])) {
+                        $attributes = $variantData['attributes'];
+                        ksort($attributes);
                     }
+                    $signature = json_encode($attributes);
 
-                    // Search for existing variant with that signature
-                    $existingVariant = null;
-                    foreach ($existingVariants as $ev) {
-                        $evAttributes = [];
-                        if ($ev->attributeValues) {
-                            foreach ($ev->attributeValues as $av) {
-                                $evAttributes[$av->attribute_id] = $av->value;
-                            }
-                            ksort($evAttributes);
-                        }
-                        $evKey = json_encode($evAttributes);
+                    $existing = $signatureMap[$signature] ?? null;
 
-                        if ($evKey === $attributeKey) {
-                            $existingVariant = $ev;
-                            break;
-                        }
-                    }
-
-                    if ($existingVariant) {
-                        // UPDATE existing variant
-                        $existingVariant->update([
+                    if ($existing) {
+                        $existing->update([
                             'sku' => $variantData['sku'] ?? null,
                             'barcode' => $variantData['barcode'] ?? null,
-                            'price' => $variantData['price'] ?? $product->price,
+                            'price' => $variantData['price'] ?? $productTemplate->price,
+                            'cost_price' => $variantData['cost_price'] ?? $existing->cost_price,
                         ]);
-                        $processedIds[] = $existingVariant->id;
+                        $processedIds[] = $existing->id;
                     } else {
-                        // CREATE new variant
-                        $hasPrincipalExisting = $existingVariants->where('is_principal', true)->isNotEmpty();
-                        $shouldBePrincipal = count($processedIds) === 0 && ! $hasPrincipalExisting;
-
-                        $productProduct = $product->productProducts()->create([
+                        $productProduct = $productTemplate->productProducts()->create([
                             'sku' => $variantData['sku'] ?? null,
                             'barcode' => $variantData['barcode'] ?? null,
-                            'price' => $variantData['price'] ?? $product->price,
-                            'stock' => $variantData['stock'] ?? 0,
-                            'is_principal' => $shouldBePrincipal,
+                            'price' => $variantData['price'] ?? $productTemplate->price,
+                            'cost_price' => $variantData['cost_price'] ?? 0,
+                            'is_principal' => false,
                         ]);
 
-                        if (! empty($variantData['attributes'])) {
+                        if (!empty($variantData['attributes']) && is_array($variantData['attributes'])) {
                             foreach ($variantData['attributes'] as $attributeId => $valueName) {
                                 $attributeValue = AttributeValue::where('attribute_id', $attributeId)
                                     ->where('value', $valueName)
                                     ->first();
 
                                 if ($attributeValue) {
-                                    $productProduct->attributeValues()->attach($attributeValue->id);
+                                    $productProduct->attributeValues()->syncWithoutDetaching([$attributeValue->id]);
                                 }
                             }
                         }
@@ -398,11 +354,14 @@ class ProductController extends Controller
                     }
                 }
 
-                // DELETE variants not processed (they no longer exist)
-                $product->productProducts()->whereNotIn('id', $processedIds)->delete();
+                $productTemplate->productProducts()->whereNotIn('id', $processedIds)->delete();
+
+                $remaining = $productTemplate->productProducts()->get();
+                if ($remaining->isNotEmpty() && $remaining->where('is_principal', true)->isEmpty()) {
+                    $remaining->first()->update(['is_principal' => true]);
+                }
             } else {
-                // 6B. If NO variants (simple product):
-                $existingVariant = $product->productProducts()->first();
+                $existingVariant = $productTemplate->productProducts()->first();
                 if ($existingVariant) {
                     $existingVariant->update([
                         'sku' => $data['sku'] ?? null,
@@ -411,42 +370,56 @@ class ProductController extends Controller
                         'is_principal' => true,
                     ]);
                 } else {
-                    $product->productProducts()->create([
+                    $productTemplate->productProducts()->create([
                         'sku' => $data['sku'] ?? null,
                         'barcode' => $data['barcode'] ?? null,
                         'price' => $data['price'],
-                        'stock' => 0,
+                        'cost_price' => 0,
                         'is_principal' => true,
                     ]);
                 }
             }
         });
 
-        return redirect()->route('products.edit', $product)
-            ->with('success', 'Producto actualizado exitosamente');
+        $productTemplate->load([
+            'category',
+            'mainImage',
+            'images',
+            'productProducts.attributeValues.attribute',
+        ]);
+        $productTemplate->append(['image', 'sku', 'barcode']);
+
+        return response()->json([
+            'data' => $productTemplate,
+        ]);
     }
 
-    /**
-     * Remove the specified product and its variants
-     */
-    public function destroy(ProductTemplate $product)
+    public function destroy(ProductTemplate $productTemplate)
     {
-        $product->productProducts()->delete();
-        $product->delete();
+        if ($productTemplate->productProducts()->exists()) {
+            $productTemplate->productProducts()->delete();
+        }
 
-        return redirect()->route('products.index')
-            ->with('success', 'Producto eliminado exitosamente');
+        $productTemplate->images()->each(function ($image) {
+            Storage::disk('public')->delete($image->path);
+            $image->delete();
+        });
+
+        $productTemplate->delete();
+
+        return response()->json([
+            'ok' => true,
+        ]);
     }
 
-    /**
-     * Toggle product active status
-     */
-    public function toggleStatus(ProductTemplate $product)
+    public function toggleStatus(ProductTemplate $productTemplate)
     {
-        $product->update([
-            'is_active' => ! $product->is_active,
+        $productTemplate->update([
+            'is_active' => ! $productTemplate->is_active,
         ]);
 
-        return back()->with('success', 'Estado actualizado exitosamente');
+        return response()->json([
+            'data' => $productTemplate->fresh()->load('category'),
+        ]);
     }
 }
