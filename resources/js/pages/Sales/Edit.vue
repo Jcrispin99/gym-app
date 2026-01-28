@@ -110,12 +110,23 @@ interface ProductLine {
     tax_id: number | null;
 }
 
+interface RelatedSaleLink {
+    id: number;
+    document: string;
+    status: 'draft' | 'posted' | 'cancelled';
+    doc_type: string;
+    journal_code?: string | null;
+    partner_name?: string | null;
+}
+
 interface Props {
     sale: Sale;
-    activities: Activity[]; // Controller currently doesn't pass activities but ideally should or use existing relationship
+    activities?: Activity[];
     customers: Partner[];
     warehouses: Warehouse[];
     taxes: Tax[];
+    originSale?: RelatedSaleLink | null;
+    creditNotes?: RelatedSaleLink[];
 }
 
 const props = defineProps<Props>();
@@ -250,6 +261,12 @@ const getActivityDescription = (activity: Activity) => {
 const isEditable = computed(() => {
     return props.sale.status === 'draft';
 });
+
+const docTypeLabel = (code?: string | null) => {
+    if (code === '03') return 'Boleta';
+    if (code === '01') return 'Factura';
+    return code || '';
+};
 
 const canSendSunat = computed(() => {
     if (props.sale.journal?.is_fiscal === false) return false;
@@ -721,6 +738,100 @@ const deleteThisSale = () => {
                                 >
                                     {{ form.errors.products }}
                                 </p>
+                            </CardContent>
+                        </Card>
+
+                        <Card
+                            v-if="
+                                props.sale.original_sale_id && props.originSale
+                            "
+                        >
+                            <CardHeader>
+                                <CardTitle>Documento Origen</CardTitle>
+                            </CardHeader>
+                            <CardContent
+                                class="flex items-center justify-between gap-3"
+                            >
+                                <div class="text-sm">
+                                    <div class="text-muted-foreground">
+                                        Esta Nota de Crédito viene de:
+                                    </div>
+                                    <div class="font-medium">
+                                        {{
+                                            docTypeLabel(
+                                                props.originSale.doc_type,
+                                            )
+                                        }}
+                                        {{ props.originSale.document }}
+                                        <span
+                                            v-if="props.originSale.partner_name"
+                                            class="text-muted-foreground"
+                                        >
+                                            ·
+                                            {{ props.originSale.partner_name }}
+                                        </span>
+                                    </div>
+                                </div>
+                                <a
+                                    class="text-sm underline decoration-neutral-300 underline-offset-4 transition-colors duration-300 ease-out hover:decoration-current! dark:decoration-neutral-500"
+                                    :href="`/sales/${props.originSale.id}/edit`"
+                                    @click.prevent="
+                                        router.visit(
+                                            `/sales/${props.originSale.id}/edit`,
+                                        )
+                                    "
+                                >
+                                    Ver origen
+                                </a>
+                            </CardContent>
+                        </Card>
+
+                        <Card
+                            v-else-if="
+                                props.creditNotes &&
+                                props.creditNotes.length > 0
+                            "
+                        >
+                            <CardHeader>
+                                <CardTitle>Notas de Crédito</CardTitle>
+                            </CardHeader>
+                            <CardContent class="space-y-3">
+                                <div class="text-sm text-muted-foreground">
+                                    Notas de crédito creadas desde este
+                                    documento:
+                                </div>
+                                <div class="space-y-2">
+                                    <div
+                                        v-for="note in props.creditNotes"
+                                        :key="note.id"
+                                        class="flex items-center justify-between gap-3 rounded-md border p-2"
+                                    >
+                                        <div class="text-sm">
+                                            <div class="font-medium">
+                                                {{
+                                                    docTypeLabel(note.doc_type)
+                                                }}
+                                                {{ note.document }}
+                                            </div>
+                                            <div
+                                                class="text-xs text-muted-foreground"
+                                            >
+                                                Estado: {{ note.status }}
+                                            </div>
+                                        </div>
+                                        <a
+                                            class="text-sm underline decoration-neutral-300 underline-offset-4 transition-colors duration-300 ease-out hover:decoration-current! dark:decoration-neutral-500"
+                                            :href="`/sales/${note.id}/edit`"
+                                            @click.prevent="
+                                                router.visit(
+                                                    `/sales/${note.id}/edit`,
+                                                )
+                                            "
+                                        >
+                                            Ver nota
+                                        </a>
+                                    </div>
+                                </div>
                             </CardContent>
                         </Card>
                     </form>

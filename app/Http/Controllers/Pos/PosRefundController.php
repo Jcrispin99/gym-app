@@ -12,6 +12,7 @@ use App\Models\ProductProduct;
 use App\Models\Sale;
 use App\Services\KardexService;
 use App\Services\SequenceService;
+use App\Services\SaleRefundService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -377,7 +378,7 @@ class PosRefundController extends Controller
             return back()->withErrors(['refund_payment_method_id' => 'Selecciona un método de reembolso.']);
         }
 
-        $creditNoteJournal = $this->resolveCreditNoteJournal($session, $originDocType);
+        $creditNoteJournal = $this->resolveCreditNoteJournal($session, $originDocType, $origin->journal?->code);
         if (! $creditNoteJournal) {
             return back()->withErrors(['origin_sale_id' => 'No hay journal 07 (Nota de Crédito) configurado para este POS. En Pos Configs agrega FC/BC como tipo Nota de Crédito.']);
         }
@@ -626,115 +627,60 @@ class PosRefundController extends Controller
             }
         });
 
+        if ($creditSale) {
+            activity()
+                ->performedOn($creditSale)
+                ->withProperties([
+                    'pos_session_id' => $session->id,
+                    'origin_sale_id' => $origin->id,
+                    'origin_document' => $origin->document_number,
+                    'return_total' => round($returnTotal, 2),
+                    'sale_total' => round($saleTotal, 2),
+                    'applied_credit_note' => round($applied, 2),
+                    'to_pay' => round($toPay, 2),
+                    'to_refund' => round($toRefund, 2),
+                    'return_items' => $validated['return_items'],
+                    'refund_payment_method_id' => $validated['refund_payment_method_id'] ?? null,
+                    'pay_payment_method_id' => $validated['pay_payment_method_id'] ?? null,
+                    'new_sale_id' => $newSale?->id,
+                ])
+                ->log('Devolución POS creada');
+
+            activity()
+                ->performedOn($origin)
+                ->withProperties([
+                    'pos_session_id' => $session->id,
+                    'credit_note_id' => $creditSale->id,
+                    'credit_note_document' => $creditSale->document_number,
+                ])
+                ->log('Devolución POS registrada');
+        }
+
+        if ($newSale) {
+            activity()
+                ->performedOn($newSale)
+                ->withProperties([
+                    'pos_session_id' => $session->id,
+                    'origin_sale_id' => $origin->id,
+                    'credit_note_id' => $creditSale?->id,
+                    'credit_note_document' => $creditSale?->document_number,
+                    'sale_items' => $validated['sale_items'] ?? [],
+                ])
+                ->log('Intercambio POS creado');
+        }
+
         return redirect()->route('pos.dashboard', ['session' => $session->id, 'clear_cart' => 1])
             ->with('success', 'Reembolso procesado exitosamente');
     }
 
-    private function resolveCreditNoteJournal(PosSession $session, string $originDocType): ?Journal
+    private function resolveCreditNoteJournal(PosSession $session, string $originDocType, ?string $originJournalCode = null): ?Journal
     {
-        $preferredCodePrefix = $originDocType === '03' ? 'BC' : 'FC';
-        $companyId = $session->posConfig->company_id;
-
-        $preferredCode = $originDocType === '03' ? 'BC04' : 'FC04';
-
-        $journal = $session->posConfig
-            ->journals()
-            ->where('journals.document_type_code', '07')
-            ->wherePivot('document_type', 'credit_note')
-            ->where('journals.code', $preferredCode)
-            ->first();
-
-        if ($journal) {
-            return $journal;
-        }
-
-        $journal = $session->posConfig
-            ->journals()
-            ->where('journals.document_type_code', '07')
-            ->wherePivot('document_type', 'credit_note')
-            ->first();
-
-        if ($journal) {
-            return $journal;
-        }
-
-        $journal = $session->posConfig
-            ->journals()
-            ->where('journals.document_type_code', '07')
-            ->where('journals.code', 'like', "{$preferredCodePrefix}%")
-            ->first();
-
-        if ($journal) {
-            return $journal;
-        }
-
-        $journal = $session->posConfig
-            ->journals()
-            ->where('journals.document_type_code', '07')
-            ->first();
-
-        if ($journal) {
-            return $journal;
-        }
-
-        return Journal::query()
-            ->where('company_id', $companyId)
-            ->where('document_type_code', '07')
-            ->where('code', 'like', "{$preferredCodePrefix}%")
-            ->first()
-            ?? Journal::query()
-            ->where('company_id', $companyId)
-            ->where('document_type_code', '07')
-            ->first();
+        return (new SaleRefundService())->resolveCreditNoteJournalForPos($session, $originDocType, $originJournalCode);
     }
 
     private function calculateReturnTotal(Sale $origin, array $returnItems): float
     {
-        $originQtyByProduct = [];
-        foreach ($origin->products as $line) {
-            $pid = (int) $line->product_product_id;
-            $originQtyByProduct[$pid] = ($originQtyByProduct[$pid] ?? 0) + (float) $line->quantity;
-        }
-
-        $creditedQtyByProduct = DB::table('productables')
-            ->join('sales', 'sales.id', '=', 'productables.productable_id')
-            ->where('productables.productable_type', Sale::class)
-            ->where('sales.original_sale_id', $origin->id)
-            ->where('sales.status', 'posted')
-            ->selectRaw('productables.product_product_id, SUM(productables.quantity) as qty')
-            ->groupBy('productables.product_product_id')
-            ->pluck('qty', 'productables.product_product_id')
-            ->all();
-
-        $subtotal = 0.0;
-        $tax = 0.0;
-
-        foreach ($returnItems as $item) {
-            $pid = (int) $item['product_product_id'];
-            $qty = (float) $item['quantity'];
-
-            $origQty = (float) ($originQtyByProduct[$pid] ?? 0);
-            $creditedQty = (float) ($creditedQtyByProduct[$pid] ?? 0);
-            $available = $origQty - $creditedQty;
-
-            if ($qty <= 0 || $qty > $available + 0.00001) {
-                throw ValidationException::withMessages(['return_items' => 'Cantidad a devolver excede lo disponible.']);
-            }
-
-            $line = $origin->products->firstWhere('product_product_id', $pid);
-            if (! $line) {
-                throw ValidationException::withMessages(['return_items' => 'Producto inválido para devolución.']);
-            }
-
-            $lineSubtotal = $qty * (float) $line->price;
-            $taxRate = (float) ($line->tax_rate ?? 0);
-            $taxAmount = $lineSubtotal * ($taxRate / 100);
-
-            $subtotal += $lineSubtotal;
-            $tax += $taxAmount;
-        }
-
-        return $subtotal + $tax;
+        return (new SaleRefundService())->calculateReturnTotalOrFail($origin, $returnItems);
     }
 
     private function calculateSaleTotal(PosSession $session, array $saleItems): float

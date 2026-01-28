@@ -12,10 +12,12 @@ use App\Models\Tax;
 use App\Models\Warehouse;
 use App\Services\KardexService;
 use App\Services\SequenceService;
+use App\Services\SaleRefundService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use Spatie\Activitylog\Models\Activity;
 
 class SaleController extends Controller
 {
@@ -92,7 +94,9 @@ class SaleController extends Controller
             'products.*.tax_id' => 'nullable|exists:taxes,id',
         ]);
 
-        DB::transaction(function () use ($validated) {
+        $sale = null;
+
+        DB::transaction(function () use ($validated, &$sale) {
             // Obtener company_id del usuario o de la sesión
             $companyId = $validated['company_id'] ?? Auth::user()?->company_id;
 
@@ -165,6 +169,13 @@ class SaleController extends Controller
             ]);
         });
 
+        if ($sale) {
+            activity()
+                ->performedOn($sale)
+                ->event('created')
+                ->log('Venta creada como borrador');
+        }
+
         return redirect()->route('sales.index')
             ->with('success', 'Venta creada como borrador exitosamente.');
     }
@@ -187,15 +198,61 @@ class SaleController extends Controller
     public function edit(Sale $sale)
     {
         $sale->load(['journal', 'products.productProduct']);
+        $activities = Activity::forSubject($sale)
+            ->with('causer')
+            ->latest()
+            ->take(20)
+            ->get();
         $customers = Partner::customers()->active()->get();
         $warehouses = Warehouse::all();
         $taxes = Tax::active()->get();
 
+        $originSale = null;
+        if (! empty($sale->original_sale_id)) {
+            $origin = Sale::query()
+                ->with(['journal', 'partner'])
+                ->find($sale->original_sale_id);
+
+            if ($origin) {
+                $originSale = [
+                    'id' => $origin->id,
+                    'document' => $origin->document_number,
+                    'status' => $origin->status,
+                    'journal_code' => $origin->journal?->code,
+                    'doc_type' => (string) ($origin->journal?->document_type_code ?? ''),
+                    'partner_name' => $origin->partner?->display_name,
+                ];
+            }
+        }
+
+        $creditNotes = [];
+        if (empty($sale->original_sale_id)) {
+            $creditNotes = Sale::query()
+                ->where('original_sale_id', $sale->id)
+                ->with(['journal'])
+                ->orderByDesc('id')
+                ->get()
+                ->map(function (Sale $note) {
+                    return [
+                        'id' => $note->id,
+                        'document' => $note->document_number,
+                        'status' => $note->status,
+                        'journal_code' => $note->journal?->code,
+                        'doc_type' => (string) ($note->journal?->document_type_code ?? ''),
+                    ];
+                })
+                ->values()
+                ->all();
+        }
+
         return Inertia::render('Sales/Edit', [
             'sale' => $sale,
+            'activities' => $activities,
             'customers' => $customers,
             'warehouses' => $warehouses,
             'taxes' => $taxes,
+            'originSale' => $originSale,
+            'creditNotes' => $creditNotes,
         ]);
     }
 
@@ -213,6 +270,11 @@ class SaleController extends Controller
                 'notes' => $validated['notes'] ?? null,
             ]);
 
+            activity()
+                ->performedOn($sale)
+                ->event('updated')
+                ->log('Notas actualizadas');
+
             return redirect()->route('sales.edit', $sale->id)
                 ->with('success', 'Notas actualizadas exitosamente.');
         }
@@ -227,6 +289,18 @@ class SaleController extends Controller
             'products.*.price' => 'required|numeric|min:0',
             'products.*.tax_id' => 'nullable|exists:taxes,id',
         ]);
+
+        $sale->loadMissing('products');
+        $beforeLines = $this->aggregateSaleLines($sale->products->map(function ($p) {
+            return [
+                'product_product_id' => $p->product_product_id,
+                'quantity' => $p->quantity,
+                'price' => $p->price,
+                'tax_id' => $p->tax_id,
+            ];
+        })->all());
+        $afterLines = $this->aggregateSaleLines($validated['products']);
+        $productDiff = $this->diffSaleLines($beforeLines, $afterLines);
 
         DB::transaction(function () use ($validated, $sale) {
             // Actualizar datos básicos
@@ -278,6 +352,16 @@ class SaleController extends Controller
                 'total' => $subtotal + $totalTax,
             ]);
         });
+
+        if (! empty($productDiff['added']) || ! empty($productDiff['removed']) || ! empty($productDiff['changed'])) {
+            activity()
+                ->performedOn($sale)
+                ->event('updated')
+                ->withProperties([
+                    'products' => $productDiff,
+                ])
+                ->log('Productos actualizados');
+        }
 
         return redirect()->route('sales.index')
             ->with('success', 'Venta actualizada exitosamente.');
@@ -336,21 +420,9 @@ class SaleController extends Controller
                     ->with('error', 'La venta original no es un documento 01/03.');
             }
 
-            $originalQtyByProduct = [];
-            foreach ($original->products as $line) {
-                $pid = (int) $line->product_product_id;
-                $originalQtyByProduct[$pid] = ($originalQtyByProduct[$pid] ?? 0) + (float) $line->quantity;
-            }
-
-            $creditedQtyByProduct = DB::table('productables')
-                ->join('sales', 'sales.id', '=', 'productables.productable_id')
-                ->where('productables.productable_type', Sale::class)
-                ->where('sales.original_sale_id', $original->id)
-                ->where('sales.status', 'posted')
-                ->selectRaw('productables.product_product_id, SUM(productables.quantity) as qty')
-                ->groupBy('productables.product_product_id')
-                ->pluck('qty', 'productables.product_product_id')
-                ->all();
+            $refundService = new SaleRefundService();
+            $originalQtyByProduct = $refundService->originalQtyByProduct($original);
+            $creditedQtyByProduct = $refundService->creditedQtyByProduct($original->id);
 
             foreach ($sale->products as $line) {
                 $pid = (int) $line->product_product_id;
@@ -423,6 +495,26 @@ class SaleController extends Controller
             }
         });
 
+        $docType = (string) ($sale->journal?->document_type_code ?? '');
+        $logProps = [];
+        $logMessage = 'Documento publicado';
+        if ($docType === '07') {
+            $origin = $sale->originalSale;
+            $logMessage = 'Nota de Crédito publicada';
+            $logProps = [
+                'origin_sale_id' => $origin?->id,
+                'origin_document' => $origin?->document_number,
+            ];
+        } elseif (in_array($docType, ['01', '03'], true)) {
+            $logMessage = 'Venta publicada';
+        }
+
+        activity()
+            ->performedOn($sale)
+            ->event('updated')
+            ->withProperties($logProps)
+            ->log($logMessage);
+
         SendSunatInvoice::dispatch($sale->id)->afterCommit();
 
         return redirect()->route('sales.index')
@@ -450,20 +542,31 @@ class SaleController extends Controller
         }
 
         $companyId = $sale->company_id;
-        $creditJournal = Journal::query()
-            ->where('company_id', $companyId)
-            ->where('type', 'sale')
-            ->where('document_type_code', '07')
-            ->first();
+        $refundService = new SaleRefundService();
+        $creditJournal = $refundService->resolveCreditNoteJournalForCompany($companyId, $docType, $sale->journal?->code);
 
         if (! $creditJournal) {
             return redirect()->route('sales.index')
                 ->with('error', 'No se encontró un diario de Nota de Crédito (07) para esta compañía.');
         }
 
+        $remainingQtyByProduct = $refundService->availableQtyByProduct($sale);
+        $hasAvailable = false;
+        foreach ($remainingQtyByProduct as $remaining) {
+            if ((float) $remaining > 0) {
+                $hasAvailable = true;
+                break;
+            }
+        }
+
+        if (! $hasAvailable) {
+            return redirect()->route('sales.index')
+                ->with('error', 'No hay cantidades disponibles para devolución en esta venta.');
+        }
+
         $creditSale = null;
 
-        DB::transaction(function () use ($sale, $creditJournal, &$creditSale) {
+        DB::transaction(function () use ($sale, $creditJournal, $remainingQtyByProduct, &$creditSale) {
             $numberParts = SequenceService::getNextParts($creditJournal->id);
 
             $creditSale = Sale::create([
@@ -487,7 +590,19 @@ class SaleController extends Controller
             $totalTax = 0;
 
             foreach ($sale->products as $line) {
-                $quantity = (float) $line->quantity;
+                $pid = (int) $line->product_product_id;
+                $availableForProduct = (float) ($remainingQtyByProduct[$pid] ?? 0);
+                if ($availableForProduct <= 0) {
+                    continue;
+                }
+
+                $lineQty = (float) $line->quantity;
+                $quantity = min($lineQty, $availableForProduct);
+                if ($quantity <= 0) {
+                    continue;
+                }
+
+                $remainingQtyByProduct[$pid] = max(0, $availableForProduct - $quantity);
                 $price = (float) $line->price;
                 $lineSubtotal = $quantity * $price;
                 $taxRate = (float) ($line->tax_rate ?? 0);
@@ -520,6 +635,22 @@ class SaleController extends Controller
             return redirect()->route('sales.index')
                 ->with('error', 'No se pudo crear el borrador de Nota de Crédito.');
         }
+
+        activity()
+            ->performedOn($sale)
+            ->event('updated')
+            ->withProperties([
+                'credit_note_id' => $creditSale->id,
+            ])
+            ->log('Borrador de Nota de Crédito creado');
+
+        activity()
+            ->performedOn($creditSale)
+            ->event('created')
+            ->withProperties([
+                'origin_sale_id' => $sale->id,
+            ])
+            ->log('Nota de Crédito creada desde documento origen');
 
         return redirect()->route('sales.edit', $creditSale->id)
             ->with('success', 'Borrador de Nota de Crédito creado. Ajusta ítems/cantidades si es parcial.');
@@ -562,6 +693,11 @@ class SaleController extends Controller
             }
         });
 
+        activity()
+            ->performedOn($sale)
+            ->event('updated')
+            ->log('Documento cancelado');
+
         return redirect()->route('sales.index')
             ->with('success', 'Venta cancelada y stock devuelto exitosamente.');
     }
@@ -579,8 +715,90 @@ class SaleController extends Controller
         $sale->sunat_sent_at = null;
         $sale->save();
 
+        activity()
+            ->performedOn($sale)
+            ->event('updated')
+            ->log('Reenvío a SUNAT encolado');
+
         SendSunatInvoice::dispatch($sale->id)->afterCommit();
 
         return back()->with('success', 'Envío a SUNAT encolado.');
+    }
+
+    private function aggregateSaleLines(array $lines): array
+    {
+        $out = [];
+        foreach ($lines as $line) {
+            $pid = (int) ($line['product_product_id'] ?? 0);
+            if ($pid <= 0) {
+                continue;
+            }
+
+            $qty = (float) ($line['quantity'] ?? 0);
+            $price = (float) ($line['price'] ?? 0);
+            $taxId = $line['tax_id'] ?? null;
+
+            if (! isset($out[$pid])) {
+                $out[$pid] = [
+                    'quantity' => 0.0,
+                    'price' => $price,
+                    'tax_id' => $taxId,
+                ];
+            }
+
+            $out[$pid]['quantity'] += $qty;
+            $out[$pid]['price'] = $price;
+            $out[$pid]['tax_id'] = $taxId;
+        }
+
+        ksort($out);
+
+        return $out;
+    }
+
+    private function diffSaleLines(array $before, array $after): array
+    {
+        $added = [];
+        $removed = [];
+        $changed = [];
+
+        $ids = array_unique(array_merge(array_keys($before), array_keys($after)));
+        sort($ids);
+
+        foreach ($ids as $pid) {
+            $b = $before[$pid] ?? null;
+            $a = $after[$pid] ?? null;
+
+            if (! $b && $a) {
+                $added[(string) $pid] = $a;
+                continue;
+            }
+
+            if ($b && ! $a) {
+                $removed[(string) $pid] = $b;
+                continue;
+            }
+
+            if (! $b || ! $a) {
+                continue;
+            }
+
+            $qtyChanged = abs(((float) $b['quantity']) - ((float) $a['quantity'])) > 0.00001;
+            $priceChanged = abs(((float) $b['price']) - ((float) $a['price'])) > 0.00001;
+            $taxChanged = ($b['tax_id'] ?? null) !== ($a['tax_id'] ?? null);
+
+            if ($qtyChanged || $priceChanged || $taxChanged) {
+                $changed[(string) $pid] = [
+                    'before' => $b,
+                    'after' => $a,
+                ];
+            }
+        }
+
+        return [
+            'added' => $added,
+            'removed' => $removed,
+            'changed' => $changed,
+        ];
     }
 }

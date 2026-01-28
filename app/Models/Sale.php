@@ -190,10 +190,17 @@ class Sale extends Model
             ->logOnly([
                 'serie',
                 'correlative',
+                'journal_id',
                 'partner_id',
+                'warehouse_id',
+                'notes',
+                'subtotal',
+                'tax_amount',
                 'total',
                 'status',
                 'payment_status',
+                'sunat_status',
+                'original_sale_id',
             ])
             ->logOnlyDirty()
             ->dontSubmitEmptyLogs();
