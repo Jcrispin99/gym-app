@@ -1,24 +1,20 @@
 <script setup lang="ts">
-import FormPageHeader from '@/components/FormPageHeader.vue';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { Badge } from '@/components/ui/badge';
+import { ref } from 'vue';
+import AppLayout from '@/layouts/AppLayout.vue';
 import { Button } from '@/components/ui/button';
+import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 import {
     Dialog,
     DialogContent,
@@ -33,35 +29,33 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Textarea } from '@/components/ui/textarea';
-import AppLayout from '@/layouts/AppLayout.vue';
-import type { BreadcrumbItem } from '@/types';
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Head, router, useForm } from '@inertiajs/vue3';
+import FormPageHeader from '@/components/FormPageHeader.vue';
 import {
-    Calendar,
-    Check,
-    Clock,
-    CreditCard,
-    Lock,
-    MoreVertical,
-    Plus,
     Save,
-    Snowflake,
+    Clock,
     User as UserIcon,
+    Lock,
     UserPlus,
+    CreditCard,
+    Plus,
+    Check,
+    Calendar,
+    MoreVertical,
+    Snowflake,
     X,
 } from 'lucide-vue-next';
-import { ref } from 'vue';
+import type { BreadcrumbItem } from '@/types';
 
 interface Activity {
     description: string;
@@ -142,10 +136,7 @@ const props = defineProps<Props>();
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
     { title: 'Miembros', href: '/members' },
-    {
-        title: `${props.member.first_name} ${props.member.last_name}`,
-        href: `/members/${props.member.id}/edit`,
-    },
+    { title: `${props.member.first_name} ${props.member.last_name}`, href: `/members/${props.member.id}/edit` },
 ];
 
 const form = useForm({
@@ -220,8 +211,7 @@ const openSubscriptionModal = () => {
 const selectPlan = (plan: MembershipPlan) => {
     selectedPlan.value = plan;
     subscriptionForm.membership_plan_id = plan.id;
-    const price =
-        typeof plan.price === 'string' ? parseFloat(plan.price) : plan.price;
+    const price = typeof plan.price === 'string' ? parseFloat(plan.price) : plan.price;
     subscriptionForm.amount_paid = price;
 };
 
@@ -245,7 +235,7 @@ const openFreezeModal = (subscription: MembershipSubscription) => {
 
 const freezeSubscription = () => {
     if (!selectedSubscription.value) return;
-
+    
     freezeForm.post(`/subscriptions/${selectedSubscription.value.id}/freeze`, {
         onSuccess: () => {
             showFreezeModal.value = false;
@@ -266,7 +256,7 @@ const openCancelDialog = (subscription: MembershipSubscription) => {
 
 const cancelSubscription = () => {
     if (!selectedSubscription.value) return;
-
+    
     router.delete(`/subscriptions/${selectedSubscription.value.id}`, {
         onSuccess: () => {
             showCancelDialog.value = false;
@@ -290,13 +280,7 @@ const getDurationLabel = (days: number) => {
 };
 
 const getStatusBadge = (status: string) => {
-    const badges: Record<
-        string,
-        {
-            variant: 'default' | 'secondary' | 'outline' | 'destructive';
-            label: string;
-        }
-    > = {
+    const badges: Record<string, { variant: 'default' | 'secondary' | 'outline' | 'destructive', label: string }> = {
         active: { variant: 'default', label: 'Activa' },
         frozen: { variant: 'secondary', label: 'Congelada' },
         expired: { variant: 'outline', label: 'Expirada' },
@@ -331,15 +315,13 @@ const hasPortalAccess = props.member.user_id !== null;
                 <template #actions>
                     <Button @click="submit" :disabled="form.processing">
                         <Save class="mr-2 h-4 w-4" />
-                        {{
-                            form.processing ? 'Guardando...' : 'Guardar Cambios'
-                        }}
+                        {{ form.processing ? 'Guardando...' : 'Guardar Cambios' }}
                     </Button>
                 </template>
             </FormPageHeader>
 
             <!-- Tabbed Layout -->
-            <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <!-- Main Content with Tabs (Left) -->
                 <div class="lg:col-span-2">
                     <Tabs default-value="member" class="w-full">
@@ -364,112 +346,59 @@ const hasPortalAccess = props.member.user_id !== null;
                                 <!-- Personal Info -->
                                 <Card>
                                     <CardHeader>
-                                        <CardTitle
-                                            >Información Personal</CardTitle
-                                        >
+                                        <CardTitle>Información Personal</CardTitle>
                                     </CardHeader>
                                     <CardContent class="space-y-4">
                                         <div class="grid grid-cols-2 gap-4">
                                             <div>
-                                                <Label for="document_type"
-                                                    >Tipo Documento *</Label
-                                                >
-                                                <Select
-                                                    v-model="form.document_type"
-                                                >
+                                                <Label for="document_type">Tipo Documento *</Label>
+                                                <Select v-model="form.document_type">
                                                     <SelectTrigger>
                                                         <SelectValue />
                                                     </SelectTrigger>
                                                     <SelectContent>
-                                                        <SelectItem value="DNI"
-                                                            >DNI</SelectItem
-                                                        >
-                                                        <SelectItem value="RUC"
-                                                            >RUC</SelectItem
-                                                        >
-                                                        <SelectItem value="CE"
-                                                            >Carnet
-                                                            Extranjería</SelectItem
-                                                        >
-                                                        <SelectItem
-                                                            value="Passport"
-                                                            >Pasaporte</SelectItem
-                                                        >
+                                                        <SelectItem value="DNI">DNI</SelectItem>
+                                                        <SelectItem value="RUC">RUC</SelectItem>
+                                                        <SelectItem value="CE">Carnet Extranjería</SelectItem>
+                                                        <SelectItem value="Passport">Pasaporte</SelectItem>
                                                     </SelectContent>
                                                 </Select>
                                             </div>
-
+                                            
                                             <div>
-                                                <Label for="document_number"
-                                                    >Número Documento *</Label
-                                                >
+                                                <Label for="document_number">Número Documento *</Label>
                                                 <Input
                                                     id="document_number"
-                                                    v-model="
-                                                        form.document_number
-                                                    "
-                                                    :class="{
-                                                        'border-red-500':
-                                                            form.errors
-                                                                .document_number,
-                                                    }"
+                                                    v-model="form.document_number"
+                                                    :class="{ 'border-red-500': form.errors.document_number }"
                                                 />
-                                                <p
-                                                    v-if="
-                                                        form.errors
-                                                            .document_number
-                                                    "
-                                                    class="mt-1 text-sm text-red-500"
-                                                >
-                                                    {{
-                                                        form.errors
-                                                            .document_number
-                                                    }}
+                                                <p v-if="form.errors.document_number" class="text-sm text-red-500 mt-1">
+                                                    {{ form.errors.document_number }}
                                                 </p>
                                             </div>
                                         </div>
 
                                         <div class="grid grid-cols-2 gap-4">
                                             <div>
-                                                <Label for="first_name"
-                                                    >Nombres *</Label
-                                                >
+                                                <Label for="first_name">Nombres *</Label>
                                                 <Input
                                                     id="first_name"
                                                     v-model="form.first_name"
-                                                    :class="{
-                                                        'border-red-500':
-                                                            form.errors
-                                                                .first_name,
-                                                    }"
+                                                    :class="{ 'border-red-500': form.errors.first_name }"
                                                 />
-                                                <p
-                                                    v-if="
-                                                        form.errors.first_name
-                                                    "
-                                                    class="mt-1 text-sm text-red-500"
-                                                >
+                                                <p v-if="form.errors.first_name" class="text-sm text-red-500 mt-1">
                                                     {{ form.errors.first_name }}
                                                 </p>
                                             </div>
 
                                             <div>
-                                                <Label for="last_name"
-                                                    >Apellidos *</Label
-                                                >
+                                                <Label for="last_name">Apellidos *</Label>
                                                 <Input
                                                     id="last_name"
                                                     v-model="form.last_name"
-                                                    :class="{
-                                                        'border-red-500':
-                                                            form.errors
-                                                                .last_name,
-                                                    }"
+                                                    :class="{ 'border-red-500': form.errors.last_name }"
                                                 />
-                                                <p
-                                                    v-if="form.errors.last_name"
-                                                    class="mt-1 text-sm text-red-500"
-                                                >
+                                                <p v-if="form.errors.last_name" class="text-sm text-red-500 mt-1">
                                                     {{ form.errors.last_name }}
                                                 </p>
                                             </div>
@@ -477,9 +406,7 @@ const hasPortalAccess = props.member.user_id !== null;
 
                                         <div class="grid grid-cols-3 gap-4">
                                             <div>
-                                                <Label for="birth_date"
-                                                    >Fecha Nacimiento</Label
-                                                >
+                                                <Label for="birth_date">Fecha Nacimiento</Label>
                                                 <Input
                                                     id="birth_date"
                                                     type="date"
@@ -488,34 +415,21 @@ const hasPortalAccess = props.member.user_id !== null;
                                             </div>
 
                                             <div>
-                                                <Label for="gender"
-                                                    >Género</Label
-                                                >
+                                                <Label for="gender">Género</Label>
                                                 <Select v-model="form.gender">
                                                     <SelectTrigger>
-                                                        <SelectValue
-                                                            placeholder="Seleccionar..."
-                                                        />
+                                                        <SelectValue placeholder="Seleccionar..." />
                                                     </SelectTrigger>
                                                     <SelectContent>
-                                                        <SelectItem value="M"
-                                                            >Masculino</SelectItem
-                                                        >
-                                                        <SelectItem value="F"
-                                                            >Femenino</SelectItem
-                                                        >
-                                                        <SelectItem
-                                                            value="Other"
-                                                            >Otro</SelectItem
-                                                        >
+                                                        <SelectItem value="M">Masculino</SelectItem>
+                                                        <SelectItem value="F">Femenino</SelectItem>
+                                                        <SelectItem value="Other">Otro</SelectItem>
                                                     </SelectContent>
                                                 </Select>
                                             </div>
 
                                             <div>
-                                                <Label for="blood_type"
-                                                    >Tipo Sangre</Label
-                                                >
+                                                <Label for="blood_type">Tipo Sangre</Label>
                                                 <Input
                                                     id="blood_type"
                                                     v-model="form.blood_type"
@@ -526,26 +440,15 @@ const hasPortalAccess = props.member.user_id !== null;
 
                                         <div class="grid grid-cols-2 gap-4">
                                             <div>
-                                                <Label for="status"
-                                                    >Estado *</Label
-                                                >
+                                                <Label for="status">Estado *</Label>
                                                 <Select v-model="form.status">
                                                     <SelectTrigger>
                                                         <SelectValue />
                                                     </SelectTrigger>
                                                     <SelectContent>
-                                                        <SelectItem
-                                                            value="active"
-                                                            >Activo</SelectItem
-                                                        >
-                                                        <SelectItem
-                                                            value="inactive"
-                                                            >Inactivo</SelectItem
-                                                        >
-                                                        <SelectItem
-                                                            value="suspended"
-                                                            >Suspendido</SelectItem
-                                                        >
+                                                        <SelectItem value="active">Activo</SelectItem>
+                                                        <SelectItem value="inactive">Inactivo</SelectItem>
+                                                        <SelectItem value="suspended">Suspendido</SelectItem>
                                                     </SelectContent>
                                                 </Select>
                                             </div>
@@ -569,62 +472,32 @@ const hasPortalAccess = props.member.user_id !== null;
                                                 />
                                             </div>
                                             <div>
-                                                <Label for="phone"
-                                                    >Teléfono</Label
-                                                >
-                                                <Input
-                                                    id="phone"
-                                                    v-model="form.phone"
-                                                />
+                                                <Label for="phone">Teléfono</Label>
+                                                <Input id="phone" v-model="form.phone" />
                                             </div>
                                             <div>
-                                                <Label for="mobile"
-                                                    >Celular</Label
-                                                >
-                                                <Input
-                                                    id="mobile"
-                                                    v-model="form.mobile"
-                                                />
+                                                <Label for="mobile">Celular</Label>
+                                                <Input id="mobile" v-model="form.mobile" />
                                             </div>
                                         </div>
 
                                         <div>
-                                            <Label for="address"
-                                                >Dirección</Label
-                                            >
-                                            <Input
-                                                id="address"
-                                                v-model="form.address"
-                                            />
+                                            <Label for="address">Dirección</Label>
+                                            <Input id="address" v-model="form.address" />
                                         </div>
 
                                         <div class="grid grid-cols-3 gap-4">
                                             <div>
-                                                <Label for="district"
-                                                    >Distrito</Label
-                                                >
-                                                <Input
-                                                    id="district"
-                                                    v-model="form.district"
-                                                />
+                                                <Label for="district">Distrito</Label>
+                                                <Input id="district" v-model="form.district" />
                                             </div>
                                             <div>
-                                                <Label for="province"
-                                                    >Provincia</Label
-                                                >
-                                                <Input
-                                                    id="province"
-                                                    v-model="form.province"
-                                                />
+                                                <Label for="province">Provincia</Label>
+                                                <Input id="province" v-model="form.province" />
                                             </div>
                                             <div>
-                                                <Label for="department"
-                                                    >Departamento</Label
-                                                >
-                                                <Input
-                                                    id="department"
-                                                    v-model="form.department"
-                                                />
+                                                <Label for="department">Departamento</Label>
+                                                <Input id="department" v-model="form.department" />
                                             </div>
                                         </div>
                                     </CardContent>
@@ -633,34 +506,22 @@ const hasPortalAccess = props.member.user_id !== null;
                                 <!-- Emergency Contact -->
                                 <Card>
                                     <CardHeader>
-                                        <CardTitle
-                                            >Contacto de Emergencia</CardTitle
-                                        >
+                                        <CardTitle>Contacto de Emergencia</CardTitle>
                                     </CardHeader>
                                     <CardContent class="space-y-4">
                                         <div class="grid grid-cols-2 gap-4">
                                             <div>
-                                                <Label
-                                                    for="emergency_contact_name"
-                                                    >Nombre</Label
-                                                >
+                                                <Label for="emergency_contact_name">Nombre</Label>
                                                 <Input
                                                     id="emergency_contact_name"
-                                                    v-model="
-                                                        form.emergency_contact_name
-                                                    "
+                                                    v-model="form.emergency_contact_name"
                                                 />
                                             </div>
                                             <div>
-                                                <Label
-                                                    for="emergency_contact_phone"
-                                                    >Teléfono</Label
-                                                >
+                                                <Label for="emergency_contact_phone">Teléfono</Label>
                                                 <Input
                                                     id="emergency_contact_phone"
-                                                    v-model="
-                                                        form.emergency_contact_phone
-                                                    "
+                                                    v-model="form.emergency_contact_phone"
                                                 />
                                             </div>
                                         </div>
@@ -670,15 +531,11 @@ const hasPortalAccess = props.member.user_id !== null;
                                 <!-- Medical Info -->
                                 <Card>
                                     <CardHeader>
-                                        <CardTitle
-                                            >Información Médica</CardTitle
-                                        >
+                                        <CardTitle>Información Médica</CardTitle>
                                     </CardHeader>
                                     <CardContent class="space-y-4">
                                         <div>
-                                            <Label for="medical_notes"
-                                                >Notas Médicas</Label
-                                            >
+                                            <Label for="medical_notes">Notas Médicas</Label>
                                             <Textarea
                                                 id="medical_notes"
                                                 v-model="form.medical_notes"
@@ -687,9 +544,7 @@ const hasPortalAccess = props.member.user_id !== null;
                                         </div>
 
                                         <div>
-                                            <Label for="allergies"
-                                                >Alergias</Label
-                                            >
+                                            <Label for="allergies">Alergias</Label>
                                             <Textarea
                                                 id="allergies"
                                                 v-model="form.allergies"
@@ -698,6 +553,7 @@ const hasPortalAccess = props.member.user_id !== null;
                                         </div>
                                     </CardContent>
                                 </Card>
+
                             </form>
                         </TabsContent>
 
@@ -705,128 +561,70 @@ const hasPortalAccess = props.member.user_id !== null;
                         <TabsContent value="portal" class="space-y-6">
                             <Card>
                                 <CardHeader>
-                                    <CardTitle
-                                        >Acceso al Portal de Miembros</CardTitle
-                                    >
+                                    <CardTitle>Acceso al Portal de Miembros</CardTitle>
                                     <CardDescription>
-                                        Permite que el miembro acceda al portal
-                                        con su propio usuario
+                                        Permite que el miembro acceda al portal con su propio usuario
                                     </CardDescription>
                                 </CardHeader>
                                 <CardContent>
-                                    <div
-                                        v-if="hasPortalAccess"
-                                        class="space-y-4"
-                                    >
-                                        <div
-                                            class="rounded-lg border border-green-200 bg-green-50 p-4"
-                                        >
-                                            <div
-                                                class="flex items-center gap-2"
-                                            >
-                                                <Lock
-                                                    class="h-5 w-5 text-green-600"
-                                                />
-                                                <p
-                                                    class="font-medium text-green-900"
-                                                >
-                                                    Acceso al portal activado
-                                                </p>
+                                    <div v-if="hasPortalAccess" class="space-y-4">
+                                        <div class="rounded-lg border border-green-200 bg-green-50 p-4">
+                                            <div class="flex items-center gap-2">
+                                                <Lock class="h-5 w-5 text-green-600" />
+                                                <p class="font-medium text-green-900">Acceso al portal activado</p>
                                             </div>
-                                            <p
-                                                class="mt-2 text-sm text-green-700"
-                                            >
-                                                Este miembro ya tiene acceso al
-                                                portal del gimnasio.
+                                            <p class="mt-2 text-sm text-green-700">
+                                                Este miembro ya tiene acceso al portal del gimnasio.
                                             </p>
                                         </div>
                                     </div>
 
-                                    <form
-                                        v-else
-                                        @submit.prevent="activatePortal"
-                                        class="space-y-4"
-                                    >
-                                        <div
-                                            class="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-4"
-                                        >
+                                    <form v-else @submit.prevent="activatePortal" class="space-y-4">
+                                        <div class="rounded-lg border border-blue-200 bg-blue-50 p-4 mb-4">
                                             <p class="text-sm text-blue-900">
-                                                <strong>Email:</strong>
-                                                {{
-                                                    member.email ||
-                                                    'Sin email registrado'
-                                                }}
+                                                <strong>Email:</strong> {{ member.email || 'Sin email registrado' }}
                                             </p>
-                                            <p
-                                                class="mt-1 text-xs text-blue-700"
-                                            >
-                                                Se usará este email para el
-                                                login
+                                            <p class="text-xs text-blue-700 mt-1">
+                                                Se usará este email para el login
                                             </p>
                                         </div>
 
                                         <div>
-                                            <Label for="password"
-                                                >Contraseña *</Label
-                                            >
+                                            <Label for="password">Contraseña *</Label>
                                             <Input
                                                 id="password"
                                                 type="password"
                                                 v-model="portalForm.password"
-                                                :class="{
-                                                    'border-red-500':
-                                                        portalForm.errors
-                                                            .password,
-                                                }"
+                                                :class="{ 'border-red-500': portalForm.errors.password }"
                                                 :disabled="!member.email"
                                             />
-                                            <p
-                                                v-if="
-                                                    portalForm.errors.password
-                                                "
-                                                class="mt-1 text-sm text-red-500"
-                                            >
+                                            <p v-if="portalForm.errors.password" class="text-sm text-red-500 mt-1">
                                                 {{ portalForm.errors.password }}
                                             </p>
                                         </div>
 
                                         <div>
-                                            <Label for="password_confirmation"
-                                                >Confirmar Contraseña *</Label
-                                            >
+                                            <Label for="password_confirmation">Confirmar Contraseña *</Label>
                                             <Input
                                                 id="password_confirmation"
                                                 type="password"
-                                                v-model="
-                                                    portalForm.password_confirmation
-                                                "
+                                                v-model="portalForm.password_confirmation"
                                                 :disabled="!member.email"
                                             />
                                         </div>
 
-                                        <div
-                                            v-if="!member.email"
-                                            class="rounded-lg border border-yellow-200 bg-yellow-50 p-4"
-                                        >
+                                        <div v-if="!member.email" class="rounded-lg border border-yellow-200 bg-yellow-50 p-4">
                                             <p class="text-sm text-yellow-900">
-                                                ⚠️ Este miembro no tiene email
-                                                registrado. Por favor, agrega un
-                                                email en la pestaña "Datos del
-                                                Miembro" primero.
+                                                ⚠️ Este miembro no tiene email registrado. Por favor, agrega un email en la pestaña "Datos del Miembro" primero.
                                             </p>
                                         </div>
 
                                         <div class="flex justify-end">
-                                            <Button
-                                                type="submit"
-                                                :disabled="
-                                                    portalForm.processing ||
-                                                    !member.email
-                                                "
+                                            <Button 
+                                                type="submit" 
+                                                :disabled="portalForm.processing || !member.email"
                                             >
-                                                <UserPlus
-                                                    class="mr-2 h-4 w-4"
-                                                />
+                                                <UserPlus class="mr-2 h-4 w-4" />
                                                 Activar Acceso al Portal
                                             </Button>
                                         </div>
@@ -839,14 +637,11 @@ const hasPortalAccess = props.member.user_id !== null;
                         <TabsContent value="subscriptions" class="space-y-4">
                             <Card>
                                 <CardHeader>
-                                    <div
-                                        class="flex items-center justify-between"
-                                    >
+                                    <div class="flex items-center justify-between">
                                         <div>
                                             <CardTitle>Suscripciones</CardTitle>
                                             <CardDescription>
-                                                Gestiona las membresías activas
-                                                y pasadas
+                                                Gestiona las membresías activas y pasadas
                                             </CardDescription>
                                         </div>
                                         <Button @click="openSubscriptionModal">
@@ -857,131 +652,48 @@ const hasPortalAccess = props.member.user_id !== null;
                                 </CardHeader>
                                 <CardContent class="space-y-4">
                                     <!-- Active Subscriptions -->
-                                    <div
-                                        v-if="
-                                            member.subscriptions &&
-                                            member.subscriptions.length > 0
-                                        "
-                                    >
-                                        <div
-                                            v-for="subscription in member.subscriptions"
-                                            :key="subscription.id"
-                                            class="space-y-3 rounded-lg border p-4"
-                                        >
-                                            <div
-                                                class="flex items-start justify-between"
-                                            >
-                                                <div class="flex-1 space-y-1">
-                                                    <h4
-                                                        class="text-lg font-semibold"
-                                                    >
-                                                        {{
-                                                            subscription.plan
-                                                                .name
-                                                        }}
-                                                    </h4>
-                                                    <p
-                                                        v-if="
-                                                            subscription.plan
-                                                                .description
-                                                        "
-                                                        class="text-sm text-muted-foreground"
-                                                    >
-                                                        {{
-                                                            subscription.plan
-                                                                .description
-                                                        }}
+                                    <div v-if="member.subscriptions && member.subscriptions.length > 0">
+                                        <div v-for="subscription in member.subscriptions" :key="subscription.id" 
+                                             class="border rounded-lg p-4 space-y-3">
+                                            <div class="flex items-start justify-between">
+                                                <div class="space-y-1 flex-1">
+                                                    <h4 class="font-semibold text-lg">{{ subscription.plan.name }}</h4>
+                                                    <p v-if="subscription.plan.description" class="text-sm text-muted-foreground">
+                                                        {{ subscription.plan.description }}
                                                     </p>
                                                 </div>
-                                                <div
-                                                    class="flex items-center gap-2"
-                                                >
-                                                    <Badge
-                                                        :variant="
-                                                            getStatusBadge(
-                                                                subscription.status,
-                                                            ).variant
-                                                        "
-                                                    >
-                                                        {{
-                                                            getStatusBadge(
-                                                                subscription.status,
-                                                            ).label
-                                                        }}
+                                                <div class="flex items-center gap-2">
+                                                    <Badge :variant="getStatusBadge(subscription.status).variant">
+                                                        {{ getStatusBadge(subscription.status).label }}
                                                     </Badge>
-
+                                                    
                                                     <!-- Actions -->
-                                                    <DropdownMenu
-                                                        v-if="
-                                                            subscription.status !==
-                                                                'cancelled' &&
-                                                            subscription.status !==
-                                                                'expired'
-                                                        "
-                                                    >
-                                                        <DropdownMenuTrigger
-                                                            as-child
-                                                        >
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                            >
-                                                                <MoreVertical
-                                                                    class="h-4 w-4"
-                                                                />
+                                                    <DropdownMenu v-if="subscription.status !== 'cancelled' && subscription.status !== 'expired'">
+                                                        <DropdownMenuTrigger as-child>
+                                                            <Button variant="ghost" size="icon">
+                                                                <MoreVertical class="h-4 w-4" />
                                                             </Button>
                                                         </DropdownMenuTrigger>
-                                                        <DropdownMenuContent
-                                                            align="end"
-                                                        >
-                                                            <DropdownMenuItem
-                                                                v-if="
-                                                                    subscription.status ===
-                                                                        'active' &&
-                                                                    subscription
-                                                                        .plan
-                                                                        .allows_freezing &&
-                                                                    subscription.remaining_freeze_days >
-                                                                        0
-                                                                "
-                                                                @click="
-                                                                    openFreezeModal(
-                                                                        subscription,
-                                                                    )
-                                                                "
+                                                        <DropdownMenuContent align="end">
+                                                            <DropdownMenuItem 
+                                                                v-if="subscription.status === 'active' && subscription.plan.allows_freezing && subscription.remaining_freeze_days > 0"
+                                                                @click="openFreezeModal(subscription)"
                                                             >
-                                                                <Snowflake
-                                                                    class="mr-2 h-4 w-4"
-                                                                />
+                                                                <Snowflake class="mr-2 h-4 w-4" />
                                                                 Congelar
                                                             </DropdownMenuItem>
-                                                            <DropdownMenuItem
-                                                                v-if="
-                                                                    subscription.status ===
-                                                                    'frozen'
-                                                                "
-                                                                @click="
-                                                                    unfreezeSubscription(
-                                                                        subscription,
-                                                                    )
-                                                                "
+                                                            <DropdownMenuItem 
+                                                                v-if="subscription.status === 'frozen'"
+                                                                @click="unfreezeSubscription(subscription)"
                                                             >
-                                                                <Check
-                                                                    class="mr-2 h-4 w-4"
-                                                                />
+                                                                <Check class="mr-2 h-4 w-4" />
                                                                 Descongelar
                                                             </DropdownMenuItem>
-                                                            <DropdownMenuItem
-                                                                @click="
-                                                                    openCancelDialog(
-                                                                        subscription,
-                                                                    )
-                                                                "
+                                                            <DropdownMenuItem 
+                                                                @click="openCancelDialog(subscription)"
                                                                 class="text-red-600"
                                                             >
-                                                                <X
-                                                                    class="mr-2 h-4 w-4"
-                                                                />
+                                                                <X class="mr-2 h-4 w-4" />
                                                                 Cancelar
                                                             </DropdownMenuItem>
                                                         </DropdownMenuContent>
@@ -989,115 +701,43 @@ const hasPortalAccess = props.member.user_id !== null;
                                                 </div>
                                             </div>
 
-                                            <div
-                                                class="grid grid-cols-2 gap-4 text-sm"
-                                            >
+                                            <div class="grid grid-cols-2 gap-4 text-sm">
                                                 <div>
-                                                    <p
-                                                        class="text-muted-foreground"
-                                                    >
-                                                        Duración
-                                                    </p>
-                                                    <p class="font-medium">
-                                                        {{
-                                                            getDurationLabel(
-                                                                subscription
-                                                                    .plan
-                                                                    .duration_days,
-                                                            )
-                                                        }}
-                                                    </p>
+                                                    <p class="text-muted-foreground">Duración</p>
+                                                    <p class="font-medium">{{ getDurationLabel(subscription.plan.duration_days) }}</p>
                                                 </div>
                                                 <div>
-                                                    <p
-                                                        class="text-muted-foreground"
-                                                    >
-                                                        Precio pagado
-                                                    </p>
-                                                    <p class="font-medium">
-                                                        {{
-                                                            formatPrice(
-                                                                subscription.amount_paid,
-                                                            )
-                                                        }}
-                                                    </p>
+                                                    <p class="text-muted-foreground">Precio pagado</p>
+                                                    <p class="font-medium">{{ formatPrice(subscription.amount_paid) }}</p>
                                                 </div>
                                                 <div>
-                                                    <p
-                                                        class="text-muted-foreground"
-                                                    >
-                                                        Fecha inicio
-                                                    </p>
-                                                    <p class="font-medium">
-                                                        {{
-                                                            formatDate(
-                                                                subscription.start_date,
-                                                            )
-                                                        }}
-                                                    </p>
+                                                    <p class="text-muted-foreground">Fecha inicio</p>
+                                                    <p class="font-medium">{{ formatDate(subscription.start_date) }}</p>
                                                 </div>
                                                 <div>
-                                                    <p
-                                                        class="text-muted-foreground"
-                                                    >
-                                                        Fecha fin
-                                                    </p>
-                                                    <p class="font-medium">
-                                                        {{
-                                                            formatDate(
-                                                                subscription.end_date,
-                                                            )
-                                                        }}
-                                                    </p>
+                                                    <p class="text-muted-foreground">Fecha fin</p>
+                                                    <p class="font-medium">{{ formatDate(subscription.end_date) }}</p>
                                                 </div>
                                                 <div>
-                                                    <p
-                                                        class="text-muted-foreground"
-                                                    >
-                                                        Método de pago
-                                                    </p>
-                                                    <p
-                                                        class="font-medium capitalize"
-                                                    >
-                                                        {{
-                                                            subscription.payment_method
-                                                        }}
-                                                    </p>
+                                                    <p class="text-muted-foreground">Método de pago</p>
+                                                    <p class="font-medium capitalize">{{ subscription.payment_method }}</p>
                                                 </div>
                                                 <div>
-                                                    <p
-                                                        class="text-muted-foreground"
-                                                    >
-                                                        Entradas este mes
-                                                    </p>
-                                                    <p class="font-medium">
-                                                        {{
-                                                            subscription.entries_this_month
-                                                        }}
-                                                    </p>
+                                                    <p class="text-muted-foreground">Entradas este mes</p>
+                                                    <p class="font-medium">{{ subscription.entries_this_month }}</p>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
 
                                     <!-- Empty State -->
-                                    <div v-else class="py-12 text-center">
-                                        <CreditCard
-                                            class="mx-auto h-12 w-12 text-muted-foreground"
-                                        />
-                                        <h3 class="mt-4 text-lg font-semibold">
-                                            Sin suscripciones
-                                        </h3>
-                                        <p
-                                            class="mt-2 text-sm text-muted-foreground"
-                                        >
-                                            Este miembro aún no tiene ninguna
-                                            suscripción activa.
+                                    <div v-else class="text-center py-12">
+                                        <CreditCard class="mx-auto h-12 w-12 text-muted-foreground" />
+                                        <h3 class="mt-4 text-lg font-semibold">Sin suscripciones</h3>
+                                        <p class="mt-2 text-sm text-muted-foreground">
+                                            Este miembro aún no tiene ninguna suscripción activa.
                                         </p>
-                                        <Button
-                                            @click="openSubscriptionModal"
-                                            class="mt-4"
-                                        >
+                                        <Button @click="openSubscriptionModal" class="mt-4">
                                             <Plus class="mr-2 h-4 w-4" />
                                             Crear primera suscripción
                                         </Button>
@@ -1113,9 +753,7 @@ const hasPortalAccess = props.member.user_id !== null;
                     <Card class="sticky top-4">
                         <CardHeader>
                             <CardTitle>Historial de Cambios</CardTitle>
-                            <CardDescription
-                                >Últimas 20 actividades</CardDescription
-                            >
+                            <CardDescription>Últimas 20 actividades</CardDescription>
                         </CardHeader>
                         <CardContent>
                             <div class="space-y-4">
@@ -1125,35 +763,21 @@ const hasPortalAccess = props.member.user_id !== null;
                                     class="flex gap-3 text-sm"
                                 >
                                     <div class="flex-shrink-0">
-                                        <Clock
-                                            class="h-4 w-4 text-muted-foreground"
-                                        />
+                                        <Clock class="h-4 w-4 text-muted-foreground" />
                                     </div>
                                     <div class="flex-1 space-y-1">
-                                        <p class="font-medium">
-                                            {{ activity.description }}
+                                        <p class="font-medium">{{ activity.description }}</p>
+                                        <p class="text-xs text-muted-foreground">
+                                            {{ formatDate(activity.created_at) }}
                                         </p>
-                                        <p
-                                            class="text-xs text-muted-foreground"
-                                        >
-                                            {{
-                                                formatDate(activity.created_at)
-                                            }}
-                                        </p>
-                                        <p
-                                            v-if="activity.causer"
-                                            class="flex items-center gap-1 text-xs text-muted-foreground"
-                                        >
+                                        <p v-if="activity.causer" class="text-xs text-muted-foreground flex items-center gap-1">
                                             <UserIcon class="h-3 w-3" />
                                             {{ activity.causer.name }}
                                         </p>
                                     </div>
                                 </div>
 
-                                <div
-                                    v-if="activities.length === 0"
-                                    class="py-4 text-center text-sm text-muted-foreground"
-                                >
+                                <div v-if="activities.length === 0" class="text-center text-sm text-muted-foreground py-4">
                                     No hay actividades registradas
                                 </div>
                             </div>
@@ -1164,28 +788,20 @@ const hasPortalAccess = props.member.user_id !== null;
         </div>
 
         <!-- Subscription Creation Modal -->
-        <Dialog
-            :open="showSubscriptionModal"
-            @update:open="showSubscriptionModal = $event"
-        >
-            <DialogContent class="max-h-[90vh] max-w-4xl overflow-y-auto">
+        <Dialog :open="showSubscriptionModal" @update:open="showSubscriptionModal = $event">
+            <DialogContent class="max-w-4xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>Nueva Suscripción</DialogTitle>
                     <DialogDescription>
-                        Selecciona un plan para {{ member.first_name }}
-                        {{ member.last_name }}
+                        Selecciona un plan para {{ member.first_name }} {{ member.last_name }}
                     </DialogDescription>
                 </DialogHeader>
 
                 <form @submit.prevent="createSubscription" class="space-y-6">
                     <!-- Plan Selection Cards -->
                     <div>
-                        <Label class="mb-3 block text-base font-semibold"
-                            >Seleccionar Plan</Label
-                        >
-                        <div
-                            class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3"
-                        >
+                        <Label class="text-base font-semibold mb-3 block">Seleccionar Plan</Label>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             <div
                                 v-for="plan in membershipPlans"
                                 :key="plan.id"
@@ -1194,101 +810,55 @@ const hasPortalAccess = props.member.user_id !== null;
                                     'relative cursor-pointer rounded-lg border-2 p-4 transition-all hover:shadow-md',
                                     selectedPlan?.id === plan.id
                                         ? 'border-primary bg-primary/5 ring-2 ring-primary'
-                                        : 'border-border hover:border-primary/50',
+                                        : 'border-border hover:border-primary/50'
                                 ]"
                             >
                                 <div class="space-y-3">
                                     <div>
-                                        <h4 class="text-lg font-semibold">
-                                            {{ plan.name }}
-                                        </h4>
-                                        <p
-                                            v-if="plan.description"
-                                            class="line-clamp-2 text-xs text-muted-foreground"
-                                        >
+                                        <h4 class="font-semibold text-lg">{{ plan.name }}</h4>
+                                        <p v-if="plan.description" class="text-xs text-muted-foreground line-clamp-2">
                                             {{ plan.description }}
                                         </p>
                                     </div>
 
                                     <div class="space-y-2">
-                                        <div
-                                            class="text-2xl font-bold text-primary"
-                                        >
+                                        <div class="text-2xl font-bold text-primary">
                                             {{ formatPrice(plan.price) }}
                                         </div>
-
+                                        
                                         <div class="space-y-1 text-sm">
-                                            <div
-                                                class="flex items-center gap-2"
-                                            >
-                                                <Calendar
-                                                    class="h-3 w-3 text-muted-foreground"
-                                                />
-                                                <span>{{
-                                                    getDurationLabel(
-                                                        plan.duration_days,
-                                                    )
-                                                }}</span>
+                                            <div class="flex items-center gap-2">
+                                                <Calendar class="h-3 w-3 text-muted-foreground" />
+                                                <span>{{ getDurationLabel(plan.duration_days) }}</span>
                                             </div>
-                                            <div
-                                                v-if="
-                                                    plan.max_entries_per_month
-                                                "
-                                                class="flex items-center gap-2"
-                                            >
-                                                <CreditCard
-                                                    class="h-3 w-3 text-muted-foreground"
-                                                />
-                                                <span
-                                                    >{{
-                                                        plan.max_entries_per_month
-                                                    }}
-                                                    entradas/mes</span
-                                                >
+                                            <div v-if="plan.max_entries_per_month" class="flex items-center gap-2">
+                                                <CreditCard class="h-3 w-3 text-muted-foreground" />
+                                                <span>{{ plan.max_entries_per_month }} entradas/mes</span>
                                             </div>
-                                            <div
-                                                v-else
-                                                class="flex items-center gap-2"
-                                            >
-                                                <CreditCard
-                                                    class="h-3 w-3 text-muted-foreground"
-                                                />
-                                                <span class="font-medium"
-                                                    >Entradas ilimitadas</span
-                                                >
+                                            <div v-else class="flex items-center gap-2">
+                                                <CreditCard class="h-3 w-3 text-muted-foreground" />
+                                                <span class="font-medium">Entradas ilimitadas</span>
                                             </div>
                                         </div>
                                     </div>
 
-                                    <div
-                                        v-if="selectedPlan?.id === plan.id"
-                                        class="absolute top-2 right-2"
-                                    >
-                                        <div
-                                            class="rounded-full bg-primary p-1"
-                                        >
-                                            <Check
-                                                class="h-4 w-4 text-primary-foreground"
-                                            />
+                                    <div v-if="selectedPlan?.id === plan.id" class="absolute top-2 right-2">
+                                        <div class="rounded-full bg-primary p-1">
+                                            <Check class="h-4 w-4 text-primary-foreground" />
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                        <p
-                            v-if="subscriptionForm.errors.membership_plan_id"
-                            class="mt-2 text-sm text-red-500"
-                        >
+                        <p v-if="subscriptionForm.errors.membership_plan_id" class="text-sm text-red-500 mt-2">
                             {{ subscriptionForm.errors.membership_plan_id }}
                         </p>
                     </div>
 
                     <!-- Payment Details -->
                     <div v-if="selectedPlan" class="space-y-4 border-t pt-4">
-                        <h3 class="text-base font-semibold">
-                            Detalles de Pago
-                        </h3>
-
+                        <h3 class="text-base font-semibold">Detalles de Pago</h3>
+                        
                         <div class="grid grid-cols-2 gap-4">
                             <div class="space-y-2">
                                 <Label for="start_date">Fecha de Inicio</Label>
@@ -1296,9 +866,7 @@ const hasPortalAccess = props.member.user_id !== null;
                                     id="start_date"
                                     v-model="subscriptionForm.start_date"
                                     type="date"
-                                    :min="
-                                        new Date().toISOString().split('T')[0]
-                                    "
+                                    :min="new Date().toISOString().split('T')[0]"
                                 />
                                 <p class="text-xs text-muted-foreground">
                                     Deja vacío para iniciar hoy
@@ -1306,39 +874,23 @@ const hasPortalAccess = props.member.user_id !== null;
                             </div>
 
                             <div class="space-y-2">
-                                <Label for="payment_method"
-                                    >Método de Pago *</Label
-                                >
-                                <Select
-                                    v-model="subscriptionForm.payment_method"
-                                >
+                                <Label for="payment_method">Método de Pago *</Label>
+                                <Select v-model="subscriptionForm.payment_method">
                                     <SelectTrigger>
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="efectivo"
-                                            >Efectivo</SelectItem
-                                        >
-                                        <SelectItem value="tarjeta"
-                                            >Tarjeta</SelectItem
-                                        >
-                                        <SelectItem value="transferencia"
-                                            >Transferencia</SelectItem
-                                        >
-                                        <SelectItem value="yape"
-                                            >Yape</SelectItem
-                                        >
-                                        <SelectItem value="plin"
-                                            >Plin</SelectItem
-                                        >
+                                        <SelectItem value="efectivo">Efectivo</SelectItem>
+                                        <SelectItem value="tarjeta">Tarjeta</SelectItem>
+                                        <SelectItem value="transferencia">Transferencia</SelectItem>
+                                        <SelectItem value="yape">Yape</SelectItem>
+                                        <SelectItem value="plin">Plin</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
 
                             <div class="space-y-2">
-                                <Label for="amount_paid"
-                                    >Monto Pagado (S/) *</Label
-                                >
+                                <Label for="amount_paid">Monto Pagado (S/) *</Label>
                                 <Input
                                     id="amount_paid"
                                     v-model="subscriptionForm.amount_paid"
@@ -1349,9 +901,7 @@ const hasPortalAccess = props.member.user_id !== null;
                         </div>
 
                         <div class="space-y-2">
-                            <Label for="payment_reference"
-                                >Referencia de Pago</Label
-                            >
+                            <Label for="payment_reference">Referencia de Pago</Label>
                             <Input
                                 id="payment_reference"
                                 v-model="subscriptionForm.payment_reference"
@@ -1381,15 +931,9 @@ const hasPortalAccess = props.member.user_id !== null;
                         </Button>
                         <Button
                             type="submit"
-                            :disabled="
-                                !selectedPlan || subscriptionForm.processing
-                            "
+                            :disabled="!selectedPlan || subscriptionForm.processing"
                         >
-                            {{
-                                subscriptionForm.processing
-                                    ? 'Creando...'
-                                    : 'Crear Suscripción'
-                            }}
+                            {{ subscriptionForm.processing ? 'Creando...' : 'Crear Suscripción' }}
                         </Button>
                     </DialogFooter>
                 </form>
@@ -1402,24 +946,14 @@ const hasPortalAccess = props.member.user_id !== null;
                 <DialogHeader>
                     <DialogTitle>Congelar Suscripción</DialogTitle>
                     <DialogDescription>
-                        El miembro no podrá ingresar durante el período de
-                        congelamiento.
+                        El miembro no podrá ingresar durante el período de congelamiento.
                     </DialogDescription>
                 </DialogHeader>
 
                 <form @submit.prevent="freezeSubscription" class="space-y-4">
-                    <div
-                        v-if="selectedSubscription"
-                        class="rounded-lg bg-muted p-3 text-sm"
-                    >
-                        <p>
-                            <strong>Plan:</strong>
-                            {{ selectedSubscription.plan.name }}
-                        </p>
-                        <p>
-                            <strong>Días disponibles:</strong>
-                            {{ selectedSubscription.remaining_freeze_days }}
-                        </p>
+                    <div v-if="selectedSubscription" class="bg-muted p-3 rounded-lg text-sm">
+                        <p><strong>Plan:</strong> {{ selectedSubscription.plan.name }}</p>
+                        <p><strong>Días disponibles:</strong> {{ selectedSubscription.remaining_freeze_days }}</p>
                     </div>
 
                     <div class="space-y-2">
@@ -1429,15 +963,10 @@ const hasPortalAccess = props.member.user_id !== null;
                             v-model.number="freezeForm.days"
                             type="number"
                             min="1"
-                            :max="
-                                selectedSubscription?.remaining_freeze_days || 1
-                            "
+                            :max="selectedSubscription?.remaining_freeze_days || 1"
                             required
                         />
-                        <p
-                            v-if="freezeForm.errors.days"
-                            class="text-sm text-red-500"
-                        >
+                        <p v-if="freezeForm.errors.days" class="text-sm text-red-500">
                             {{ freezeForm.errors.days }}
                         </p>
                     </div>
@@ -1452,26 +981,11 @@ const hasPortalAccess = props.member.user_id !== null;
                         />
                     </div>
 
-                    <div
-                        v-if="selectedSubscription && freezeForm.days > 0"
-                        class="rounded border border-blue-200 bg-blue-50 p-3 text-sm"
-                    >
-                        <p class="mb-1 font-semibold">📅 Nueva fecha de fin:</p>
-                        <p>
-                            {{
-                                new Date(
-                                    selectedSubscription.end_date,
-                                ).toLocaleDateString('es-PE')
-                            }}
-                            + {{ freezeForm.days }} días =
-                            <strong>{{
-                                new Date(
-                                    new Date(
-                                        selectedSubscription.end_date,
-                                    ).getTime() +
-                                        freezeForm.days * 24 * 60 * 60 * 1000,
-                                ).toLocaleDateString('es-PE')
-                            }}</strong>
+                    <div v-if="selectedSubscription && freezeForm.days > 0" class="bg-blue-50 border border-blue-200 p-3 rounded text-sm">
+                        <p class="font-semibold mb-1">📅 Nueva fecha de fin:</p>
+                        <p>{{ new Date(selectedSubscription.end_date).toLocaleDateString('es-PE') }} 
+                           + {{ freezeForm.days }} días = 
+                           <strong>{{ new Date(new Date(selectedSubscription.end_date).getTime() + freezeForm.days * 24 * 60 * 60 * 1000).toLocaleDateString('es-PE') }}</strong>
                         </p>
                     </div>
 
@@ -1486,15 +1000,9 @@ const hasPortalAccess = props.member.user_id !== null;
                         </Button>
                         <Button
                             type="submit"
-                            :disabled="
-                                freezeForm.processing || !freezeForm.days
-                            "
+                            :disabled="freezeForm.processing || !freezeForm.days"
                         >
-                            {{
-                                freezeForm.processing
-                                    ? 'Congelando...'
-                                    : 'Congelar Suscripción'
-                            }}
+                            {{ freezeForm.processing ? 'Congelando...' : 'Congelar Suscripción' }}
                         </Button>
                     </DialogFooter>
                 </form>
@@ -1502,46 +1010,23 @@ const hasPortalAccess = props.member.user_id !== null;
         </Dialog>
 
         <!-- Cancel Subscription Confirmation -->
-        <AlertDialog
-            :open="showCancelDialog"
-            @update:open="showCancelDialog = $event"
-        >
+        <AlertDialog :open="showCancelDialog" @update:open="showCancelDialog = $event">
             <AlertDialogContent>
                 <AlertDialogHeader>
                     <AlertDialogTitle>¿Cancelar suscripción?</AlertDialogTitle>
                     <AlertDialogDescription>
-                        Esta acción es permanente. La suscripción no podrá
-                        reactivarse.
-
-                        <div
-                            v-if="selectedSubscription"
-                            class="mt-4 rounded-lg bg-muted p-3 text-sm"
-                        >
-                            <p>
-                                <strong>Plan:</strong>
-                                {{ selectedSubscription.plan.name }}
-                            </p>
-                            <p>
-                                <strong>Fecha de fin:</strong>
-                                {{ formatDate(selectedSubscription.end_date) }}
-                            </p>
-                            <p>
-                                <strong>Precio pagado:</strong>
-                                {{
-                                    formatPrice(
-                                        selectedSubscription.amount_paid,
-                                    )
-                                }}
-                            </p>
+                        Esta acción es permanente. La suscripción no podrá reactivarse.
+                        
+                        <div v-if="selectedSubscription" class="mt-4 p-3 bg-muted rounded-lg text-sm">
+                            <p><strong>Plan:</strong> {{ selectedSubscription.plan.name }}</p>
+                            <p><strong>Fecha de fin:</strong> {{ formatDate(selectedSubscription.end_date) }}</p>
+                            <p><strong>Precio pagado:</strong> {{ formatPrice(selectedSubscription.amount_paid) }}</p>
                         </div>
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel>No, mantener activa</AlertDialogCancel>
-                    <AlertDialogAction
-                        @click="cancelSubscription"
-                        class="bg-red-600 hover:bg-red-700"
-                    >
+                    <AlertDialogAction @click="cancelSubscription" class="bg-red-600 hover:bg-red-700">
                         Sí, cancelar suscripción
                     </AlertDialogAction>
                 </AlertDialogFooter>

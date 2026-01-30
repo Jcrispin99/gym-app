@@ -27,6 +27,7 @@ type Mode = 'create' | 'edit';
 const props = defineProps<{
     mode: Mode;
     attributeId?: number | null;
+    initialName?: string;
 }>();
 
 const emit = defineEmits<{
@@ -58,16 +59,20 @@ const loadAttribute = async () => {
     if (props.mode !== 'edit' || !props.attributeId) return;
 
     try {
-        const response = await axios.get(`/api/attributes/${props.attributeId}`, {
-            headers: { Accept: 'application/json' },
-        });
+        const response = await axios.get(
+            `/api/attributes/${props.attributeId}`,
+            {
+                headers: { Accept: 'application/json' },
+            },
+        );
         attribute.value = response.data?.data as Attribute;
         if (attribute.value) {
             form.value = {
                 name: attribute.value.name,
                 is_active: !!attribute.value.is_active,
-                values:
-                    attribute.value.attribute_values?.map((v) => v.value) || [''],
+                values: attribute.value.attribute_values?.map(
+                    (v) => v.value,
+                ) || [''],
             };
             if (form.value.values.length === 0) {
                 form.value.values = [''];
@@ -88,7 +93,9 @@ const submit = async () => {
         const payload = {
             name: form.value.name,
             is_active: form.value.is_active,
-            values: form.value.values.map((v) => v.trim()).filter((v) => v !== ''),
+            values: form.value.values
+                .map((v) => v.trim())
+                .filter((v) => v !== ''),
         };
 
         const headers = { Accept: 'application/json' };
@@ -128,7 +135,12 @@ defineExpose({
     processing,
 });
 
-onMounted(loadAttribute);
+onMounted(() => {
+    if (props.mode === 'create' && props.initialName && !form.value.name) {
+        form.value.name = props.initialName;
+    }
+    loadAttribute();
+});
 </script>
 
 <template>
@@ -155,7 +167,12 @@ onMounted(loadAttribute);
                 <div class="space-y-2">
                     <div class="flex items-center justify-between">
                         <Label>Valores del Atributo *</Label>
-                        <Button type="button" variant="outline" size="sm" @click="addValue">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            @click="addValue"
+                        >
                             <Plus class="mr-2 h-4 w-4" />
                             Agregar Valor
                         </Button>
@@ -185,18 +202,22 @@ onMounted(loadAttribute);
                     </div>
 
                     <p class="text-xs text-muted-foreground">
-                        Agrega al menos un valor para el atributo. Ej: Rojo, Azul, Verde
+                        Agrega al menos un valor para el atributo. Ej: Rojo,
+                        Azul, Verde
                     </p>
                     <p v-if="errors.values" class="text-sm text-destructive">
                         {{ errors.values }}
                     </p>
                 </div>
 
-                <div class="flex items-center justify-between rounded-lg border p-4">
+                <div
+                    class="flex items-center justify-between rounded-lg border p-4"
+                >
                     <div class="space-y-0.5">
                         <Label for="is_active">Estado Activo</Label>
                         <p class="text-sm text-muted-foreground">
-                            El atributo estará disponible para asignar a productos
+                            El atributo estará disponible para asignar a
+                            productos
                         </p>
                     </div>
                     <Switch id="is_active" v-model:checked="form.is_active" />
@@ -205,4 +226,3 @@ onMounted(loadAttribute);
         </CardContent>
     </Card>
 </template>
-

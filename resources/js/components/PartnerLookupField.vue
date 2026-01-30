@@ -16,9 +16,12 @@ interface Props {
     documentNumber: string;
     error?: string;
     readonly?: boolean;
+    autoLookup?: boolean;
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+    autoLookup: true,
+});
 
 const emit = defineEmits<{
     (e: 'update:documentType', value: string): void;
@@ -32,6 +35,10 @@ const searchStatus = ref<'idle' | 'found' | 'not_found' | 'error'>('idle');
 let debounceTimer: number | undefined;
 
 const performLookup = async () => {
+    if (props.readonly) {
+        return;
+    }
+
     const docNum = props.documentNumber?.trim();
 
     // Validar longitud mínima antes de buscar
@@ -93,6 +100,11 @@ const performLookup = async () => {
 watch(
     () => props.documentNumber,
     (newVal) => {
+        if (props.readonly || !props.autoLookup) {
+            searchStatus.value = 'idle';
+            return;
+        }
+
         if (debounceTimer) clearTimeout(debounceTimer);
 
         if (newVal && newVal.length >= 8) {
@@ -109,6 +121,11 @@ watch(
 watch(
     () => props.documentType,
     () => {
+        if (props.readonly || !props.autoLookup) {
+            searchStatus.value = 'idle';
+            return;
+        }
+
         if (props.documentNumber && props.documentNumber.length >= 8) {
             performLookup();
         }
@@ -180,7 +197,7 @@ watch(
                     type="button"
                     class="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                     @click="performLookup"
-                    :disabled="isSearching || !documentNumber"
+                    :disabled="readonly || isSearching || !documentNumber"
                     title="Buscar manualmente"
                 >
                     <Search class="h-4 w-4" />

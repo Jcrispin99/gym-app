@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Controller;
 use App\Models\Journal;
 use App\Models\Partner;
 use App\Models\Purchase;
@@ -11,62 +12,102 @@ use App\Services\KardexService;
 use App\Services\SequenceService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Inertia\Inertia;
+use Illuminate\Validation\ValidationException;
+use Spatie\Activitylog\Models\Activity;
 
-class PurchaseController extends Controller
+class PurchaseApiController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index(Request $request)
     {
-        $query = Purchase::with(['partner', 'warehouse', 'journal', 'productables.productProduct'])
+        $validated = $request->validate([
+            'search' => 'nullable|string|max:255',
+            'status' => 'nullable|string|in:draft,posted,cancelled',
+            'per_page' => 'nullable|integer|min:1|max:100',
+        ]);
+
+        $query = Purchase::query()
+            ->with(['partner', 'warehouse'])
             ->orderBy('created_at', 'desc');
 
-        // Filtro por estado
-        if ($request->has('status') && $request->status) {
-            $query->where('status', $request->status);
+        if (! empty($validated['status'])) {
+            $query->where('status', $validated['status']);
         }
 
-        // Búsqueda
-        if ($request->has('search') && $request->search) {
-            $search = $request->search;
+        if (! empty($validated['search'])) {
+            $search = $validated['search'];
             $query->where(function ($q) use ($search) {
                 $q->where('serie', 'like', "%{$search}%")
                     ->orWhere('correlative', 'like', "%{$search}%")
-                    ->orWhereHas('partner', function ($pq) use ($search) {
-                        $pq->where('name', 'like', "%{$search}%");
+                    ->orWhereHas('partner', function ($partnerQuery) use ($search) {
+                        $partnerQuery->where('business_name', 'like', "%{$search}%")
+                            ->orWhere('first_name', 'like', "%{$search}%")
+                            ->orWhere('last_name', 'like', "%{$search}%");
                     });
             });
         }
 
-        $purchases = $query->paginate(15);
+        $perPage = (int) ($validated['per_page'] ?? 15);
+        $paginator = $query->paginate($perPage);
 
-        return Inertia::render('Purchases/Index', [
-            'purchases' => $purchases,
-            'filters' => $request->only(['search', 'status']),
+        return response()->json([
+            'data' => $paginator->items(),
+            'meta' => [
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+            ],
         ]);
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
+    public function formOptions(Request $request)
     {
-        $suppliers = Partner::suppliers()->get();
-        $warehouses = Warehouse::all();
-        $taxes = Tax::active()->get();
+        $suppliers = Partner::query()
+            ->suppliers()
+            ->orderBy('business_name')
+            ->orderBy('first_name')
+            ->get();
 
-        return Inertia::render('Purchases/Create', [
-            'suppliers' => $suppliers,
-            'warehouses' => $warehouses,
-            'taxes' => $taxes,
+        $warehouses = Warehouse::query()->latest()->get();
+
+        $taxes = Tax::query()
+            ->active()
+            ->orderByDesc('is_default')
+            ->orderBy('name')
+            ->get();
+
+        return response()->json([
+            'data' => [
+                'suppliers' => $suppliers,
+                'warehouses' => $warehouses,
+                'taxes' => $taxes,
+            ],
         ]);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
+    public function show(Purchase $purchase)
+    {
+        $purchase->load([
+            'partner',
+            'warehouse',
+            'productables.productProduct',
+            'productables.tax',
+        ]);
+
+        $activities = Activity::forSubject($purchase)
+            ->with('causer')
+            ->latest()
+            ->take(20)
+            ->get();
+
+        return response()->json([
+            'data' => $purchase,
+            'meta' => [
+                'activities' => $activities,
+            ],
+        ]);
+    }
+
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -83,23 +124,30 @@ class PurchaseController extends Controller
             'products.*.tax_id' => 'nullable|exists:taxes,id',
         ]);
 
-        DB::transaction(function () use ($validated) {
-            // Obtener company_id del usuario o de la sesión
-            $companyId = $validated['company_id'] ?? auth()->user()->company_id;
+        $purchaseId = null;
 
-            // Obtener el journal por defecto para compras de esta compañía
+        $user = $request->user();
+        $companyId = $validated['company_id'] ?? $user?->company_id;
+
+        if (! $companyId) {
+            throw ValidationException::withMessages([
+                'company_id' => 'No se pudo determinar la compañía.',
+            ]);
+        }
+
+        DB::transaction(function () use ($validated, &$purchaseId, $companyId) {
             $defaultJournal = Journal::where('type', 'purchase')
                 ->where('company_id', $companyId)
                 ->first();
 
             if (! $defaultJournal) {
-                throw new \Exception('No se encontró un diario de compras para esta compañía. Por favor crea uno primero.');
+                throw ValidationException::withMessages([
+                    'journal' => 'No se encontró un diario de compras para esta compañía. Por favor crea uno primero.',
+                ]);
             }
 
-            // Generar serie y correlativo usando SequenceService
             $numberParts = SequenceService::getNextParts($defaultJournal->id);
 
-            // Crear compra en estado draft con serie/correlativo
             $purchase = Purchase::create([
                 'partner_id' => $validated['partner_id'],
                 'warehouse_id' => $validated['warehouse_id'],
@@ -115,7 +163,6 @@ class PurchaseController extends Controller
                 'total' => 0,
             ]);
 
-            // Crear productables y calcular total
             $total = 0;
             foreach ($validated['products'] as $productData) {
                 $tax = isset($productData['tax_id'])
@@ -144,50 +191,30 @@ class PurchaseController extends Controller
                 $total += $lineTotal;
             }
 
-            // Actualizar total de la compra
             $purchase->update(['total' => $total]);
+            $purchaseId = $purchase->id;
         });
 
-        return redirect()->route('purchases.index')
-            ->with('success', 'Compra creada como borrador exitosamente.');
+        $purchase = Purchase::query()
+            ->with([
+                'partner',
+                'warehouse',
+                'productables.productProduct',
+                'productables.tax',
+            ])
+            ->findOrFail($purchaseId);
+
+        return response()->json([
+            'data' => $purchase,
+        ], 201);
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(Purchase $purchase)
-    {
-        $purchase->load(['productables.productProduct', 'productables.tax']);
-
-        // Load activity log
-        $activities = \Spatie\Activitylog\Models\Activity::forSubject($purchase)
-            ->with('causer')
-            ->latest()
-            ->take(20)
-            ->get();
-
-        $suppliers = Partner::suppliers()->get();
-        $warehouses = Warehouse::all();
-        $taxes = Tax::active()->get();
-
-        return Inertia::render('Purchases/Edit', [
-            'purchase' => $purchase,
-            'activities' => $activities,
-            'suppliers' => $suppliers,
-            'warehouses' => $warehouses,
-            'taxes' => $taxes,
-        ]);
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
     public function update(Request $request, Purchase $purchase)
     {
-        // Solo se pueden editar compras en estado draft
         if ($purchase->status !== 'draft') {
-            return redirect()->back()
-                ->with('error', 'Solo se pueden editar compras en estado borrador.');
+            throw ValidationException::withMessages([
+                'status' => 'Solo se pueden editar compras en estado borrador.',
+            ]);
         }
 
         $validated = $request->validate([
@@ -204,7 +231,6 @@ class PurchaseController extends Controller
         ]);
 
         DB::transaction(function () use ($validated, $purchase) {
-            // Actualizar compra
             $purchase->update([
                 'partner_id' => $validated['partner_id'],
                 'warehouse_id' => $validated['warehouse_id'],
@@ -213,10 +239,8 @@ class PurchaseController extends Controller
                 'observation' => $validated['observation'] ?? null,
             ]);
 
-            // Eliminar productables existentes
             $purchase->productables()->delete();
 
-            // Crear nuevos productables y calcular total
             $total = 0;
             foreach ($validated['products'] as $productData) {
                 $tax = isset($productData['tax_id'])
@@ -245,23 +269,25 @@ class PurchaseController extends Controller
                 $total += $lineTotal;
             }
 
-            // Actualizar total de la compra
             $purchase->update(['total' => $total]);
         });
 
-        return redirect()->route('purchases.index')
-            ->with('success', 'Compra actualizada exitosamente.');
+        return response()->json([
+            'data' => $purchase->fresh()->load([
+                'partner',
+                'warehouse',
+                'productables.productProduct',
+                'productables.tax',
+            ]),
+        ]);
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
     public function destroy(Purchase $purchase)
     {
-        // Solo se pueden eliminar compras en estado draft
         if ($purchase->status !== 'draft') {
-            return redirect()->back()
-                ->with('error', 'Solo se pueden eliminar compras en estado borrador.');
+            throw ValidationException::withMessages([
+                'status' => 'Solo se pueden eliminar compras en estado borrador.',
+            ]);
         }
 
         DB::transaction(function () use ($purchase) {
@@ -269,35 +295,32 @@ class PurchaseController extends Controller
             $purchase->delete();
         });
 
-        return redirect()->route('purchases.index')
-            ->with('success', 'Compra eliminada exitosamente.');
+        return response()->json([
+            'ok' => true,
+        ]);
     }
 
-    /**
-     * Post/Publish the purchase (draft -> posted)
-     */
-    public function post(Purchase $purchase)
+    public function post(Request $request, Purchase $purchase)
     {
         if ($purchase->status !== 'draft') {
-            return redirect()->back()
-                ->with('error', 'Solo se pueden publicar compras en estado borrador.');
+            throw ValidationException::withMessages([
+                'status' => 'Solo se pueden publicar compras en estado borrador.',
+            ]);
         }
 
         DB::transaction(function () use ($purchase) {
-            // Cambiar estado a posted (serie/correlativo ya fue generado al crear)
             $purchase->update([
                 'status' => 'posted',
             ]);
 
-            // Registrar log personalizado
             activity()
                 ->performedOn($purchase)
-                ->causedBy(auth()->user())
+                ->causedBy(request()->user())
                 ->log('Compra Publicada');
 
-            // Registrar movimientos de inventario con KardexService
-            $kardexService = new KardexService;
+            $purchase->load('productables');
 
+            $kardexService = new KardexService;
             foreach ($purchase->productables as $productable) {
                 $kardexService->registerEntry(
                     $purchase,
@@ -313,24 +336,28 @@ class PurchaseController extends Controller
             }
         });
 
-        return redirect()->route('purchases.index')
-            ->with('success', 'Compra publicada exitosamente. Inventario actualizado.');
+        return response()->json([
+            'data' => $purchase->fresh()->load([
+                'partner',
+                'warehouse',
+                'productables.productProduct',
+                'productables.tax',
+            ]),
+        ]);
     }
 
-    /**
-     * Cancel the purchase (posted -> cancelled)
-     */
-    public function cancel(Purchase $purchase)
+    public function cancel(Request $request, Purchase $purchase)
     {
         if ($purchase->status !== 'posted') {
-            return redirect()->back()
-                ->with('error', 'Solo se pueden cancelar compras publicadas.');
+            throw ValidationException::withMessages([
+                'status' => 'Solo se pueden cancelar compras publicadas.',
+            ]);
         }
 
         DB::transaction(function () use ($purchase) {
-            // Revertir movimientos de inventario
-            $kardexService = new KardexService;
+            $purchase->load('productables');
 
+            $kardexService = new KardexService;
             foreach ($purchase->productables as $productable) {
                 $kardexService->registerExit(
                     $purchase,
@@ -345,14 +372,19 @@ class PurchaseController extends Controller
 
             $purchase->update(['status' => 'cancelled']);
 
-            // Registrar log personalizado
             activity()
                 ->performedOn($purchase)
-                ->causedBy(auth()->user())
+                ->causedBy(request()->user())
                 ->log('Compra Cancelada');
         });
 
-        return redirect()->route('purchases.index')
-            ->with('success', 'Compra cancelada. Inventario revertido.');
+        return response()->json([
+            'data' => $purchase->fresh()->load([
+                'partner',
+                'warehouse',
+                'productables.productProduct',
+                'productables.tax',
+            ]),
+        ]);
     }
 }

@@ -34,7 +34,8 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import type { BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/vue3';
 import { Edit, Filter, Search, Trash2, UserPlus, Users } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
+import axios from 'axios';
+import { computed, onMounted, ref } from 'vue';
 
 interface Company {
     id: number;
@@ -54,11 +55,8 @@ interface Customer {
     created_at: string;
 }
 
-interface Props {
-    customers: Customer[];
-}
-
-const props = defineProps<Props>();
+const customers = ref<Customer[]>([]);
+const isLoading = ref(false);
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -73,19 +71,46 @@ const searchQuery = ref('');
 const selectedStatuses = ref<string[]>([]);
 const selectedPortalFilters = ref<string[]>([]);
 
+const headers = {
+    Accept: 'application/json',
+    'X-Requested-With': 'XMLHttpRequest',
+};
+
+const loadCustomers = async () => {
+    isLoading.value = true;
+    try {
+        const response = await axios.get('/api/customers', {
+            headers,
+            params: {
+                q: searchQuery.value || undefined,
+                limit: 100,
+            },
+        });
+        customers.value = (response.data?.data || []) as Customer[];
+    } catch (e) {
+        console.error('Error loading customers:', e);
+        customers.value = [];
+    } finally {
+        isLoading.value = false;
+    }
+};
+
 const openDeleteDialog = (customer: Customer) => {
     customerToDelete.value = customer;
     deleteDialogOpen.value = true;
 };
 
-const deleteCustomer = () => {
-    if (customerToDelete.value) {
-        router.delete(`/customers/${customerToDelete.value.id}`, {
-            onSuccess: () => {
-                deleteDialogOpen.value = false;
-                customerToDelete.value = null;
-            },
-        });
+const deleteCustomer = async () => {
+    const target = customerToDelete.value;
+    if (!target) return;
+
+    try {
+        await axios.delete(`/api/customers/${target.id}`, { headers });
+        customers.value = customers.value.filter((c) => c.id !== target.id);
+        deleteDialogOpen.value = false;
+        customerToDelete.value = null;
+    } catch (e) {
+        console.error('Error deleting customer:', e);
     }
 };
 
@@ -108,7 +133,7 @@ const getStatusBadge = (status: string) => {
 
 // Filtered customers with multi-select checkboxes
 const filteredCustomers = computed(() => {
-    let filtered = props.customers;
+    let filtered = customers.value;
 
     // Search filter
     if (searchQuery.value) {
@@ -157,6 +182,8 @@ const filteredCustomers = computed(() => {
 const activeFiltersCount = computed(() => {
     return selectedStatuses.value.length + selectedPortalFilters.value.length;
 });
+
+onMounted(loadCustomers);
 </script>
 
 <template>
@@ -462,7 +489,8 @@ const activeFiltersCount = computed(() => {
                         </TableBody>
                     </Table>
                     <div v-else class="py-10 text-center text-muted-foreground">
-                        No hay clientes registrados
+                        <span v-if="isLoading">Cargando...</span>
+                        <span v-else>No hay clientes registrados</span>
                     </div>
                 </CardContent>
             </Card>

@@ -15,6 +15,7 @@ import {
 import AppLayout from '@/layouts/AppLayout.vue';
 import type { BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/vue3';
+import axios from 'axios';
 import {
     DoorOpen,
     History,
@@ -24,7 +25,7 @@ import {
     Search,
     Trash2,
 } from 'lucide-vue-next';
-import { ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 
 interface Tax {
     id: number;
@@ -55,47 +56,98 @@ interface PosConfig {
     created_at: string;
 }
 
-interface Props {
-    posConfigs: {
-        data: PosConfig[];
-        current_page: number;
-        last_page: number;
-        per_page: number;
-        total: number;
-    };
-}
-
-defineProps<Props>();
 const searchQuery = ref('');
+const isLoading = ref(false);
+
+const posConfigs = ref<PosConfig[]>([]);
+const meta = ref({
+    current_page: 1,
+    last_page: 1,
+    per_page: 20,
+    total: 0,
+});
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
     { title: 'POS', href: '/pos-configs' },
 ];
 
-const handleSearch = () => {
-    router.get(
-        '/pos-configs',
-        { search: searchQuery.value },
-        { preserveState: true },
-    );
+const headers = {
+    Accept: 'application/json',
+    'X-Requested-With': 'XMLHttpRequest',
 };
 
-const toggleStatus = (posConfig: PosConfig) => {
-    router.post(
-        `/pos-configs/${posConfig.id}/toggle-status`,
-        {},
-        {
-            preserveScroll: true,
-        },
-    );
-};
+const loadPosConfigs = async (page = 1) => {
+    isLoading.value = true;
+    try {
+        const response = await axios.get('/api/pos-configs', {
+            headers,
+            params: {
+                search: searchQuery.value || undefined,
+                per_page: meta.value.per_page,
+                page,
+            },
+        });
 
-const deletePosConfig = (posConfig: PosConfig) => {
-    if (confirm(`¿Estás seguro de eliminar el POS "${posConfig.name}"?`)) {
-        router.delete(`/pos-configs/${posConfig.id}`);
+        posConfigs.value = (response.data?.data || []) as PosConfig[];
+        meta.value = {
+            current_page: Number(response.data?.meta?.current_page || 1),
+            last_page: Number(response.data?.meta?.last_page || 1),
+            per_page: Number(response.data?.meta?.per_page || 20),
+            total: Number(response.data?.meta?.total || 0),
+        };
+    } catch (e) {
+        console.error('Error loading POS configs:', e);
+        posConfigs.value = [];
+        meta.value = {
+            current_page: 1,
+            last_page: 1,
+            per_page: meta.value.per_page,
+            total: 0,
+        };
+    } finally {
+        isLoading.value = false;
     }
 };
+
+const totalLabel = computed(() =>
+    meta.value.total > 0 ? meta.value.total : posConfigs.value.length,
+);
+
+const handleSearch = () => {
+    loadPosConfigs(1);
+};
+
+const toggleStatus = async (posConfig: PosConfig) => {
+    try {
+        const response = await axios.post(
+            `/api/pos-configs/${posConfig.id}/toggle-status`,
+            {},
+            { headers },
+        );
+        const updated = response.data?.data as PosConfig;
+        posConfigs.value = posConfigs.value.map((p) =>
+            p.id === posConfig.id ? updated : p,
+        );
+    } catch (e) {
+        console.error('Error toggling status:', e);
+    }
+};
+
+const deletePosConfig = async (posConfig: PosConfig) => {
+    if (confirm(`¿Estás seguro de eliminar el POS "${posConfig.name}"?`)) {
+        try {
+            await axios.delete(`/api/pos-configs/${posConfig.id}`, { headers });
+            posConfigs.value = posConfigs.value.filter(
+                (p) => p.id !== posConfig.id,
+            );
+        } catch (e) {
+            console.error('Error deleting POS config:', e);
+        }
+    }
+};
+
+onMounted(() => loadPosConfigs(1));
 </script>
 
 <template>
@@ -139,9 +191,7 @@ const deletePosConfig = (posConfig: PosConfig) => {
             <!-- Table -->
             <Card>
                 <CardHeader>
-                    <CardTitle
-                        >POS Registrados ({{ posConfigs.total }})</CardTitle
-                    >
+                    <CardTitle>POS Registrados ({{ totalLabel }})</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <Table>
@@ -159,7 +209,7 @@ const deletePosConfig = (posConfig: PosConfig) => {
                         </TableHeader>
                         <TableBody>
                             <TableRow
-                                v-for="posConfig in posConfigs.data"
+                                v-for="posConfig in posConfigs"
                                 :key="posConfig.id"
                             >
                                 <TableCell class="font-medium">
@@ -262,12 +312,16 @@ const deletePosConfig = (posConfig: PosConfig) => {
                                 </TableCell>
                             </TableRow>
 
-                            <TableRow v-if="posConfigs.data.length === 0">
+                            <TableRow v-if="posConfigs.length === 0">
                                 <TableCell
                                     colspan="6"
                                     class="py-8 text-center text-muted-foreground"
                                 >
-                                    No hay configuraciones POS registradas
+                                    <span v-if="isLoading">Cargando...</span>
+                                    <span v-else
+                                        >No hay configuraciones POS
+                                        registradas</span
+                                    >
                                 </TableCell>
                             </TableRow>
                         </TableBody>

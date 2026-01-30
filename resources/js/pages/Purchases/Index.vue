@@ -25,6 +25,7 @@ import {
 import AppLayout from '@/layouts/AppLayout.vue';
 import type { BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/vue3';
+import axios from 'axios';
 import {
     CheckCircle,
     Edit,
@@ -34,7 +35,7 @@ import {
     Trash2,
     XCircle,
 } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 
 interface Purchase {
     id: number;
@@ -54,92 +55,127 @@ interface Purchase {
     created_at: string;
 }
 
-interface Props {
-    purchases: {
-        data: Purchase[];
-    };
-    filters?: {
-        search?: string;
-        status?: string;
-    };
-}
-
-const props = defineProps<Props>();
-
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
     { title: 'Compras', href: '/purchases' },
 ];
 
+const purchases = ref<Purchase[]>([]);
+const isLoading = ref(false);
 const deleteDialogOpen = ref(false);
 const purchaseToDelete = ref<Purchase | null>(null);
-const searchQuery = ref(props.filters?.search || '');
+const deleteError = ref<string | null>(null);
+const searchQuery = ref('');
 
-const openDeleteDialog = (purchase: Purchase) => {
-    purchaseToDelete.value = purchase;
-    deleteDialogOpen.value = true;
+const headers = {
+    Accept: 'application/json',
+    'X-Requested-With': 'XMLHttpRequest',
 };
 
-const deletePurchase = () => {
-    if (purchaseToDelete.value) {
-        router.delete(`/purchases/${purchaseToDelete.value.id}`, {
-            onSuccess: () => {
-                deleteDialogOpen.value = false;
-                purchaseToDelete.value = null;
+const loadPurchases = async (params: { search?: string } = {}) => {
+    isLoading.value = true;
+    try {
+        const response = await axios.get('/api/purchases', {
+            params: {
+                search: params.search || undefined,
             },
+            headers,
         });
+        purchases.value = (response.data?.data || []) as Purchase[];
+    } catch (e) {
+        console.error('Error loading purchases:', e);
+        purchases.value = [];
+    } finally {
+        isLoading.value = false;
     }
 };
 
-const postPurchase = (purchase: Purchase) => {
+const openDeleteDialog = (purchase: Purchase) => {
+    purchaseToDelete.value = purchase;
+    deleteError.value = null;
+    deleteDialogOpen.value = true;
+};
+
+const deletePurchase = async () => {
+    const target = purchaseToDelete.value;
+    if (!target) return;
+
+    deleteError.value = null;
+    try {
+        await axios.delete(`/api/purchases/${target.id}`, { headers });
+        purchases.value = purchases.value.filter((p) => p.id !== target.id);
+        deleteDialogOpen.value = false;
+        purchaseToDelete.value = null;
+    } catch (e: any) {
+        if (e?.response?.status === 422) {
+            const errors = e.response.data?.errors || {};
+            deleteError.value =
+                errors.status?.[0] ||
+                errors.purchase?.[0] ||
+                'No se pudo eliminar.';
+        } else {
+            console.error('Error deleting purchase:', e);
+            deleteError.value = 'No se pudo eliminar.';
+        }
+    }
+};
+
+const postPurchase = async (purchase: Purchase) => {
     if (
         confirm(
             `¿Estás seguro de publicar esta compra? Se generará la numeración y se actualizará el inventario.`,
         )
     ) {
-        router.post(
-            `/purchases/${purchase.id}/post`,
-            {},
-            {
-                preserveScroll: true,
-            },
-        );
+        try {
+            const response = await axios.post(
+                `/api/purchases/${purchase.id}/post`,
+                {},
+                { headers },
+            );
+            const updated = response.data?.data as Purchase;
+            const index = purchases.value.findIndex(
+                (p) => p.id === purchase.id,
+            );
+            if (index >= 0) purchases.value.splice(index, 1, updated);
+        } catch (e) {
+            console.error('Error posting purchase:', e);
+        }
     }
 };
 
-const cancelPurchase = (purchase: Purchase) => {
+const cancelPurchase = async (purchase: Purchase) => {
     if (
         confirm(
             `¿Estás seguro de cancelar esta compra? Se revertirá el inventario.`,
         )
     ) {
-        router.post(
-            `/purchases/${purchase.id}/cancel`,
-            {},
-            {
-                preserveScroll: true,
-            },
-        );
+        try {
+            const response = await axios.post(
+                `/api/purchases/${purchase.id}/cancel`,
+                {},
+                { headers },
+            );
+            const updated = response.data?.data as Purchase;
+            const index = purchases.value.findIndex(
+                (p) => p.id === purchase.id,
+            );
+            if (index >= 0) purchases.value.splice(index, 1, updated);
+        } catch (e) {
+            console.error('Error cancelling purchase:', e);
+        }
     }
 };
 
 const performSearch = () => {
-    router.get(
-        '/purchases',
-        { search: searchQuery.value },
-        {
-            preserveState: true,
-            preserveScroll: true,
-        },
-    );
+    loadPurchases({ search: searchQuery.value });
 };
 
-const totalPurchases = computed(() => props.purchases.data.length);
+const totalPurchases = computed(() => purchases.value.length);
 const draftPurchases = computed(
-    () => props.purchases.data.filter((p) => p.status === 'draft').length,
+    () => purchases.value.filter((p) => p.status === 'draft').length,
 );
 const postedPurchases = computed(
-    () => props.purchases.data.filter((p) => p.status === 'posted').length,
+    () => purchases.value.filter((p) => p.status === 'posted').length,
 );
 
 const getStatusBadge = (status: string) => {
@@ -157,6 +193,10 @@ const getDisplayNumber = (purchase: Purchase) => {
     }
     return `Borrador #${purchase.id}`;
 };
+
+onMounted(() => {
+    loadPurchases();
+});
 </script>
 
 <template>
@@ -266,7 +306,7 @@ const getDisplayNumber = (purchase: Purchase) => {
                         </TableHeader>
                         <TableBody>
                             <TableRow
-                                v-for="purchase in purchases.data"
+                                v-for="purchase in purchases"
                                 :key="purchase.id"
                             >
                                 <TableCell class="font-medium">
@@ -362,10 +402,11 @@ const getDisplayNumber = (purchase: Purchase) => {
                     </Table>
 
                     <div
-                        v-if="purchases.data.length === 0"
+                        v-if="purchases.length === 0"
                         class="py-8 text-center text-muted-foreground"
                     >
-                        No se encontraron compras
+                        <span v-if="isLoading">Cargando...</span>
+                        <span v-else>No se encontraron compras</span>
                     </div>
                 </CardContent>
             </Card>
@@ -382,6 +423,12 @@ const getDisplayNumber = (purchase: Purchase) => {
                                 ? getDisplayNumber(purchaseToDelete)
                                 : ''
                         }}" permanentemente. Esta acción no se puede deshacer.
+                    </AlertDialogDescription>
+                    <AlertDialogDescription
+                        v-if="deleteError"
+                        class="text-destructive"
+                    >
+                        {{ deleteError }}
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>

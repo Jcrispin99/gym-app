@@ -33,8 +33,9 @@ import {
 import AppLayout from '@/layouts/AppLayout.vue';
 import type { BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/vue3';
+import axios from 'axios';
 import { Edit, Filter, Search, Trash2, UserPlus, Users } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 
 interface Company {
     id: number;
@@ -54,37 +55,64 @@ interface Supplier {
     created_at: string;
 }
 
-interface Props {
-    suppliers: Supplier[];
-}
-
-const props = defineProps<Props>();
-
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
     { title: 'Proveedores', href: '/suppliers' },
 ];
 
+const suppliers = ref<Supplier[]>([]);
+const isLoading = ref(false);
 const deleteDialogOpen = ref(false);
 const supplierToDelete = ref<Supplier | null>(null);
+const deleteError = ref<string | null>(null);
 
 // Search and multi-select filters
 const searchQuery = ref('');
 const selectedStatuses = ref<string[]>([]);
 
+const headers = {
+    Accept: 'application/json',
+    'X-Requested-With': 'XMLHttpRequest',
+};
+
+const loadSuppliers = async () => {
+    isLoading.value = true;
+    try {
+        const response = await axios.get('/api/suppliers', { headers });
+        suppliers.value = (response.data?.data || []) as Supplier[];
+    } catch (e) {
+        console.error('Error loading suppliers:', e);
+        suppliers.value = [];
+    } finally {
+        isLoading.value = false;
+    }
+};
+
 const openDeleteDialog = (supplier: Supplier) => {
     supplierToDelete.value = supplier;
+    deleteError.value = null;
     deleteDialogOpen.value = true;
 };
 
-const deleteSupplier = () => {
-    if (supplierToDelete.value) {
-        router.delete(`/suppliers/${supplierToDelete.value.id}`, {
-            onSuccess: () => {
-                deleteDialogOpen.value = false;
-                supplierToDelete.value = null;
-            },
-        });
+const deleteSupplier = async () => {
+    const target = supplierToDelete.value;
+    if (!target) return;
+
+    deleteError.value = null;
+    try {
+        await axios.delete(`/api/suppliers/${target.id}`, { headers });
+        suppliers.value = suppliers.value.filter((s) => s.id !== target.id);
+        deleteDialogOpen.value = false;
+        supplierToDelete.value = null;
+    } catch (e: any) {
+        if (e?.response?.status === 422) {
+            const errors = e.response.data?.errors || {};
+            deleteError.value =
+                errors.supplier?.[0] || errors.status?.[0] || 'No se pudo eliminar.';
+        } else {
+            console.error('Error deleting supplier:', e);
+            deleteError.value = 'No se pudo eliminar.';
+        }
     }
 };
 
@@ -114,7 +142,7 @@ const getSupplierName = (supplier: Supplier) => {
 
 // Filtered suppliers
 const filteredSuppliers = computed(() => {
-    let filtered = props.suppliers;
+    let filtered = suppliers.value;
 
     // Search filter
     if (searchQuery.value) {
@@ -142,6 +170,8 @@ const filteredSuppliers = computed(() => {
 const activeFiltersCount = computed(() => {
     return selectedStatuses.value.length;
 });
+
+onMounted(loadSuppliers);
 </script>
 
 <template>
@@ -446,7 +476,8 @@ const activeFiltersCount = computed(() => {
                         </TableBody>
                     </Table>
                     <div v-else class="py-10 text-center text-muted-foreground">
-                        No hay proveedores registrados
+                        <span v-if="isLoading">Cargando...</span>
+                        <span v-else>No hay proveedores registrados</span>
                     </div>
                 </CardContent>
             </Card>
@@ -461,6 +492,9 @@ const activeFiltersCount = computed(() => {
                             <strong v-if="supplierToDelete">
                                 {{ getSupplierName(supplierToDelete) }} </strong
                             >. Esta acción no se puede deshacer.
+                        </AlertDialogDescription>
+                        <AlertDialogDescription v-if="deleteError" class="text-destructive">
+                            {{ deleteError }}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>

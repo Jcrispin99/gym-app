@@ -33,6 +33,8 @@ type Mode = 'create' | 'edit';
 const props = defineProps<{
     mode: Mode;
     categoryId?: number | null;
+    initialName?: string;
+    initialParentId?: number | null;
 }>();
 
 const emit = defineEmits<{
@@ -209,6 +211,17 @@ defineExpose({
 });
 
 onMounted(async () => {
+    if (props.mode === 'create') {
+        if (props.initialName && !form.value.name) {
+            form.value.name = props.initialName;
+        }
+        if (
+            props.initialParentId !== undefined &&
+            form.value.parent_id === null
+        ) {
+            form.value.parent_id = props.initialParentId;
+        }
+    }
     await Promise.all([loadParentCategories(), loadCategory()]);
 });
 </script>

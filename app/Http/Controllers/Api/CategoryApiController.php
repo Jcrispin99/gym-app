@@ -15,6 +15,7 @@ class CategoryApiController extends Controller
             'q' => 'nullable|string|max:255',
             'parent_id' => 'nullable|integer|exists:categories,id',
             'only_active' => 'nullable|boolean',
+            'limit' => 'nullable|integer|min:1|max:50',
         ]);
 
         $onlyActive = filter_var($validated['only_active'] ?? false, FILTER_VALIDATE_BOOLEAN);
@@ -36,6 +37,10 @@ class CategoryApiController extends Controller
 
         if ($onlyActive) {
             $query->where('is_active', true);
+        }
+
+        if (!empty($validated['limit'])) {
+            $query->limit((int) $validated['limit']);
         }
 
         return response()->json([
@@ -140,4 +145,3 @@ class CategoryApiController extends Controller
         ]);
     }
 }
-

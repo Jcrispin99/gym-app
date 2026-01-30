@@ -294,17 +294,16 @@ test('sales create credit note creates draft and logs activity', function () {
         'total' => 10.00,
     ]);
 
-    $response = actingAs($user)->post("/sales/{$originSale->id}/credit-note");
+    $response = actingAs($user)->postJson("/api/sales/{$originSale->id}/credit-note");
 
-    $response->assertStatus(302);
+    $response->assertCreated();
 
-    $creditSale = Sale::query()
-        ->where('original_sale_id', $originSale->id)
-        ->where('status', 'draft')
-        ->latest('id')
-        ->firstOrFail();
+    $creditSaleId = (int) data_get($response->json(), 'data.id');
+    expect($creditSaleId)->toBeGreaterThan(0);
 
-    $response->assertRedirect("/sales/{$creditSale->id}/edit");
+    $creditSale = Sale::query()->findOrFail($creditSaleId);
+    expect($creditSale->original_sale_id)->toBe($originSale->id);
+    expect($creditSale->status)->toBe('draft');
 
     $originLog = Activity::forSubject($originSale)
         ->where('description', 'Borrador de Nota de Crédito creado')

@@ -64,9 +64,22 @@ Route::middleware(['auth', 'staff'])->group(function () {
 
 // Customers routes
 Route::middleware(['auth', 'staff'])->group(function () {
-    Route::resource('customers', \App\Http\Controllers\CustomerController::class);
-    Route::post('customers/{customer}/activate-portal', [\App\Http\Controllers\CustomerController::class, 'activatePortal'])
-        ->name('customers.activate-portal');
+    Route::get('customers', function () {
+        return Inertia::render('Customers/Index');
+    })->name('customers.index');
+
+    Route::get('customers/create', function () {
+        return Inertia::render('Customers/FormPage', [
+            'mode' => 'create',
+        ]);
+    })->name('customers.create');
+
+    Route::get('customers/{customer}/edit', function (string $customer) {
+        return Inertia::render('Customers/FormPage', [
+            'mode' => 'edit',
+            'customer_id' => (int) $customer,
+        ]);
+    })->name('customers.edit');
 });
 
 // Membership Plans routes
@@ -123,11 +136,16 @@ Route::middleware(['auth', 'staff'])->group(function () {
     })->name('products.index');
 
     Route::get('products/create', function () {
-        return Inertia::render('Products/CreateEdit');
+        return Inertia::render('Products/FormPage', [
+            'mode' => 'create',
+        ]);
     })->name('products.create');
 
-    Route::get('products/{product}/edit', function () {
-        return Inertia::render('Products/CreateEdit');
+    Route::get('products/{product}/edit', function ($product) {
+        return Inertia::render('Products/FormPage', [
+            'mode' => 'edit',
+            'product_id' => (int) $product,
+        ]);
     })->name('products.edit');
 });
 
@@ -203,39 +221,86 @@ Route::middleware(['auth'])->group(function () {
 
 // Purchases routes
 Route::middleware(['auth'])->group(function () {
-    Route::resource('purchases', \App\Http\Controllers\PurchaseController::class);
-    Route::post('purchases/{purchase}/post', [\App\Http\Controllers\PurchaseController::class, 'post'])
-        ->name('purchases.post');
-    Route::post('purchases/{purchase}/cancel', [\App\Http\Controllers\PurchaseController::class, 'cancel'])
-        ->name('purchases.cancel');
+    Route::get('purchases', function () {
+        return Inertia::render('Purchases/Index');
+    })->name('purchases.index');
+
+    Route::get('purchases/create', function () {
+        return Inertia::render('Purchases/FormPage', [
+            'mode' => 'create',
+        ]);
+    })->name('purchases.create');
+
+    Route::get('purchases/{purchase}/edit', function (string $purchase) {
+        return Inertia::render('Purchases/FormPage', [
+            'mode' => 'edit',
+            'purchase_id' => (int) $purchase,
+        ]);
+    })->name('purchases.edit');
 });
 
 // Suppliers routes
 Route::middleware(['auth'])->group(function () {
-    Route::resource('suppliers', \App\Http\Controllers\SupplierController::class);
+    Route::get('suppliers', function () {
+        return Inertia::render('Suppliers/Index');
+    })->name('suppliers.index');
+
+    Route::get('suppliers/create', function () {
+        return Inertia::render('Suppliers/FormPage', [
+            'mode' => 'create',
+        ]);
+    })->name('suppliers.create');
+
+    Route::get('suppliers/{supplier}/edit', function (string $supplier) {
+        return Inertia::render('Suppliers/FormPage', [
+            'mode' => 'edit',
+            'supplier_id' => (int) $supplier,
+        ]);
+    })->name('suppliers.edit');
 });
 
 // Sales routes
 Route::middleware(['auth'])->group(function () {
-    Route::resource('sales', \App\Http\Controllers\SaleController::class);
-    Route::post('sales/{sale}/post', [\App\Http\Controllers\SaleController::class, 'post'])
-        ->name('sales.post');
-    Route::post('sales/{sale}/cancel', [\App\Http\Controllers\SaleController::class, 'cancel'])
-        ->name('sales.cancel');
-    Route::post('sales/{sale}/credit-note', [\App\Http\Controllers\SaleController::class, 'createCreditNote'])
-        ->name('sales.credit-note');
-    Route::post('sales/{sale}/sunat/retry', [\App\Http\Controllers\SaleController::class, 'retrySunat'])
-        ->name('sales.sunat.retry');
+    Route::get('sales', function () {
+        return Inertia::render('Sales/Index');
+    })->name('sales.index');
+
+    Route::get('sales/create', function () {
+        return Inertia::render('Sales/FormPage', [
+            'mode' => 'create',
+        ]);
+    })->name('sales.create');
+
+    Route::get('sales/{sale}/edit', function (string $sale) {
+        return Inertia::render('Sales/FormPage', [
+            'mode' => 'edit',
+            'sale_id' => (int) $sale,
+        ]);
+    })->name('sales.edit');
 });
 
 // POS Configs routes
 Route::middleware(['auth'])->group(function () {
-    Route::resource('pos-configs', \App\Http\Controllers\PosConfigController::class);
-    Route::post('pos-configs/{posConfig}/toggle-status', [\App\Http\Controllers\PosConfigController::class, 'toggleStatus'])
-        ->name('pos-configs.toggle-status');
-    Route::get('pos-configs/{posConfig}/sessions', [\App\Http\Controllers\PosConfigController::class, 'sessions'])
+    Route::get('pos-configs', function () {
+        return Inertia::render('PosConfigs/Index');
+    })->name('pos-configs.index');
+
+    Route::get('pos-configs/create', function () {
+        return Inertia::render('PosConfigs/FormPage', [
+            'mode' => 'create',
+        ]);
+    })->name('pos-configs.create');
+
+    Route::get('pos-configs/{posConfig}/edit', function (string $posConfig) {
+        return Inertia::render('PosConfigs/FormPage', [
+            'mode' => 'edit',
+            'pos_config_id' => (int) $posConfig,
+        ]);
+    })->name('pos-configs.edit');
+
+    Route::get('pos-configs/{posConfig}/sessions', [\App\Http\Controllers\PosConfigSessionsController::class, 'sessions'])
         ->name('pos-configs.sessions');
-    Route::get('pos-configs/{posConfig}/sessions/{session}/orders', [\App\Http\Controllers\PosConfigController::class, 'sessionOrders'])
+    Route::get('pos-configs/{posConfig}/sessions/{session}/orders', [\App\Http\Controllers\PosConfigSessionsController::class, 'sessionOrders'])
         ->name('pos-configs.sessions.orders');
 });
 

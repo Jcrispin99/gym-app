@@ -25,6 +25,7 @@ import {
 import AppLayout from '@/layouts/AppLayout.vue';
 import type { BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/vue3';
+import axios from 'axios';
 import {
     CheckCircle,
     Edit,
@@ -33,7 +34,7 @@ import {
     ShoppingCart,
     Trash2,
 } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 
 interface Sale {
     id: number;
@@ -57,17 +58,8 @@ interface Sale {
     created_at: string;
 }
 
-interface Props {
-    sales: {
-        data: Sale[];
-    };
-    filters?: {
-        search?: string;
-        status?: string;
-    };
-}
-
-const props = defineProps<Props>();
+const sales = ref<Sale[]>([]);
+const isLoading = ref(false);
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -76,21 +68,48 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 const deleteDialogOpen = ref(false);
 const saleToDelete = ref<Sale | null>(null);
-const searchQuery = ref(props.filters?.search || '');
+const searchQuery = ref('');
+
+const headers = {
+    Accept: 'application/json',
+    'X-Requested-With': 'XMLHttpRequest',
+};
+
+const loadSales = async () => {
+    isLoading.value = true;
+    try {
+        const response = await axios.get('/api/sales', {
+            headers,
+            params: {
+                search: searchQuery.value || undefined,
+                per_page: 50,
+            },
+        });
+        sales.value = (response.data?.data || []) as Sale[];
+    } catch (e) {
+        console.error('Error loading sales:', e);
+        sales.value = [];
+    } finally {
+        isLoading.value = false;
+    }
+};
 
 const openDeleteDialog = (sale: Sale) => {
     saleToDelete.value = sale;
     deleteDialogOpen.value = true;
 };
 
-const deleteSale = () => {
-    if (saleToDelete.value) {
-        router.delete(`/sales/${saleToDelete.value.id}`, {
-            onSuccess: () => {
-                deleteDialogOpen.value = false;
-                saleToDelete.value = null;
-            },
-        });
+const deleteSale = async () => {
+    const target = saleToDelete.value;
+    if (!target) return;
+
+    try {
+        await axios.delete(`/api/sales/${target.id}`, { headers });
+        sales.value = sales.value.filter((s) => s.id !== target.id);
+        deleteDialogOpen.value = false;
+        saleToDelete.value = null;
+    } catch (e) {
+        console.error('Error deleting sale:', e);
     }
 };
 
@@ -100,33 +119,23 @@ const postSale = (sale: Sale) => {
             `¿Estás seguro de publicar esta venta? Se asignará el número y se reducirá el inventario.`,
         )
     ) {
-        router.post(
-            `/sales/${sale.id}/post`,
-            {},
-            {
-                preserveScroll: true,
-            },
-        );
+        axios
+            .post(`/api/sales/${sale.id}/post`, {}, { headers })
+            .then(loadSales)
+            .catch((e) => console.error('Error posting sale:', e));
     }
 };
 
 const performSearch = () => {
-    router.get(
-        '/sales',
-        { search: searchQuery.value },
-        {
-            preserveState: true,
-            preserveScroll: true,
-        },
-    );
+    loadSales();
 };
 
-const totalSales = computed(() => props.sales.data.length);
+const totalSales = computed(() => sales.value.length);
 const draftSales = computed(
-    () => props.sales.data.filter((s) => s.status === 'draft').length,
+    () => sales.value.filter((s) => s.status === 'draft').length,
 );
 const postedSales = computed(
-    () => props.sales.data.filter((s) => s.status === 'posted').length,
+    () => sales.value.filter((s) => s.status === 'posted').length,
 );
 
 const getStatusBadge = (status: string) => {
@@ -171,6 +180,8 @@ const getSunatBadge = (sale: Sale) => {
     if (accepted) return map.accepted;
     return map[status] || { label: status, variant: 'outline' };
 };
+
+onMounted(loadSales);
 </script>
 
 <template>
@@ -275,7 +286,7 @@ const getSunatBadge = (sale: Sale) => {
                         </TableHeader>
                         <TableBody>
                             <TableRow
-                                v-for="sale in sales.data"
+                                v-for="sale in sales"
                                 :key="sale.id"
                                 class="cursor-pointer"
                                 @click="openSale(sale)"
@@ -353,10 +364,11 @@ const getSunatBadge = (sale: Sale) => {
                     </Table>
 
                     <div
-                        v-if="sales.data.length === 0"
+                        v-if="sales.length === 0"
                         class="py-8 text-center text-muted-foreground"
                     >
-                        No se encontraron ventas
+                        <span v-if="isLoading">Cargando...</span>
+                        <span v-else>No se encontraron ventas</span>
                     </div>
                 </CardContent>
             </Card>
