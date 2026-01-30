@@ -8,7 +8,6 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { cn } from '@/lib/utils';
 import { Save } from 'lucide-vue-next';
 import { computed } from 'vue';
 
@@ -48,10 +47,7 @@ const submit = () => {
 
 <template>
     <Dialog :open="open" @update:open="(v) => emit('update:open', v)">
-        <DialogContent
-            :class="cn('z-[100]', contentClass)"
-            :style="{ pointerEvents: 'auto' }"
-        >
+        <DialogContent :class="contentClass">
             <DialogHeader>
                 <DialogTitle>{{ title }}</DialogTitle>
                 <DialogDescription v-if="description">

@@ -175,7 +175,7 @@ watch(open, (isOpen) => {
 </script>
 
 <template>
-    <Popover v-model:open="open" :modal="true">
+    <Popover v-model:open="open" :modal="false">
         <PopoverTrigger as-child>
             <Button
                 variant="outline"
@@ -188,10 +188,7 @@ watch(open, (isOpen) => {
                 <ChevronsUpDown class="ml-2 h-4 w-4 shrink-0 opacity-50" />
             </Button>
         </PopoverTrigger>
-        <PopoverContent
-            :class="cn('z-[100] p-0', width)"
-            :style="{ pointerEvents: 'auto' }"
-        >
+        <PopoverContent :class="cn('p-0', width)">
             <Command :filter-function="() => 1">
                 <CommandInput
                     :placeholder="placeholder"
